@@ -1,16 +1,7 @@
+import System from './system/System';
 import * as THREE from 'three';
 
-export class System {
-  game: Game;
-
-  constructor(game: Game) {
-    this.game = game;
-  }
-  load() { }
-  update() { }
-}
-
-export class Game {
+export default class Game {
   scene: THREE.Scene;
   systems: System[];
 

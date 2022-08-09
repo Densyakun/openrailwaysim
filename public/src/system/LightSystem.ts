@@ -1,7 +1,7 @@
-import { System } from '../game';
+import System from './System';
 import * as THREE from 'three';
 
-export class LightSystem extends System {
+export default class LightSystem extends System {
   load() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.castShadow = true;

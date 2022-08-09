@@ -1,13 +1,10 @@
 const express = require('express');
 const webpack = require('webpack');
 const webpackDevMiddleware = require('webpack-dev-middleware');
-const cors = require('cors');
 
 const app = express();
-const config = require('./webpack.config.js');
+const config = require('./webpack.dev.js');
 const compiler = webpack(config);
-
-//app.use(cors());
 
 app.use(
   webpackDevMiddleware(compiler, {
@@ -15,7 +12,7 @@ app.use(
   })
 );
 
-app.use(express.static('dist'));
+app.use(require("webpack-hot-middleware")(compiler));
 
 app.listen(3000, function () {
   console.log('Example app listening on port 3000!\n');

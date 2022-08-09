@@ -1,7 +1,7 @@
-import { Game } from './game';
-import { RailObjectSystem } from './system/railObjectSystem';
-import { LightSystem } from './system/lightSystem';
-import { CameraSystem } from './system/cameraSystem';
+import Game from './Game';
+import RailObjectSystem from './system/RailObjectSystem';
+import LightSystem from './system/LightSystem';
+import CameraSystem from './system/CameraSystem';
 import './style.css';
 
 const game = new Game();

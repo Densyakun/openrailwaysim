@@ -1,8 +1,8 @@
-import { System } from '../game';
+import System from './System';
 import * as THREE from 'three';
-import { GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-export class RailObjectSystem extends System {
+export default class RailObjectSystem extends System {
   gltfScene: THREE.Group;
 
   load() {

@@ -1,7 +1,7 @@
-import { System } from '../game';
+import System from './System';
 import * as THREE from 'three';
 
-export class CameraSystem extends System {
+export default class CameraSystem extends System {
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
 

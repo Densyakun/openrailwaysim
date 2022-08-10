@@ -4,8 +4,8 @@
   "description": "",
   "private": true,
   "scripts": {
-    "server": "node server.js",
-    "build": "webpack --config webpack.prod.js"
+    "start": "webpack --config webpack.prod.js && node ./bin/www",
+    "server": "node server.dev.js"
   },
   "repository": {
     "type": "git",
@@ -35,6 +35,10 @@
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "hbs": "~4.0.4",
+    "http-errors": "~1.6.3",
     "three": "^0.143.0"
   }
 }

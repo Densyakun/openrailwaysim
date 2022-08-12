@@ -9,8 +9,16 @@ export default class Game {
     this.scene = new THREE.Scene();
     this.systems = [];
   }
-  addSystem(systemType: typeof System) {
+  setSystem(systemType: typeof System) {
     const system = new systemType(this);
+    for (let i = 0; i < this.systems.length; i++) {
+      if (Object.getPrototypeOf(this.systems[i]).constructor.name === systemType.prototype.constructor.name) {
+        this.systems[i].destroy();
+        this.systems[i] = system;
+        system.load();
+        return;
+      }
+    }
     this.systems.push(system);
     system.load();
   }

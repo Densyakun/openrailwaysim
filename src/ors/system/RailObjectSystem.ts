@@ -26,4 +26,8 @@ export default class RailObjectSystem extends System {
       this.gltfScene.rotation.y += 0.01;
     }
   }
+
+  destroy() {
+    this.game.scene.remove(this.gltfScene);
+  }
 }

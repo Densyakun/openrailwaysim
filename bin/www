@@ -1,3 +1,7 @@
 #!/usr/bin/env node
 
-require('../server.prod');
+var { app, start } = require('../app');
+
+app.use('/js', express.static(path.join(__dirname, 'dist')));
+
+start();

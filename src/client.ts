@@ -2,6 +2,7 @@ import Game from './ors/Game';
 import RailObjectSystem from './ors/system/RailObjectSystem';
 import LightSystem from './ors/system/LightSystem';
 import CameraSystem from './ors/system/CameraSystem';
+import './style.css';
 
 const game = new Game();
 

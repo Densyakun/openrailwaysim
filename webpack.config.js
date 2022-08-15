@@ -14,6 +14,10 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader'],
+      },
+      {
         test: /\.tsx?$/,
         use: 'ts-loader',
         exclude: /node_modules/,
@@ -26,6 +30,7 @@ module.exports = {
   output: {
     filename: 'client.bundle.js',
     path: path.resolve(__dirname, 'dist'),
+    clean: true,
     publicPath: '/js',
   },
 };

@@ -4,16 +4,18 @@ import LightSystem from './ors/system/LightSystem';
 import CameraSystem from './ors/system/CameraSystem';
 import './style.css';
 
-const game = new Game();
+window.addEventListener("load", function () {
+  const game = new Game();
 
-game.setSystem(RailObjectSystem);
-game.setSystem(LightSystem);
-game.setSystem(CameraSystem);
+  game.setSystem(RailObjectSystem);
+  game.setSystem(LightSystem);
+  game.setSystem(CameraSystem);
 
-game.animate();
+  game.animate();
 
-if (module.hot) {
-  module.hot.accept('./ors/system/RailObjectSystem.ts', function () {
-    game.setSystem(RailObjectSystem);
-  })
-}
+  if (module.hot) {
+    module.hot.accept('./ors/system/RailObjectSystem.ts', function () {
+      game.setSystem(RailObjectSystem);
+    })
+  }
+});

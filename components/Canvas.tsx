@@ -3,7 +3,7 @@ import { OrbitControls } from '@react-three/drei'
 import { Sky } from '@react-three/drei'
 
 export default function App() {
-  const sunPosition: Vector3 = [1, 2, 3]
+  const sunPosition: Vector3 = [100, 200, 300]
 
   return (
     <div id="canvas-container">

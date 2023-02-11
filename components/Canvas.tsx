@@ -7,7 +7,7 @@ export default function App() {
 
   return (
     <div id="canvas-container">
-      <Canvas shadows>
+      <Canvas shadows frameloop="demand">
         <ambientLight intensity={0.1} />
         <directionalLight castShadow position={sunPosition} />
         <OrbitControls />

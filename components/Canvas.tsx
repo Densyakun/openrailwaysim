@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Canvas, Vector3 } from '@react-three/fiber'
 import { Sky } from '@react-three/drei'
+import { EffectComposer, DepthOfField, Bloom } from '@react-three/postprocessing'
 import Cameras from './Cameras'
 import CameraControls from './CameraControls'
 
@@ -22,6 +23,10 @@ export default function App() {
         <boxGeometry />
         <meshStandardMaterial />
       </mesh>
+      <EffectComposer>
+        <DepthOfField focusDistance={0} focalLength={0.02} bokehScale={2} height={480} />
+        <Bloom luminanceThreshold={0} luminanceSmoothing={0.9} height={300} />
+      </EffectComposer>
     </Canvas>
   )
 }

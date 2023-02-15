@@ -3,30 +3,28 @@ import FormGroup from '@mui/material/FormGroup';
 import Switch from '@mui/material/Switch';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { proxy } from 'valtio';
+import { useSnapshot } from 'valtio';
+import { state } from './Cameras';
 
-export const state = proxy({ showingMapCamera: false });
-
-export default function MapCameraSwitch() {
-  const [checked, setChecked] = React.useState(state.showingMapCamera);
+export default function CameraSwitch() {
+  const { mainCameraKey } = useSnapshot(state);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setChecked(event.target.checked);
+    state.mainCameraKey = event.target.checked
+      ? "orthographicCamera"
+      : "perspectiveCamera"
+      ;
   };
-
-  React.useEffect(() => {
-    state.showingMapCamera = checked;
-  }, [checked]);
 
   return (
     <FormGroup>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography>Orbit</Typography>
+        <Typography>Projection: Pers</Typography>
         <Switch
-          checked={checked}
+          checked={mainCameraKey === "orthographicCamera"}
           onChange={handleChange}
         />
-        <Typography>Map</Typography>
+        <Typography>Ortho</Typography>
       </Stack>
     </FormGroup>
   );

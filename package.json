@@ -33,7 +33,6 @@
     "valtio": "^1.10.1"
   },
   "devDependencies": {
-    "json-loader": "^0.5.7",
-    "next-transpile-modules": "^10.0.0"
+    "json-loader": "^0.5.7"
   }
 }

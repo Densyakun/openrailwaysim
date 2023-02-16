@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ['three'],
   webpack: (config, options) => {
     config.module.rules.push({
       test: /\.geojson$/,
@@ -11,5 +12,4 @@ const nextConfig = {
   },
 }
 
-const withTM = require('next-transpile-modules')(['three'])
-module.exports = withTM(nextConfig)
+module.exports = nextConfig

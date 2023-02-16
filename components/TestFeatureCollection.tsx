@@ -3,7 +3,7 @@ import pointOnFeature from '@turf/point-on-feature'
 import FeatureCollection from './FeatureCollection'
 import featureCollection from '@/data/sakurajosui.geojson'
 
-export default function () {
+export default function TestFeatureCollection() {
   const centerCoordinate = pointOnFeature(featureCollection).geometry.coordinates
 
   return (

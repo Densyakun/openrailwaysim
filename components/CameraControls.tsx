@@ -12,14 +12,14 @@ export default function CameraControls() {
 
   return (
     <>
-      <OrbitControls
-        camera={cameraRefs[mainCameraKey] as Camera}
-        enabled={controlsType === "orbitControls"}
-      />
-      <MapControls
-        camera={cameraRefs[mainCameraKey] as Camera}
-        enabled={controlsType === "mapControls"}
-      />
+      {
+        controlsType === "orbitControls" &&
+        <OrbitControls camera={cameraRefs[mainCameraKey] as Camera} />
+      }
+      {
+        controlsType === "mapControls" &&
+        <MapControls camera={cameraRefs[mainCameraKey] as Camera} />
+      }
     </>
   )
 }

@@ -15,6 +15,10 @@
     "@next/font": "13.1.6",
     "@react-three/drei": "^9.56.20",
     "@react-three/fiber": "^8.11.0",
+    "@turf/bearing": "^6.5.0",
+    "@turf/distance": "^6.5.0",
+    "@turf/helpers": "^6.5.0",
+    "@turf/point-on-feature": "^6.5.0",
     "@types/node": "18.13.0",
     "@types/react": "18.0.27",
     "@types/react-dom": "18.0.10",
@@ -29,6 +33,7 @@
     "valtio": "^1.10.1"
   },
   "devDependencies": {
+    "json-loader": "^0.5.7",
     "next-transpile-modules": "^10.0.0"
   }
 }

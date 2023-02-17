@@ -3,8 +3,8 @@ import AppBar from '@mui/material/AppBar';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
 import MuiToolbar from '@mui/material/Toolbar';
-import CameraSwitch from './CameraSwitch';
-import CameraControlsSwitch from './CameraControlsSwitch';
+import CameraSwitch from './cameras-and-controls/CameraSwitch';
+import CameraControlsSwitch from './cameras-and-controls/CameraControlsSwitch';
 
 export default function Toolbar() {
   return (

@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { Canvas, Vector3 } from '@react-three/fiber'
 import { Sky } from '@react-three/drei'
-import Cameras from './Cameras'
-import CameraControls from './CameraControls'
+import CamerasAndControls from './cameras-and-controls/CamerasAndControls'
 import TestFeatureCollection from './TestFeatureCollection'
 
 export default function App() {
@@ -12,8 +11,7 @@ export default function App() {
     <Canvas shadows frameloop="demand">
       <ambientLight intensity={0.1} />
       <directionalLight castShadow position={sunPosition} />
-      <Cameras />
-      <CameraControls />
+      <CamerasAndControls />
       <Sky sunPosition={sunPosition} />
       <TestFeatureCollection />
     </Canvas>

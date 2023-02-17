@@ -6,13 +6,16 @@ import CameraControls from './CameraControls'
 
 export const state = proxy<{ target: THREE.Vector3 }>({ target: new THREE.Vector3() })
 
-export default function CamerasAndControls() {
+export default function CameraTarget({ children }: { children?: React.ReactNode }) {
   const { target } = useSnapshot(state)
 
   return (
     <>
       <Cameras position={target} />
       <CameraControls target={target} />
+      <mesh position={target}>
+        {children}
+      </mesh>
     </>
   )
 }

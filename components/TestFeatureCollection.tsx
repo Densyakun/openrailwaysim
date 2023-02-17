@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import pointOnFeature from '@turf/point-on-feature'
 import FeatureCollection from './FeatureCollection'
 import featureCollection from '@/data/sakurajosui.geojson'
-import { state } from './cameras-and-controls/CamerasAndControls'
+import { state } from './cameras-and-controls/CameraTarget'
 
 export default function TestFeatureCollection() {
   let centerCoordinate = pointOnFeature(featureCollection).geometry.coordinates
@@ -12,8 +12,6 @@ export default function TestFeatureCollection() {
   state.target = target
 
   return (
-    <mesh position={target}>
-      <FeatureCollection featureCollection={featureCollection} centerCoordinate={centerCoordinate} />
-    </mesh>
+    <FeatureCollection featureCollection={featureCollection} centerCoordinate={centerCoordinate} />
   )
 }

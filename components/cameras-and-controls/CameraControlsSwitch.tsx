@@ -7,10 +7,10 @@ import { useSnapshot } from 'valtio';
 import { state } from './CameraControls';
 
 export default function CameraControlsSwitch() {
-  const { controlsType } = useSnapshot(state);
+  const { mainControlsKey } = useSnapshot(state);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    state.controlsType = event.target.checked ? "mapControls" : "orbitControls";
+    state.mainControlsKey = event.target.checked ? "mapControls" : "orbitControls";
   };
 
   return (
@@ -18,7 +18,7 @@ export default function CameraControlsSwitch() {
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography>Controls: Orbit</Typography>
         <Switch
-          checked={controlsType === "mapControls"}
+          checked={mainControlsKey === "mapControls"}
           onChange={handleChange}
         />
         <Typography>Map</Typography>

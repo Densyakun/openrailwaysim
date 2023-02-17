@@ -1,10 +1,10 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { Vector3 } from '@react-three/fiber'
+import { useFrame, Vector3 } from '@react-three/fiber'
 import { Sky } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
 import Cameras from './Cameras'
-import CameraControls from './CameraControls'
+import CameraControls, { state as ControlsState } from './CameraControls'
 
 export const state = proxy<{
   target: {
@@ -18,10 +18,19 @@ export const state = proxy<{
 
 export default function CameraTarget({ children }: { children?: React.ReactNode }) {
   const { target: { value: target } } = useSnapshot(state)
+  const { controlsRefs, mainControlsKey } = useSnapshot(ControlsState)
 
   const targetRef = React.useCallback((target?: THREE.Mesh | null) => {
     state.target.value = target ?? undefined
   }, [])
+
+  useFrame(() => {
+    const mainControls = controlsRefs[mainControlsKey]
+    if (mainControls) {
+      const position = ((mainControls as any).target0 as THREE.Vector3) ?? undefined
+      if (position && state.target.value?.position !== position) state.target.value?.position.set(position.x, position.y, position.z)
+    }
+  })
 
   const sunPosition: Vector3 = [
     100,

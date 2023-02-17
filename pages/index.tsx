@@ -1,5 +1,9 @@
+import dynamic from 'next/dynamic'
 import Head from 'next/head'
-import Container from '@/components/Container'
+
+const Container = dynamic(() => import('@/components/Container'), {
+  ssr: false,
+})
 
 export default function Home() {
   return (

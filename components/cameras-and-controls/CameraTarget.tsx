@@ -27,8 +27,8 @@ export default function CameraTarget({ children }: { children?: React.ReactNode 
   useFrame(() => {
     const mainControls = controlsRefs[mainControlsKey]
     if (mainControls) {
-      const position = ((mainControls as any).target0 as THREE.Vector3) ?? undefined
-      if (position && state.target.value?.position !== position) state.target.value?.position.set(position.x, position.y, position.z)
+      const newTarget0 = ((mainControls as any).target0 as THREE.Vector3) ?? undefined
+      if (newTarget0 && state.target.value?.position !== newTarget0) state.target.value?.position.set(newTarget0.x, newTarget0.y, newTarget0.z)
     }
   })
 

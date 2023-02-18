@@ -49,11 +49,7 @@ export default function CameraTarget({ children }: { children?: React.ReactNode 
           position={sunPosition}
           target={(target ?? new THREE.Object3D()) as THREE.Object3D}
         />
-        <Sky sunPosition={
-          target
-            ? target.position.add(new THREE.Vector3(...sunPosition))
-            : sunPosition
-        } />
+        <Sky sunPosition={sunPosition} />
         {children}
       </mesh>
     </>

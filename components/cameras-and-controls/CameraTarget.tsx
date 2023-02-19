@@ -4,7 +4,7 @@ import { useFrame, Vector3 } from '@react-three/fiber'
 import { Sky } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
 import Cameras from './Cameras'
-import CameraControls, { state as ControlsState } from './CameraControls'
+import CameraControls, { state as controlsState } from './CameraControls'
 
 export const state = proxy<{
   target: {
@@ -18,7 +18,7 @@ export const state = proxy<{
 
 export default function CameraTarget({ children }: { children?: React.ReactNode }) {
   const { target: { value: target } } = useSnapshot(state)
-  const { controlsRefs, mainControlsKey } = useSnapshot(ControlsState)
+  const { controlsRefs, mainControlsKey } = useSnapshot(controlsState)
 
   const targetRef = React.useCallback((target?: THREE.Mesh | null) => {
     state.target.value = target ?? undefined

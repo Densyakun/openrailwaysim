@@ -14,6 +14,7 @@ export default function Toolbar() {
           direction="row"
           divider={<Divider orientation="vertical" flexItem />}
           spacing={1}
+          overflow={'auto'}
         >
           <CameraSwitch />
           <CameraControlsSwitch />

@@ -15,7 +15,7 @@ export const state = proxy<{
   cameraRefs: ref<CameraRefs>({})
 })
 
-export default function Cameras({ target = new THREE.Vector3() }: { target?: THREE.Vector3 }) {
+export default function Cameras() {
   const { mainCameraKey } = useSnapshot(state)
 
   const perspectiveCameraRef = React.useCallback((perspectiveCamera: THREE.PerspectiveCamera) => {
@@ -30,14 +30,12 @@ export default function Cameras({ target = new THREE.Vector3() }: { target?: THR
       <PerspectiveCamera
         ref={perspectiveCameraRef}
         makeDefault={mainCameraKey === "perspectiveCamera"}
-        position={[target.x, target.y, target.z + 10]}
+        position={[10, 20, 30]}
       />
       <OrthographicCamera
         ref={orthographicCameraRef}
         makeDefault={mainCameraKey === "orthographicCamera"}
-        position={[target.x, target.y + 100, target.z]}
-        rotation={[0, 0, -90]}
-        zoom={50}
+        position={[10, 20, 30]}
       />
     </>
   )

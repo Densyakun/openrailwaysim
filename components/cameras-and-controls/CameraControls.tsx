@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { Camera } from 'three'
+import * as THREE from 'three'
 import { OrbitControls as OrbitControlsImpl, MapControls as MapControlsImpl } from 'three-stdlib'
-import { Vector3 } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, MapControls } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
 import { state as cameraState } from './Cameras'
@@ -11,15 +11,19 @@ export type ControlsRefs = {
 }
 
 export const state = proxy<{
-  mainControlsKey: string,
-  controlsRefs: ControlsRefs
+  mainControlsKey: string;
+  controlsRefs: ControlsRefs;
+  target: THREE.Vector3;
 }>({
   mainControlsKey: "orbitControls",
-  controlsRefs: ref<ControlsRefs>({})
+  controlsRefs: ref<ControlsRefs>({}),
+  target: new THREE.Vector3()
 })
 
-export default function CameraControls({ target }: { target?: Vector3 }) {
-  const { mainControlsKey } = useSnapshot(state)
+export default function CameraControls() {
+  const { invalidate } = useThree()
+
+  const { controlsRefs, mainControlsKey, target } = useSnapshot(state)
   const { cameraRefs, mainCameraKey } = useSnapshot(cameraState)
 
   const orbitControlsRef = React.useCallback((orbitControls: OrbitControlsImpl) => {
@@ -29,22 +33,29 @@ export default function CameraControls({ target }: { target?: Vector3 }) {
     state.controlsRefs["mapControls"] = mapControls
   }, [])
 
+  useFrame(({ }, delta) => {
+    const mainControls = controlsRefs[mainControlsKey]
+    if (mainControls) {
+      state.target = (mainControls as any).target = target;
+      (mainControls as any).update()
+      invalidate()
+    }
+  })
+
   return (
     <>
       {
         mainControlsKey === "orbitControls" &&
         <OrbitControls
           ref={orbitControlsRef}
-          camera={cameraRefs[mainCameraKey] as Camera}
-          target={target}
+          camera={cameraRefs[mainCameraKey] as THREE.Camera}
         />
       }
       {
         mainControlsKey === "mapControls" &&
         <MapControls
           ref={mapControlsRef}
-          camera={cameraRefs[mainCameraKey] as Camera}
-          target={target}
+          camera={cameraRefs[mainCameraKey] as THREE.Camera}
         />
       }
     </>

@@ -12,7 +12,8 @@ import featureCollection from '@/data/sakurajosui.geojson'
 const centerCoordinate = pointOnFeature(featureCollection).geometry.coordinates
 
 const centerPosition = new THREE.Vector3(
-  200000000,
+  //200000000,
+  0,
   0,
   0
 )

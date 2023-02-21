@@ -9,6 +9,9 @@ export const skyDistanceHalf = 149600000000
 
 export const maxAmbientLightIntensity = 0.1
 
+export const directionalLightCameraSize = 1000
+export const directionalLightDistance = 10000000
+
 export const state = proxy<{
   directionalLight: { value?: THREE.DirectionalLight };
   elevation: number;
@@ -23,7 +26,15 @@ export default function SunAndSky() {
   const [ambientLightIntensity, setAmbientLightIntensity] = React.useState(maxAmbientLightIntensity)
 
   const directionalLightRef = React.useCallback((directionalLight: THREE.DirectionalLight) => {
-    state.directionalLight.value = directionalLight
+    if (state.directionalLight.value = directionalLight) {
+      directionalLight.shadow.mapSize.width = 4096
+      directionalLight.shadow.mapSize.height = 4096
+      directionalLight.shadow.camera.far = directionalLightDistance * 2
+      directionalLight.shadow.camera.left = -directionalLightCameraSize
+      directionalLight.shadow.camera.bottom = -directionalLightCameraSize
+      directionalLight.shadow.camera.right = directionalLightCameraSize
+      directionalLight.shadow.camera.top = directionalLightCameraSize
+    }
   }, [])
 
   const sunPosition = new THREE.Vector3(
@@ -32,14 +43,18 @@ export default function SunAndSky() {
     Math.sin(state.azimuth) * Math.cos(state.elevation)
   )
 
+  const [directionalLightPosition, setDirectionalLightPosition] = React.useState(sunPosition.clone().multiplyScalar(directionalLightDistance))
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
   const [directionalLightIntensity, setDirectionalLightIntensity] = React.useState(1)
 
   useFrame(() => {
-    if (followCameraState.groupThatIsTracking.value) {
-      if (state.directionalLight.value)
-        state.directionalLight.value.target = followCameraState.groupThatIsTracking.value
+    sunPosition.set(
+      Math.cos(state.azimuth) * Math.cos(state.elevation),
+      Math.sin(state.elevation),
+      Math.sin(state.azimuth) * Math.cos(state.elevation)
+    )
 
+    if (followCameraState.groupThatIsTracking.value) {
       setSunSkyPosition(new THREE.Vector3(
         followCameraState.groupThatIsTracking.value.position.x / skyDistanceHalf + sunPosition.x,
         followCameraState.groupThatIsTracking.value.position.y / skyDistanceHalf + sunPosition.y,
@@ -49,19 +64,20 @@ export default function SunAndSky() {
 
     setAmbientLightIntensity((sunPosition.y + 1) * maxAmbientLightIntensity / 2)
     setDirectionalLightIntensity(Math.max(0, Math.min(1, sunPosition.y * 18)))
+
+    setDirectionalLightPosition(sunPosition.clone().multiplyScalar(directionalLightDistance))
   })
 
   return (
     <>
       <ambientLight intensity={ambientLightIntensity} />
+      <directionalLight
+        ref={directionalLightRef}
+        castShadow
+        position={directionalLightPosition}
+        intensity={directionalLightIntensity}
+      />
       <FollowCamera>
-        <directionalLight
-          ref={directionalLightRef}
-          castShadow
-          position={sunPosition}
-          target={followCameraState.groupThatIsTracking.value}
-          intensity={directionalLightIntensity}
-        />
         <Sky
           distance={skyDistanceHalf * 2}
           sunPosition={sunSkyPosition}

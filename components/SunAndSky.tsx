@@ -7,6 +7,8 @@ import { proxy, ref } from 'valtio'
 
 export const skyDistanceHalf = 149600000000
 
+export const maxAmbientLightIntensity = 0.1
+
 export const state = proxy<{
   directionalLight: { value?: THREE.DirectionalLight };
   elevation: number;
@@ -18,6 +20,8 @@ export const state = proxy<{
 })
 
 export default function SunAndSky() {
+  const [ambientLightIntensity, setAmbientLightIntensity] = React.useState(maxAmbientLightIntensity)
+
   const directionalLightRef = React.useCallback((directionalLight: THREE.DirectionalLight) => {
     state.directionalLight.value = directionalLight
   }, [])
@@ -29,6 +33,7 @@ export default function SunAndSky() {
   )
 
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
+  const [directionalLightIntensity, setDirectionalLightIntensity] = React.useState(1)
 
   useFrame(() => {
     if (followCameraState.groupThatIsTracking.value) {
@@ -41,17 +46,21 @@ export default function SunAndSky() {
         followCameraState.groupThatIsTracking.value.position.z / skyDistanceHalf + sunPosition.z
       ))
     }
+
+    setAmbientLightIntensity((sunPosition.y + 1) * maxAmbientLightIntensity / 2)
+    setDirectionalLightIntensity(Math.max(0, Math.min(1, sunPosition.y * 18)))
   })
 
   return (
     <>
-      <ambientLight intensity={0.1} />
+      <ambientLight intensity={ambientLightIntensity} />
       <FollowCamera>
         <directionalLight
           ref={directionalLightRef}
           castShadow
           position={sunPosition}
           target={followCameraState.groupThatIsTracking.value}
+          intensity={directionalLightIntensity}
         />
         <Sky
           distance={skyDistanceHalf * 2}

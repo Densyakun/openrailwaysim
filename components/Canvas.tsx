@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Canvas } from '@react-three/fiber'
 import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
-import FollowOrigin from './cameras-and-controls/FollowOrigin'
+import FollowOriginGIS from './cameras-and-controls/FollowOriginGIS'
 import SunAndSky from './SunAndSky'
 import TestFeatureCollection from './TestFeatureCollection'
 
@@ -12,9 +12,9 @@ export default function App() {
       <Cameras />
       <CameraControls />
       <SunAndSky />
-      <FollowOrigin>
+      <FollowOriginGIS>
         <TestFeatureCollection />
-      </FollowOrigin>
+      </FollowOriginGIS>
     </Canvas>
   )
 }

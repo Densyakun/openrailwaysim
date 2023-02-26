@@ -1,21 +1,23 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { state as sunAndSkyState } from './SunAndSky'
-import SetCameraAndControlsPosition from './cameras-and-controls/SetCameraAndControlsPosition'
+import { useFrame } from '@react-three/fiber'
 import pointOnFeature from '@turf/point-on-feature'
+import { getRelativePosition, getOriginEuler } from '@/lib/gis'
 import FeatureCollection from './FeatureCollection'
 import featureCollection from '@/data/sakurajosui.geojson'
 
 const centerCoordinate = pointOnFeature(featureCollection).geometry.coordinates
 
-const centerPosition = new THREE.Vector3(
-  //200000000,
-  0,
-  0,
-  0
-)
-
 export default function TestFeatureCollection() {
+  const [centerPosition, setCenterPosition] = React.useState<THREE.Vector3>(getRelativePosition(centerCoordinate))
+  const [rotation, setRotation] = React.useState(new THREE.Euler(0, getOriginEuler().z, 0))
+
+  useFrame(() => {
+    setCenterPosition(getRelativePosition(centerCoordinate))
+    setRotation(new THREE.Euler(0, getOriginEuler().z, 0))
+  })
+
   React.useEffect(() => {
     // Set sun position
     sunAndSkyState.elevation = 1
@@ -23,8 +25,7 @@ export default function TestFeatureCollection() {
 
   return (
     <>
-      <SetCameraAndControlsPosition centerPosition={centerPosition} />
-      <group position={centerPosition}>
+      <group position={centerPosition} rotation={rotation}>
         <FeatureCollection featureCollection={featureCollection} centerCoordinate={centerCoordinate} />
       </group>
     </>

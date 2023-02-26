@@ -5,6 +5,7 @@ import CameraControls from './cameras-and-controls/CameraControls'
 import FollowOriginGIS from './cameras-and-controls/FollowOriginGIS'
 import SunAndSky from './SunAndSky'
 import TestFeatureCollection from './TestFeatureCollection'
+import ProjectionTest from './ProjectionTest'
 
 export default function App() {
   return (
@@ -12,9 +13,9 @@ export default function App() {
       <Cameras />
       <CameraControls />
       <SunAndSky />
-      <FollowOriginGIS>
-        <TestFeatureCollection />
-      </FollowOriginGIS>
+      <FollowOriginGIS />
+      <TestFeatureCollection />
+      <ProjectionTest />
     </Canvas>
   )
 }

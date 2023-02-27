@@ -12,12 +12,22 @@ export function getRelativePosition(coordinate: Position) {
 
   ...
 }
+
+export function move(...) {
+  ...
+
+  const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
+    * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
+    * sphericalEarthMeridianLength_ / sphericalEarthMeridianLength
+
+  ...
+}
 */
 import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Position } from '@turf/helpers'
-import { getRelativePosition, getOriginEuler } from '@/lib/gis'
+import { getRelativePosition, getOriginEuler, state as gisState } from '@/lib/gis'
 
 const c: Position[] = []
 
@@ -48,10 +58,14 @@ export default function ProjectionTest() {
           <meshStandardMaterial color={
             1 <= (a / 30) % 2
               ? new THREE.Color(Math.floor(index / height) / width, 0, 0)
-              : new THREE.Color(0, index % height / height, index % height / height)
+              : new THREE.Color(0, index % height / height, 0)
           } />
         </mesh>
       ))}
+      <mesh position={new THREE.Vector3(0, -gisState.elevation, 0)}>
+        <boxGeometry args={[10, 10, 10]} />
+        <meshStandardMaterial color="#00f" />
+      </mesh>
     </>
   )
 }

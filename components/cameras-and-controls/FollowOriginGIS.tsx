@@ -9,7 +9,7 @@ export default function FollowOriginGIS() {
   useFrame(() => {
     const mainCamera = camerasState.cameraRefs[camerasState.mainCameraKey]
     if (mainCamera) {
-      move(gisState.originQuaternion, mainCamera.position)
+      move(gisState.originQuaternion, mainCamera.position.x, mainCamera.position.z)
 
       gisState.elevation += mainCamera.position.y
 

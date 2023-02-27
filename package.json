@@ -16,6 +16,7 @@
     "@react-three/drei": "^9.56.20",
     "@react-three/fiber": "^8.11.0",
     "@turf/bearing": "^6.5.0",
+    "@turf/destination": "^6.5.0",
     "@turf/distance": "^6.5.0",
     "@turf/helpers": "^6.5.0",
     "@turf/point-on-feature": "^6.5.0",

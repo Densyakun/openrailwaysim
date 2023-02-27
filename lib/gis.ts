@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import { Position } from '@turf/helpers'
 import { default as turfBearing } from '@turf/bearing'
+import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
+import { point as turfPoint } from '@turf/helpers'
 import { proxy } from 'valtio'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
@@ -14,12 +16,20 @@ export const state = proxy<{
   elevation: 0,
 })
 
-export function move(q: THREE.Quaternion, moveVector: THREE.Vector3) {
-  const meridianLength = (sphericalEarthMeridianLength / Math.PI + moveVector.y) * Math.PI
+export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.elevation) {
+  const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
+    * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
+  const bearing = Math.atan2(moveZ, moveX) * -180 / Math.PI + 90
+  const destination = turfDestination(turfPoint([0, 0]), distance, bearing, { units: 'meters' })
 
-  return q.multiply(
+  return pointQuaternion.multiply(
     new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(moveVector.z * Math.PI / meridianLength, moveVector.x * Math.PI / meridianLength, 0, 'YXZ')
+      new THREE.Euler(
+        destination.geometry.coordinates[1] * Math.PI / -180,
+        destination.geometry.coordinates[0] * Math.PI / 180,
+        0,
+        'YXZ'
+      )
     )
   )
 }

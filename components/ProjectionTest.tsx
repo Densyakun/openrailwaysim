@@ -41,19 +41,19 @@ for (let a = 0; a < width; a++) {
 
 export default function ProjectionTest() {
   const [objPositions, setObjPositions] = React.useState<THREE.Vector3[]>([])
-  const [rotation, setRotation] = React.useState(new THREE.Euler(0, getOriginEuler().z, 0))
+  const [objRotation, setObjRotation] = React.useState(new THREE.Euler(0, -getOriginEuler().z, 0))
   const [a, setA] = React.useState(0)
 
   useFrame(() => {
     setObjPositions(c.map(c => getRelativePosition(c)))
-    setRotation(new THREE.Euler(0, getOriginEuler().z, 0))
+    setObjRotation(new THREE.Euler(0, -getOriginEuler().z, 0))
     setA(a + 1)
   })
 
   return (
     <>
       {objPositions.map((objPosition, index) => (
-        <mesh key={index} position={objPosition} rotation={rotation}>
+        <mesh key={index} position={objPosition} rotation={objRotation}>
           <boxGeometry args={[10, 10, 10]} />
           <meshStandardMaterial color={
             1 <= (a / 30) % 2

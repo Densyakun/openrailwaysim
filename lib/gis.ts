@@ -19,7 +19,7 @@ export const state = proxy<{
 export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.elevation) {
   const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
     * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
-  const bearing = Math.atan2(moveZ, moveX) * -180 / Math.PI + 90
+  const bearing = Math.atan2(-moveZ, moveX) * -180 / Math.PI + 90
   const destination = turfDestination(turfPoint([0, 0]), distance, bearing, { units: 'meters' })
 
   return pointQuaternion.multiply(
@@ -39,6 +39,16 @@ export function getOriginEuler() {
     .setFromQuaternion(state.originQuaternion.clone(), 'YXZ')
 }
 
+export function getRelativeRotation(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
+  if (!originCoordinateEuler)
+    originCoordinateEuler = getOriginEuler()
+
+  if (!originCoordinate)
+    originCoordinate = [originCoordinateEuler.y * 180 / Math.PI, originCoordinateEuler.x * -180 / Math.PI]
+
+  return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180 - originCoordinateEuler.z
+}
+
 export function getRelativePosition(coordinate: Position) {
   const coordinateEuler = getOriginEuler()
 
@@ -46,11 +56,11 @@ export function getRelativePosition(coordinate: Position) {
 
   const distance = turfDistance(originCoordinate, coordinate, { units: 'meters' })
 
-  const angle = (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180
+  const angle = getRelativeRotation(coordinate, coordinateEuler, originCoordinate)
 
   return new THREE.Vector3(
     Math.cos(angle) * distance,
     -state.elevation,
     Math.sin(-angle) * distance
-  ).applyAxisAngle(new THREE.Vector3(0, 1, 0), coordinateEuler.z)
+  )
 }

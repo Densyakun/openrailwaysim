@@ -50,7 +50,7 @@ export default function ProjectionTest() {
     const originCoordinate = eulerToCoordinate(originCoordinateEuler)
 
     setObjPositions(c.map(c => getRelativePosition(c)))
-    setObjRotations(c.map(c => new THREE.Euler(-90, getMeridianAngle(c, originCoordinateEuler, originCoordinate), 0, 'YXZ')))
+    setObjRotations(c.map(c => new THREE.Euler(Math.PI / -2, getMeridianAngle(c, originCoordinateEuler, originCoordinate), 0, 'YXZ')))
     setA(a + 1)
   })
 

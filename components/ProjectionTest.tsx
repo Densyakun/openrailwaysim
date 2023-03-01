@@ -27,12 +27,12 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Position } from '@turf/helpers'
-import { getRelativePosition, getOriginEuler, state as gisState } from '@/lib/gis'
+import { getOriginEuler, eulerToCoordinate, getRelativePosition, getMeridianAngle, state as gisState } from '@/lib/gis'
 
 const c: Position[] = []
 
-const width = 7
-const height = 8
+const width = 8
+const height = 9
 for (let a = 0; a < width; a++) {
   for (let b = 0; b < height; b++) {
     c.push([360 * a / width - 180, 180 * b / (height - 1) - 90])
@@ -41,20 +41,24 @@ for (let a = 0; a < width; a++) {
 
 export default function ProjectionTest() {
   const [objPositions, setObjPositions] = React.useState<THREE.Vector3[]>([])
-  const [objRotation, setObjRotation] = React.useState(new THREE.Euler(0, -getOriginEuler().z, 0))
+  const [objRotations, setObjRotations] = React.useState<THREE.Euler[]>([])
   const [a, setA] = React.useState(0)
 
   useFrame(() => {
+    const originCoordinateEuler = getOriginEuler()
+
+    const originCoordinate = eulerToCoordinate(originCoordinateEuler)
+
     setObjPositions(c.map(c => getRelativePosition(c)))
-    setObjRotation(new THREE.Euler(0, -getOriginEuler().z, 0))
+    setObjRotations(c.map(c => new THREE.Euler(-90, getMeridianAngle(c, originCoordinateEuler, originCoordinate), 0, 'YXZ')))
     setA(a + 1)
   })
 
   return (
     <>
       {objPositions.map((objPosition, index) => (
-        <mesh key={index} position={objPosition} rotation={objRotation}>
-          <boxGeometry args={[10, 10, 10]} />
+        <mesh key={index} position={objPosition} rotation={objRotations[index]}>
+          <coneGeometry args={[5, 10, 4]} />
           <meshStandardMaterial color={
             1 <= (a / 30) % 2
               ? new THREE.Color(Math.floor(index / height) / width, 0, 0)

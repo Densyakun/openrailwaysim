@@ -14,7 +14,7 @@ export default function CoordinatesLine({
   y?: number
 }) {
   // Azimuthal equidistant projection
-  const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate))
+  const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate, 0))
 
   return (
     <Line

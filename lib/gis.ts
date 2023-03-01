@@ -57,7 +57,7 @@ export function getBearing(coordinate: Position, originCoordinateEuler?: THREE.E
   return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180 - originCoordinateEuler.z
 }
 
-export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
+export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -state.elevation) {
   if (!originCoordinateEuler)
     originCoordinateEuler = getOriginEuler()
 
@@ -70,7 +70,7 @@ export function getRelativePosition(coordinate: Position, originCoordinateEuler?
 
   return new THREE.Vector3(
     Math.cos(angle) * distance,
-    -state.elevation,
+    negativeElevation,
     Math.sin(-angle) * distance
   )
 }

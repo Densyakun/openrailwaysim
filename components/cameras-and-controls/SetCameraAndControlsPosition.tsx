@@ -5,7 +5,7 @@ import { useThree } from '@react-three/fiber'
 import { state as camerasState } from './Cameras'
 import { state as controlsState } from './CameraControls'
 
-export default function TestFeatureCollection({ centerPosition }: { centerPosition: THREE.Vector3 }) {
+export default function SetCameraAndControlsPosition({ centerPosition }: { centerPosition: THREE.Vector3 }) {
   const { invalidate } = useThree()
 
   React.useEffect(() => {
@@ -19,7 +19,7 @@ export default function TestFeatureCollection({ centerPosition }: { centerPositi
       mainControls.update()
       invalidate()
     }
-  }, [invalidate])
+  }, [centerPosition, invalidate])
 
   return null
 }

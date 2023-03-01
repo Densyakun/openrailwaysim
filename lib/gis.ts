@@ -43,6 +43,10 @@ export function eulerToCoordinate(euler: THREE.Euler): Position {
   return [euler.y * 180 / Math.PI, euler.x * -180 / Math.PI]
 }
 
+export function coordinateToEuler(coordinate: Position): THREE.Euler {
+  return new THREE.Euler(coordinate[1] * Math.PI / -180, coordinate[0] * Math.PI / 180, 0, 'YXZ')
+}
+
 export function getBearing(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
   if (!originCoordinateEuler)
     originCoordinateEuler = getOriginEuler()

@@ -1,8 +1,8 @@
 import * as React from 'react'
+import * as THREE from 'three'
 import { Line } from '@react-three/drei'
-import { default as turfBearing } from '@turf/bearing'
-import { default as turfDistance } from '@turf/distance'
 import { Position } from '@turf/helpers'
+import { coordinateToEuler, getRelativePosition } from '@/lib/gis'
 
 export default function CoordinatesLine({
   coordinates,
@@ -14,16 +14,7 @@ export default function CoordinatesLine({
   y?: number
 }) {
   // Azimuthal equidistant projection
-  const points: [number, number, number][] = coordinates.map(coordinate => {
-    const distance = turfDistance(centerCoordinate!, coordinate, { units: 'meters' })
-    const radian = (turfBearing(centerCoordinate!, coordinate) - 90) * Math.PI / 180
-
-    return [
-      Math.cos(radian) * distance,
-      y,
-      Math.sin(radian) * distance
-    ]
-  })
+  const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate))
 
   return (
     <Line

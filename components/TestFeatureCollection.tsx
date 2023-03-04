@@ -10,32 +10,30 @@ import featureCollection from '@/data/sakurajosui.geojson'
 
 const centerCoordinate = pointOnFeature(featureCollection).geometry.coordinates
 
-function getRotation(originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
+function getRotation(centerCoordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
   return new THREE.Euler(0, getMeridianAngle(centerCoordinate, originCoordinateEuler, originCoordinate), 0, 'YXZ')
 }
 
 export default function TestFeatureCollection() {
-  const originCoordinateEuler = getOriginEuler()
+  let originCoordinateEuler = getOriginEuler()
+  let originCoordinate = eulerToCoordinate(originCoordinateEuler)
 
-  const originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-  const [centerPosition, setCenterPosition] = React.useState<THREE.Vector3>(getRelativePosition(centerCoordinate, originCoordinateEuler, originCoordinate))
-  const [rotation, setRotation] = React.useState(getRotation(originCoordinateEuler, originCoordinate))
+  const [centerPosition, setCenterPosition] = React.useState<THREE.Vector3>(getRelativePosition(originCoordinate, originCoordinateEuler, originCoordinate))
+  const [rotation, setRotation] = React.useState(getRotation(originCoordinate, originCoordinateEuler, originCoordinate))
 
   useFrame(() => {
-    const originCoordinateEuler = getOriginEuler()
+    originCoordinateEuler = getOriginEuler()
+    originCoordinate = eulerToCoordinate(originCoordinateEuler)
 
-    const originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-    setCenterPosition(getRelativePosition(centerCoordinate, originCoordinateEuler, originCoordinate))
-    setRotation(getRotation(originCoordinateEuler, originCoordinate))
+    setCenterPosition(getRelativePosition(originCoordinate, originCoordinateEuler, originCoordinate))
+    setRotation(getRotation(originCoordinate, originCoordinateEuler, originCoordinate))
   })
 
   return (
     <>
       <SetCameraAndControlsPositionGIS coordinate={centerCoordinate} />
       <group position={centerPosition} rotation={rotation}>
-        <FeatureCollection featureCollection={featureCollection} centerCoordinate={centerCoordinate} />
+        <FeatureCollection featureCollection={featureCollection} centerCoordinate={originCoordinate} />
       </group>
     </>
   )

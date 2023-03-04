@@ -6,12 +6,24 @@ import MuiToolbar from '@mui/material/Toolbar';
 import CameraSwitch from './cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from './cameras-and-controls/CameraControlsSwitch';
 import { state as dateState } from '@/lib/date';
-import { useSnapshot } from 'valtio';
+import { subscribe } from 'valtio';
 
 export default function Toolbar() {
-  const snap = useSnapshot(dateState);
+  const [date, setDate] = React.useState(new Date(dateState.nowDate));
 
-  const date = new Date(snap.nowDate);
+  React.useEffect(() => subscribe(dateState, () => {
+    const newDate = new Date(dateState.nowDate);
+
+    if (!(
+      date.getUTCSeconds() === newDate.getUTCSeconds()
+      && date.getUTCMinutes() === newDate.getUTCMinutes()
+      && date.getUTCHours() === newDate.getUTCHours()
+      && date.getUTCDate() === newDate.getUTCDate()
+      && date.getUTCMonth() === newDate.getUTCMonth()
+      && date.getUTCFullYear() === newDate.getUTCFullYear()
+    ))
+      setDate(newDate);
+  }), []);
 
   return (
     <AppBar position="static" sx={{ backgroundColor: "#00000080" }}>

@@ -27,7 +27,8 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Position } from '@turf/helpers'
-import { getOriginEuler, eulerToCoordinate, getRelativePosition, getMeridianAngle, state as gisState } from '@/lib/gis'
+import { state as gisState } from '@/lib/gis'
+import FeatureObject from './FeatureObject'
 
 const c: Position[] = []
 
@@ -40,31 +41,25 @@ for (let a = 0; a < width; a++) {
 }
 
 export default function ProjectionTest() {
-  const [objPositions, setObjPositions] = React.useState<THREE.Vector3[]>([])
-  const [objRotations, setObjRotations] = React.useState<THREE.Euler[]>([])
   const [a, setA] = React.useState(0)
 
   useFrame(() => {
-    const originCoordinateEuler = getOriginEuler()
-
-    const originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-    setObjPositions(c.map(c => getRelativePosition(c)))
-    setObjRotations(c.map(c => new THREE.Euler(Math.PI / -2, getMeridianAngle(c, originCoordinateEuler, originCoordinate), 0, 'YXZ')))
     setA(a + 1)
   })
 
   return (
     <>
-      {objPositions.map((objPosition, index) => (
-        <mesh key={index} position={objPosition} rotation={objRotations[index]}>
-          <coneGeometry args={[5, 10, 4]} />
-          <meshStandardMaterial color={
-            1 <= (a / 30) % 2
-              ? new THREE.Color(Math.floor(index / height) / width, 0, 0)
-              : new THREE.Color(0, index % height / height, 0)
-          } />
-        </mesh>
+      {c.map((c, index) => (
+        <FeatureObject key={index} centerCoordinate={c}>
+          <mesh rotation={new THREE.Euler(Math.PI / -2, 0, 0, 'YXZ')}>
+            <coneGeometry args={[5, 10, 4]} />
+            <meshStandardMaterial color={
+              1 <= (a / 30) % 2
+                ? new THREE.Color(Math.floor(index / height) / width, 0, 0)
+                : new THREE.Color(0, index % height / height, 0)
+            } />
+          </mesh>
+        </FeatureObject>
       ))}
       <mesh position={new THREE.Vector3(0, -gisState.elevation, 0)}>
         <boxGeometry args={[10, 10, 10]} />

@@ -1,5 +1,4 @@
 import * as React from 'react';
-import FormGroup from '@mui/material/FormGroup';
 import Switch from '@mui/material/Switch';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -17,15 +16,13 @@ export default function CameraSwitch() {
   };
 
   return (
-    <FormGroup>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography>Projection: Pers</Typography>
-        <Switch
-          checked={mainCameraKey === "orthographicCamera"}
-          onChange={handleChange}
-        />
-        <Typography>Ortho</Typography>
-      </Stack>
-    </FormGroup>
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Typography style={{ whiteSpace: "nowrap" }}>Projection: Pers</Typography>
+      <Switch
+        checked={mainCameraKey === "orthographicCamera"}
+        onChange={handleChange}
+      />
+      <Typography style={{ whiteSpace: "nowrap" }}>Ortho</Typography>
+    </Stack>
   );
 }

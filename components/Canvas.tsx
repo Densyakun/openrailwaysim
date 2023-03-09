@@ -4,8 +4,9 @@ import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
 import FollowOriginGIS from './cameras-and-controls/FollowOriginGIS'
 import SunAndSky from './SunAndSky'
+import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
-import TestTracks from './TestTracks'
+import TestFeatureCollection from './TestFeatureCollection'
 
 export default function App() {
   return (
@@ -14,8 +15,9 @@ export default function App() {
       <CameraControls />
       <SunAndSky />
       <FollowOriginGIS />
+      <FeatureCollections />
       <Tracks />
-      <TestTracks />
+      <TestFeatureCollection />
     </Canvas>
   )
 }

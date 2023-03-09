@@ -13,10 +13,13 @@ export default function FeatureObject({
   centerCoordinate,
 }: {
   children: React.ReactNode;
-  centerCoordinate: Position;
+  centerCoordinate?: Position;
 }) {
   let originCoordinateEuler = getOriginEuler()
   let originCoordinate = eulerToCoordinate(originCoordinateEuler)
+
+  if (!centerCoordinate)
+    centerCoordinate = originCoordinate
 
   const [centerPosition, setCenterPosition] = React.useState<THREE.Vector3>(getRelativePosition(centerCoordinate, originCoordinateEuler, originCoordinate))
   const [rotation, setRotation] = React.useState(getRotation(centerCoordinate, originCoordinateEuler, originCoordinate))
@@ -25,8 +28,8 @@ export default function FeatureObject({
     originCoordinateEuler = getOriginEuler()
     originCoordinate = eulerToCoordinate(originCoordinateEuler)
 
-    setCenterPosition(getRelativePosition(centerCoordinate, originCoordinateEuler, originCoordinate))
-    setRotation(getRotation(centerCoordinate, originCoordinateEuler, originCoordinate))
+    setCenterPosition(getRelativePosition(centerCoordinate!, originCoordinateEuler, originCoordinate))
+    setRotation(getRotation(centerCoordinate!, originCoordinateEuler, originCoordinate))
   })
 
   return (

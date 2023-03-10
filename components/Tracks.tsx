@@ -22,6 +22,17 @@ function Rail(props: any) {
   )
 }
 
+function getRotation(point: THREE.Vector3, nextPoint: THREE.Vector3) {
+  const euler = new THREE.Euler().setFromQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, -1),
+      nextPoint.clone().sub(point).normalize()
+    ), 'YXZ'
+  )
+  euler.z = 0
+  return euler
+}
+
 export default function Tracks() {
   return (
     <>
@@ -34,10 +45,7 @@ export default function Tracks() {
             return <Rail
               key={index}
               position={point}
-              rotation={new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(
-                new THREE.Vector3(0, 0, -1),
-                array[index + 1].clone().sub(point).normalize()
-              ))}
+              rotation={getRotation(point, array[index + 1])}
               scale={new THREE.Vector3(1, 1, point.distanceTo(array[index + 1]))}
             />
           })}

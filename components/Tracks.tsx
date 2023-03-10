@@ -5,10 +5,11 @@ import { useLoader } from '@react-three/fiber'
 //import { Line } from '@react-three/drei'
 import { proxy } from 'valtio'
 import { ProjectedLine } from '@/lib/gis'
+import { IdentifiedRecord } from '@/lib/saveData'
 import FeatureObject from './FeatureObject'
 
 export const state = proxy<{
-  projectedLines: ProjectedLine[];
+  projectedLines: (IdentifiedRecord & ProjectedLine)[];
 }>({
   projectedLines: [],
 })

@@ -4,6 +4,7 @@ import callbackableFakeDataProvider from '@/lib/callbackableFakeDataProvider';
 import PlaceIcon from "@mui/icons-material/Place";
 import { state as featureCollectionsState } from "../FeatureCollections";
 import { FeatureCollectionCreate, FeatureCollectionEdit, FeatureCollectionList } from './featureCollections';
+import { Dashboard } from './Dashboard';
 import { MyLayout } from './MyLayout';
 
 const App = () => {
@@ -23,6 +24,7 @@ const App = () => {
         }));
         setData(newData);
       })}
+      dashboard={Dashboard}
       layout={MyLayout}
     >
       <Resource name="featureCollections" list={FeatureCollectionList} edit={FeatureCollectionEdit} create={FeatureCollectionCreate} icon={PlaceIcon} />

@@ -2,6 +2,7 @@ import {
   List,
   Datagrid,
   FunctionField,
+  TextField,
   Edit,
   Create,
   SimpleForm,
@@ -18,6 +19,7 @@ const featureCollectionFilters = [
 export const FeatureCollectionList = () => (
   <List filters={featureCollectionFilters}>
     <Datagrid rowClick="edit">
+      <TextField source="id" />
       <FunctionField label="value" render={(record: FeatureCollectionRecord) =>
         ((text: string) =>
           256 < text.length ? text.substring(0, 256) + "..." : text

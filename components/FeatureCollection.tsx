@@ -11,13 +11,13 @@ export default function FeatureCollectionComponent({
 }) {
   return (
     <>
-      {featureCollection.features.map(feature => {
+      {featureCollection.features.map((feature, index) => {
         switch (feature.geometry.type) {
           case "LineString":
             const lineString = feature.geometry as LineString
 
             return (
-              <CoordinatesLine coordinates={lineString.coordinates} centerCoordinate={centerCoordinate} />
+              <CoordinatesLine key={index} coordinates={lineString.coordinates} centerCoordinate={centerCoordinate} />
             )
           default:
             return undefined

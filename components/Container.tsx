@@ -5,9 +5,16 @@ import Fab from '@mui/material/Fab';
 import Grid from '@mui/material/Grid';
 import MenuIcon from '@mui/icons-material/Menu';
 import { SxProps } from '@mui/system';
+import { proxy, useSnapshot } from 'valtio';
 import Canvas from './Canvas';
 import TimeChip from './TimeChip';
 import Admin from './admin/App';
+
+export const state = proxy<{
+  isOpen: boolean;
+}>({
+  isOpen: false,
+});
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -17,7 +24,7 @@ const Box_ = Box as (props: {
 }) => JSX.Element
 
 export default function Container() {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const { isOpen } = useSnapshot(state);
 
   const toggleDrawer =
     (open: boolean) =>
@@ -30,7 +37,7 @@ export default function Container() {
           return;
         }
 
-        setIsOpen(open);
+        state.isOpen = open;
       };
 
   return (

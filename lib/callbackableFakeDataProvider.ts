@@ -7,7 +7,7 @@ export type Data = {
   [key: string]: { id: Id }[]
 };
 
-export default <T extends Data>(data: T, mutate: (newData: T) => void): DataProvider => {
+export default function dataProvider<T extends Data>(data: T, mutate: (newData: T) => void): DataProvider {
   const restServer = new FakeRest.Server();
   restServer.init(data);
 
@@ -146,4 +146,4 @@ export default <T extends Data>(data: T, mutate: (newData: T) => void): DataProv
 
     return data as T;
   }
-};
+}

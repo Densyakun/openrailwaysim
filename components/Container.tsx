@@ -6,8 +6,8 @@ import Grid from '@mui/material/Grid';
 import MenuIcon from '@mui/icons-material/Menu';
 import { SxProps } from '@mui/system';
 import Canvas from './Canvas';
-import Menu from './Menu';
 import TimeChip from './TimeChip';
+import Admin from './admin/App';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -101,13 +101,7 @@ export default function Container() {
         open={isOpen}
         onClose={toggleDrawer(false)}
       >
-        <Box_
-          sx={{ width: 'auto' }}
-        //  onClick={toggleDrawer(false)}
-        //  onKeyDown={toggleDrawer(false)}
-        >
-          <Menu />
-        </Box_>
+        <Admin />
       </Drawer>
     </>
   )

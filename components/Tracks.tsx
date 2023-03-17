@@ -3,8 +3,9 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three-stdlib'
 import { useLoader } from '@react-three/fiber'
 //import { Line } from '@react-three/drei'
-import { proxy } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 import { ProjectedLine } from '@/lib/gis'
+import { getRotationFromTwoPoints } from '@/lib/projectedLine'
 import { IdentifiedRecord } from '@/lib/saveData'
 import FeatureObject from './FeatureObject'
 
@@ -22,21 +23,12 @@ function Rail(props: any) {
   )
 }
 
-function getRotation(point: THREE.Vector3, nextPoint: THREE.Vector3) {
-  const euler = new THREE.Euler().setFromQuaternion(
-    new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, -1),
-      nextPoint.clone().sub(point).normalize()
-    ), 'YXZ'
-  )
-  euler.z = 0
-  return euler
-}
-
 export default function Tracks() {
+  const { projectedLines } = useSnapshot(state)
+
   return (
     <>
-      {state.projectedLines.map((projectedLine, index) => {
+      {(projectedLines as (IdentifiedRecord & ProjectedLine)[]).map((projectedLine, index) => {
         return <FeatureObject key={index} centerCoordinate={projectedLine.centerCoordinate}>
           {/*<Line points={projectedLine.points} />*/}
           {projectedLine.points.map((point, index, array) => {
@@ -45,7 +37,7 @@ export default function Tracks() {
             return <Rail
               key={index}
               position={point}
-              rotation={getRotation(point, array[index + 1])}
+              rotation={getRotationFromTwoPoints(point, array[index + 1])}
               scale={new THREE.Vector3(1, 1, point.distanceTo(array[index + 1]))}
             />
           })}

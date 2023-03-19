@@ -17,8 +17,8 @@ export default function FeatureCollections() {
 
   return (
     <>
-      {state.featureCollections.map(({ value }, index) => (
-        <FeatureObject key={index} centerCoordinate={originCoordinate}>
+      {state.featureCollections.map(({ id, value }) => (
+        <FeatureObject key={id} centerCoordinate={originCoordinate}>
           <FeatureCollectionComponent featureCollection={value} centerCoordinate={originCoordinate} />
         </FeatureObject>
       ))}

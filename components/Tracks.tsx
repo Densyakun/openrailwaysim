@@ -23,9 +23,9 @@ export default function Tracks() {
 
   return (
     <>
-      {/*(projectedLines as (IdentifiedRecord & ProjectedLine)[]).map((projectedLine, index) => {
-        return <FeatureObject key={index} centerCoordinate={projectedLine.centerCoordinate}>
-          <Line points={projectedLine.points} />
+      {/*(projectedLines as (IdentifiedRecord & ProjectedLine)[]).map(({ id, centerCoordinate, points }) => {
+        return <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+          <Line points={points} />
         </FeatureObject>
       })*/}
       {scene.children.map((child, index) => <Instances
@@ -37,9 +37,9 @@ export default function Tracks() {
         receiveShadow
         castShadow
       >
-        {(projectedLines as (IdentifiedRecord & ProjectedLine)[]).map((projectedLine, index) => {
-          return <FeatureObject key={index} centerCoordinate={projectedLine.centerCoordinate}>
-            {projectedLine.points.map((nextPoint, index, array) => {
+        {(projectedLines as (IdentifiedRecord & ProjectedLine)[]).map(({ id, centerCoordinate, points }) => {
+          return <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+            {points.map((nextPoint, index, array) => {
               if (index === 0) return null
 
               const prevPoint = array[index - 1]

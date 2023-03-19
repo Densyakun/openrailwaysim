@@ -32,15 +32,14 @@ export default function WheelAndAxle() {
 
   return (
     <>
-      {(axles as (IdentifiedRecord & ProjectedLineAndLength)[]).map((axle, index) => {
-        if (axle.projectedLine.points.length < 2) return null
+      {(axles as (IdentifiedRecord & ProjectedLineAndLength)[]).map(({ id, projectedLine, length }) => {
+        if (projectedLine.points.length < 2) return null
 
-        const segment = getSegment(axle.projectedLine.points, axle.length)
+        const segment = getSegment(projectedLine.points, length)
 
-        return <FeatureObject key={index} centerCoordinate={axle.projectedLine.centerCoordinate}>
+        return <FeatureObject key={id} centerCoordinate={projectedLine.centerCoordinate}>
           <Model
-            key={index}
-            position={getPositionFromLength(segment, axle.length)}
+            position={getPositionFromLength(segment, length)}
             rotation={getRotationFromTwoPoints(segment.point, segment.nextPoint)}
           />
         </FeatureObject>

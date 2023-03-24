@@ -47,12 +47,12 @@ export default function Tracks() {
               const rotation = getRotationFromTwoPoints(prevPoint, nextPoint)
 
               return <group
+                key={index}
                 position={prevPoint}
                 rotation={rotation}
                 scale={new THREE.Vector3(1, 1, prevPoint.distanceTo(nextPoint))}
               >
                 <Instance
-                  key={index}
                   position={(child as THREE.Mesh).position}
                   rotation={(child as THREE.Mesh).rotation}
                   scale={(child as THREE.Mesh).scale}

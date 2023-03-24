@@ -112,3 +112,8 @@ export function getProjectedLines(featureCollection: FeatureCollection): Project
     }
   }).filter(Boolean) as ProjectedLine[]
 }
+
+export type ProjectedLineAndLength = {
+  projectedLine: ProjectedLine;
+  length: number;
+}

@@ -57,6 +57,7 @@ export default function Bogies() {
       <FeatureObject key={id} centerCoordinate={centerCoordinate}>
         {axles.map(({ position, rotation }, index) => (
           <group
+            key={index}
             ref={el => (axleGroupsRef.current[id] ? axleGroupsRef.current[id] : axleGroupsRef.current[id] = [])[index] = el}
             position={position}
             rotation={rotation}

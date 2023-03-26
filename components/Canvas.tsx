@@ -6,7 +6,7 @@ import FollowOriginGIS from './cameras-and-controls/FollowOriginGIS'
 import SunAndSky from './SunAndSky'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
-import WheelAndAxles from './WheelAndAxles'
+import Bogies from './Bogies'
 import TestFeatureCollection from './TestFeatureCollection'
 
 export default function App() {
@@ -18,7 +18,7 @@ export default function App() {
       <FollowOriginGIS />
       <FeatureCollections />
       <Tracks />
-      <WheelAndAxles />
+      <Bogies />
       <TestFeatureCollection />
     </Canvas>
   )

@@ -24,30 +24,27 @@ export default function WheelAndAxle() {
 
   useFrame(() => {
     (bogiesState.bogies as (IdentifiedRecord & Bogie)[]).forEach(({ id, axles }) =>
-      axles.forEach(({ positionAndRotation }, index) => {
-        if (positionAndRotation === undefined) return null
-
+      axles.forEach(({ position, rotation }, index) => {
         const group = (groupsRef.current[id] ? groupsRef.current[id] : groupsRef.current[id] = [])[index]
-        group?.position.copy(positionAndRotation.position)
-        group?.rotation.copy(positionAndRotation.rotation)
+        group?.position.copy(position)
+        group?.rotation.copy(rotation)
       })
     )
   })
 
   return (
     <>
-      {/*(bogies as (IdentifiedRecord & Bogie)[]).map(({ axles }) =>
-        axles.map(({ pointOnTrack, positionAndRotation }, index) => {
-          if (positionAndRotation === undefined) return null
-
-          return <FeatureObject key={index} centerCoordinate={pointOnTrack.projectedLine.centerCoordinate}>
-            <Model
-              position={positionAndRotation.position}
-              rotation={positionAndRotation.rotation}
+      {/*(bogies as (IdentifiedRecord & Bogie)[]).map(({ id, centerCoordinate, axles }) => (
+        <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+          {axles.map(({ position, rotation }, index) => (
+            <AxleModel
+              key={index}
+              position={position}
+              rotation={rotation}
             />
-          </FeatureObject>
-        })
-      )*/}
+          ))}
+        </FeatureObject>
+      ))*/}
       <Instances
         limit={1000}
         receiveShadow
@@ -55,23 +52,19 @@ export default function WheelAndAxle() {
       >
         <cylinderGeometry args={[0.43, 0.43, 1.267, 8]} />
         <meshStandardMaterial />
-        {(bogies as (IdentifiedRecord & Bogie)[]).map(({ id, axles }) =>
-          <React.Fragment key={id}>
-            {axles.map(({ pointOnTrack, positionAndRotation }, index) => {
-              if (positionAndRotation === undefined) return null
-
-              return <FeatureObject key={index} centerCoordinate={pointOnTrack.projectedLine.centerCoordinate}>
-                <group
-                  ref={el => (groupsRef.current[id] ? groupsRef.current[id] : groupsRef.current[id] = [])[index] = el}
-                  position={positionAndRotation.position}
-                  rotation={positionAndRotation.rotation}
-                >
-                  <Instance rotation={[0, 0, Math.PI / 2]} />
-                </group>
-              </FeatureObject>
-            })}
-          </React.Fragment>
-        )}
+        {(bogies as (IdentifiedRecord & Bogie)[]).map(({ id, centerCoordinate, axles }) => (
+          <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+            {axles.map(({ position, rotation }, index) => (
+              <group
+                ref={el => (groupsRef.current[id] ? groupsRef.current[id] : groupsRef.current[id] = [])[index] = el}
+                position={position}
+                rotation={rotation}
+              >
+                <Instance rotation={[0, 0, Math.PI / 2]} />
+              </group>
+            ))}
+          </FeatureObject>
+        ))}
       </Instances>
     </>
   )

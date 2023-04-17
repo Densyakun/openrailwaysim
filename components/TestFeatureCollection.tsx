@@ -1,29 +1,151 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
 import { FeatureCollection } from '@turf/helpers'
 import pointOnFeature from '@turf/point-on-feature'
 import featureCollection from '@/data/sakurajosui.geojson'
-import { coordinateToEuler, getProjectedLines, ProjectedLine, state as gisState } from '@/lib/gis'
+import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength, state as gisState } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { axlesToBogie, bogieToAxles, createBogie, state as bogiesState } from '@/lib/bogies'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
+import { useFrame } from '@react-three/fiber'
 
-function createCar(projectedLine: ProjectedLine, length = 0) {
-  //const distanceBetweenBogiesHalf = 13.8 / 2
-  //const wheelbaseHalf = 2.1 / 2
-  const wheelbaseHalf = 50
+function createCarBody(): CarBody {
+  return {
+    position: new THREE.Vector3(),
+    rotation: new THREE.Euler(),
+  }
+}
 
-  return [
-    createBogie(
-      { projectedLine: projectedLine, length: length },
-      [
-        -wheelbaseHalf,
-        wheelbaseHalf,
-      ],
-    ),
-  ]
+function createBogie({ projectedLine, length }: ProjectedLineAndLength, axlesZ: number[]): Bogie {
+  return {
+    ...createCarBody(),
+    axles: axlesZ.map(z => ({
+      pointOnTrack: { projectedLine: projectedLine, length: length + z },
+      z,
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
+    })),
+  }
+}
+
+function getGlobalEulerOfFirstAxle(axle: Axle) {
+  return coordinateToEuler(axle.pointOnTrack.projectedLine.centerCoordinate || [0, 0])
+}
+
+function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = []): Train {
+  // TODO otherBodiesの配置
+  return {
+    bogies,
+    otherBodies,
+    bodySupporterJoints,
+    otherJoints,
+    position: {
+      euler: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
+      elevation: 0,
+    },
+  }
+}
+
+function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train {
+  const distanceBetweenBogiesHalf = 13.8 / 2
+
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length },
+        [
+          -distanceBetweenBogiesHalf,
+          distanceBetweenBogiesHalf,
+        ],
+      ),
+    ],
+  )
+}
+
+function createTestTwoBogiesTrain(projectedLine: ProjectedLine, length = 0): Train {
+  const carLengthHalf = 20 / 2
+  const couplerLengthHalf = 0.92
+  const distanceBetweenBogiesHalf = 13.8 / 2
+  const wheelbaseHalf = 2.1 / 2
+
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length - carLengthHalf + distanceBetweenBogiesHalf },
+        [
+          -wheelbaseHalf,
+          wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
+        [
+          -wheelbaseHalf,
+          wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
+        [
+          -wheelbaseHalf,
+          wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length + carLengthHalf - distanceBetweenBogiesHalf },
+        [
+          -wheelbaseHalf,
+          wheelbaseHalf,
+        ],
+      ),
+    ],
+    [
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+    ],
+    [
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
+        bogieIndex: 0,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
+        bogieIndex: 1,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
+        bogieIndex: 2,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
+        bogieIndex: 3,
+        bogiePosition: new THREE.Vector3(),
+      },
+    ],
+    [
+      {
+        bodyIndexA: 6,
+        positionA: new THREE.Vector3(0, 0, couplerLengthHalf),
+        bodyIndexB: 4,
+        positionB: new THREE.Vector3(0, 0, couplerLengthHalf - carLengthHalf),
+      },
+      {
+        bodyIndexA: 6,
+        positionA: new THREE.Vector3(0, 0, -couplerLengthHalf),
+        bodyIndexB: 5,
+        positionB: new THREE.Vector3(0, 0, carLengthHalf - couplerLengthHalf),
+      },
+    ],
+  )
 }
 
 export default function TestFeatureCollection() {
@@ -32,14 +154,21 @@ export default function TestFeatureCollection() {
     featureCollectionsState.featureCollections = addNewIdArray([{ value: featureCollection_ }])
     tracksState.projectedLines = addNewIdArray(getProjectedLines(featureCollection))
 
-    bogiesState.bogies = addNewIdArray([
-      ...createCar(tracksState.projectedLines[1]),
+    trainsState.trains = addNewIdArray([
+      createTestTwoAxlesCar(tracksState.projectedLines[1]),
+      //createTestTwoBogiesTrain(tracksState.projectedLines[1]),
     ])
 
-    gisState.originQuaternion = new THREE.Quaternion().setFromEuler(coordinateToEuler(
+    gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(
       pointOnFeature(featureCollection).geometry.coordinates
-    ))
+    )))
   }, [])
+
+  useFrame(({ }, delta) => {
+    trainsState.trains.forEach(train =>
+      rollAxles(train, delta * 10)
+    )
+  })
 
   return null
 }

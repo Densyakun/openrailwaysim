@@ -9,15 +9,23 @@ import { proxy } from 'valtio'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
 
-export const state = proxy<{
-  originQuaternion: THREE.Quaternion;
+export type GlobalTransform = {
+  quaternion: THREE.Quaternion;
   elevation: number;
+}
+
+export type GlobalPositionEuler = {
+  euler: THREE.Euler;
+  elevation: number;
+}
+
+export const state = proxy<{
+  originTransform: GlobalTransform;
 }>({
-  originQuaternion: new THREE.Quaternion(),
-  elevation: 0,
+  originTransform: { quaternion: new THREE.Quaternion(), elevation: 0 },
 })
 
-export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.elevation) {
+export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.originTransform.elevation) {
   const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
     * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
   const bearing = Math.atan2(-moveZ, moveX) * -180 / Math.PI + 90
@@ -37,7 +45,7 @@ export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: nu
 
 export function getOriginEuler() {
   return new THREE.Euler(0, 0, 0, 'YXZ')
-    .setFromQuaternion(state.originQuaternion.clone(), 'YXZ')
+    .setFromQuaternion(state.originTransform.quaternion.clone(), 'YXZ')
 }
 
 export function eulerToCoordinate(euler: THREE.Euler): Position {
@@ -58,7 +66,7 @@ export function getBearing(coordinate: Position, originCoordinateEuler?: THREE.E
   return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180 - originCoordinateEuler.z
 }
 
-export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -state.elevation) {
+export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -state.originTransform.elevation) {
   if (!originCoordinateEuler)
     originCoordinateEuler = getOriginEuler()
 

@@ -66,7 +66,7 @@ export default function SunAndSky() {
     const nowDate = new Date(dateState.nowDate)
     state.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
-      + new THREE.Euler().setFromQuaternion(gisState.originQuaternion, 'YXZ').y
+      + new THREE.Euler().setFromQuaternion(gisState.originTransform.quaternion, 'YXZ').y
       - Math.PI / 2
 
     sunPosition.copy(getSunPosition())

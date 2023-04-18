@@ -303,16 +303,14 @@ export function rollAxles(train: Train, distance: number) {
 
     train.bodySupporterJoints.forEach(joint => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
-        const toBody = getBodyFromBodyIndex(train, joint.bogieIndex);
-
         position.add(getFromPosition(
           fromBody,
-          toBody,
+          train.bogies[joint.bogieIndex],
           joint.otherBodyPosition,
           joint.bogiePosition
         ));
 
-        rotateBody(fromBody, toBody, joint.otherBodyPosition, joint.bogiePosition);
+        rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition);
 
         jointCount++;
       }
@@ -356,16 +354,14 @@ export function rollAxles(train: Train, distance: number) {
 
     train.bodySupporterJoints.forEach(joint => {
       if (fromBogieIndex === joint.bogieIndex) {
-        const toBody = getBodyFromBodyIndex(train, joint.otherBodyIndex);
-
         position.add(getFromPosition(
           fromBogie,
-          toBody,
+          train.otherBodies[joint.otherBodyIndex],
           joint.bogiePosition,
           joint.otherBodyPosition
         ));
 
-        rotateBody(fromBogie, toBody, joint.bogiePosition, joint.otherBodyPosition);
+        rotateBody(fromBogie, train.otherBodies[joint.otherBodyIndex], joint.bogiePosition, joint.otherBodyPosition);
 
         jointCount++;
       }

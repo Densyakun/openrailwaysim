@@ -221,15 +221,15 @@ export function getBodyFromBodyIndex(train: Train, bodyIndex: number) {
 }*/
 
 export function rotateBody(fromBody: CarBody, toBody: CarBody, fromPosition: THREE.Vector3, toPosition: THREE.Vector3) {
-  const fromVector = fromPosition.clone().applyEuler(fromBody.rotation);
+  const fromVector = fromPosition.clone().applyEuler(fromBody.rotation).normalize();
   const toVector = toBody.position.clone()
     .add(toPosition.clone().applyEuler(toBody.rotation))
-    .sub(fromBody.position);
+    .sub(fromBody.position).normalize();
   fromBody.rotation.copy(new THREE.Euler().setFromQuaternion(
     new THREE.Quaternion().setFromEuler(fromBody.rotation)
       //.multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), fromVector).invert())
-      //.multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), toVector.normalize()))
-      .multiply(new THREE.Quaternion().setFromUnitVectors(fromVector, toVector.normalize()))
+      //.multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), toVector))
+      .multiply(new THREE.Quaternion().setFromUnitVectors(fromVector, toVector))
   ));
 }
 

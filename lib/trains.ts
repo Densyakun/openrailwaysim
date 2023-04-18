@@ -347,7 +347,8 @@ export function rollAxles(train: Train, distance: number) {
       }
     });
 
-    fromBody.position.copy(position.divideScalar(jointCount));
+    if (jointCount)
+      fromBody.position.copy(position.divideScalar(jointCount));
   });
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();
@@ -399,7 +400,8 @@ export function rollAxles(train: Train, distance: number) {
       }
     });
 
-    fromBogie.position.copy(position.divideScalar(jointCount));
+    if (jointCount)
+      fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
     axlesToBogie(train, fromBogie);

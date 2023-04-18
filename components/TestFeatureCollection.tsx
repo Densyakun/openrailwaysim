@@ -63,6 +63,44 @@ function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train 
   )
 }
 
+function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, length = 0): Train {
+  const distanceBetweenBogiesHalf = 13.8 / 2
+
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
+        [
+          0,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
+        [
+          0,
+        ],
+      ),
+    ],
+    [
+      createCarBody(),
+    ],
+    [
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
+        bogieIndex: 0,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
+        bogieIndex: 1,
+        bogiePosition: new THREE.Vector3(),
+      },
+    ],
+  )
+}
+
 function createTestTwoBogiesTrain(projectedLine: ProjectedLine, length = 0): Train {
   const carLengthHalf = 20 / 2
   const couplerLengthHalf = 0.92
@@ -152,15 +190,16 @@ export default function TestFeatureCollection() {
   React.useEffect(() => {
     const featureCollection_: FeatureCollection = featureCollection
     featureCollectionsState.featureCollections = addNewIdArray([{ value: featureCollection_ }])
-    tracksState.projectedLines = addNewIdArray(getProjectedLines(featureCollection))
+    tracksState.projectedLines = addNewIdArray(getProjectedLines(featureCollection_))
 
     trainsState.trains = addNewIdArray([
-      createTestTwoAxlesCar(tracksState.projectedLines[1]),
+      //createTestTwoAxlesCar(tracksState.projectedLines[1]),
+      createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
       //createTestTwoBogiesTrain(tracksState.projectedLines[1]),
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(
-      pointOnFeature(featureCollection).geometry.coordinates
+      pointOnFeature(featureCollection_).geometry.coordinates
     )))
   }, [])
 

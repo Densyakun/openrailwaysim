@@ -119,11 +119,10 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
       lastAxlePosition.sub(firstAxlePosition).normalize()
     ));
   else {
-    // TODO 向きが正しいかテストする
     const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[0]);
     bogie.rotation = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 0, 1),
-      nextPoint.sub(point).normalize()
+      nextPoint.clone().sub(point).normalize()
     ));
   }
 }

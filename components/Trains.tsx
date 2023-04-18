@@ -21,6 +21,7 @@ function WheelAndAxleModel(props: any) {
 export default function Bogies() {
   const bogieGroupsRef = React.useRef<(THREE.Group | null)[]>([])
   const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
+  const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])
 
   const { trains } = useSnapshot(trainsState)
 
@@ -37,12 +38,17 @@ export default function Bogies() {
           axleGroup?.rotation.copy(rotation)
         })
       })
-      // TODO train.otherBodies
+      train.otherBodies.forEach(({ position, rotation }, otherBodyIndex) => {
+        const otherBodyGroup = otherBodyGroupsRef.current[otherBodyIndex]
+        otherBodyGroup?.position.copy(position)
+        otherBodyGroup?.rotation.copy(rotation)
+      })
     })
   })
 
   const bogieInstances: JSX.Element[] = []
-  const axleInstances: JSX.Element[] = [];
+  const axleInstances: JSX.Element[] = []
+  const otherBodyInstances: JSX.Element[] = [];
 
   (trains as (IdentifiedRecord & Train)[]).forEach(train => {
     const centerCoordinate = eulerToCoordinate(train.position.euler)
@@ -76,7 +82,19 @@ export default function Bogies() {
       )
     })
 
-    // TODO train.otherBodies
+    train.otherBodies.forEach(({ position, rotation }, otherBodyIndex) => {
+      otherBodyInstances.push(
+        <FeatureObject key={otherBodyIndex} centerCoordinate={centerCoordinate}>
+          <group
+            ref={el => otherBodyGroupsRef.current[otherBodyIndex] = el}
+            position={position}
+            rotation={rotation}
+          >
+            <Instance rotation={[0, 0, Math.PI / 2]} />
+          </group>
+        </FeatureObject>
+      )
+    })
   })
 
   return (
@@ -113,6 +131,15 @@ export default function Bogies() {
         <cylinderGeometry args={[0.43, 0.43, 1.267, 8]} />
         <meshStandardMaterial />
         {axleInstances}
+      </Instances>
+      <Instances
+        limit={1000}
+        receiveShadow
+        castShadow
+      >
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial />
+        {otherBodyInstances}
       </Instances>
     </>
   )

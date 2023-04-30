@@ -34,8 +34,7 @@ function getGlobalEulerOfFirstAxle(axle: Axle) {
 }
 
 function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = []): Train {
-  // TODO otherBodiesの配置
-  return {
+  const train = {
     bogies,
     otherBodies,
     bodySupporterJoints,
@@ -45,6 +44,31 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
       elevation: 0,
     },
   }
+
+  train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
+    const position = new THREE.Vector3()
+    let jointCount = 0
+
+    train.bodySupporterJoints.forEach(joint => {
+      if (fromOtherBodyIndex === joint.otherBodyIndex) {
+        position.add(getFromPosition(
+          fromBody,
+          train.bogies[joint.bogieIndex],
+          joint.otherBodyPosition,
+          joint.bogiePosition
+        ))
+
+        rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition)
+
+        jointCount++
+      }
+    })
+
+    if (jointCount)
+      fromBody.position.copy(position.divideScalar(jointCount))
+  })
+
+  return train
 }
 
 function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train {

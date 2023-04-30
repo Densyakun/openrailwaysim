@@ -314,8 +314,9 @@ export function rollAxles(train: Train, distance: number) {
         jointCount++;
       }
     });
+    const fromBodyIndex = fromOtherBodyIndex + train.bogies.length
     train.otherJoints.forEach(joint => {
-      if (fromOtherBodyIndex === joint.bodyIndexA) {
+      if (fromBodyIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
         position.add(getFromPosition(
@@ -328,7 +329,7 @@ export function rollAxles(train: Train, distance: number) {
         rotateBody(fromBody, toBody, joint.positionA, joint.positionB);
 
         jointCount++;
-      } else if (fromOtherBodyIndex === joint.bodyIndexB) {
+      } else if (fromBodyIndex === joint.bodyIndexB) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexA);
 
         position.add(getFromPosition(

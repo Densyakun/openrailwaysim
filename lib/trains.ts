@@ -100,6 +100,7 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
+  const up = new THREE.Vector3();
 
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
@@ -108,23 +109,46 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
       )
     );
 
+    const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[index]);
+    const forward = nextPoint.clone().sub(point).normalize();
+    const angleY = Math.atan2(forward.x, forward.z);
+    const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
+    const angleX = Math.atan2(aVector.y, aVector.z);
+    up.add(new THREE.Vector3(0, 1).applyEuler(new THREE.Euler(
+      -angleX,
+      angleY,
+      0,
+      'YXZ'
+    )));
+
     if (index === 0)
       firstAxlePosition.copy(lastAxlePosition);
   };
 
   bogie.position = axlesCenterPosition.divideScalar(bogie.axles.length);
-  if (2 <= bogie.axles.length)
-    bogie.rotation = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      lastAxlePosition.sub(firstAxlePosition).normalize()
-    ));
-  else {
+
+  let forward: THREE.Vector3;
+  if (2 <= bogie.axles.length) {
+    forward = lastAxlePosition.sub(firstAxlePosition).normalize();
+  } else {
     const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[0]);
-    bogie.rotation = new THREE.Euler().setFromQuaternion(new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, 1),
-      nextPoint.clone().sub(point).normalize()
-    ));
+    forward = nextPoint.clone().sub(point).normalize();
   }
+
+  const angleY = Math.atan2(forward.x, forward.z);
+  const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
+  const angleX = Math.atan2(aVector.y, aVector.z);
+  up.divideScalar(bogie.axles.length);
+  const bVector = up.applyEuler(new THREE.Euler(
+    angleX,
+    -angleY
+  ));
+  bogie.rotation.set(
+    -angleX,
+    angleY,
+    Math.atan2(-bVector.x, bVector.y),
+    'YXZ'
+  );
 }
 
 /*export function bogiesToAxles(train: Train) {

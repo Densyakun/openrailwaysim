@@ -40,6 +40,8 @@ export type Train = {
   otherBodies: CarBody[];
   bodySupporterJoints: BodySupporterJoint[];
   otherJoints: Joint[];
+  fromJointIndexes: number[];
+  toJointIndexes: number[];
   position: GlobalPositionEuler; // TODO elevationを使っていない
 };
 
@@ -324,7 +326,13 @@ export function rollAxles(train: Train, distance: number) {
     const position = new THREE.Vector3();
     let jointCount = 0;
 
-    train.bodySupporterJoints.forEach(joint => {
+    let fromJointEuler: THREE.Euler;
+    let fromJointPosition: THREE.Vector3;
+    let toJointEuler: THREE.Euler;
+    let toJointPosition: THREE.Vector3;
+
+    const fromBodyIndex = train.bogies.length + fromOtherBodyIndex;
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         position.add(getFromPosition(
           fromBody,
@@ -333,13 +341,23 @@ export function rollAxles(train: Train, distance: number) {
           joint.bogiePosition
         ));
 
-        rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition);
+        //rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = train.bogies[joint.bogieIndex].rotation;
+          fromJointPosition = train.bogies[joint.bogieIndex].position.clone()
+            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = train.bogies[joint.bogieIndex].rotation;
+          toJointPosition = train.bogies[joint.bogieIndex].position.clone()
+            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+        }
 
         jointCount++;
       }
     });
-    const fromBodyIndex = fromOtherBodyIndex + train.bogies.length
-    train.otherJoints.forEach(joint => {
+    train.otherJoints.forEach((joint, otherJointIndex) => {
+      const jointIndex = train.bodySupporterJoints.length + otherJointIndex;
       if (fromBodyIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
@@ -350,7 +368,17 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionB
         ));
 
-        rotateBody(fromBody, toBody, joint.positionA, joint.positionB);
+        //rotateBody(fromBody, toBody, joint.positionA, joint.positionB);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = toBody.rotation;
+          fromJointPosition = toBody.position.clone()
+            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = toBody.rotation;
+          toJointPosition = toBody.position.clone()
+            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+        }
 
         jointCount++;
       } else if (fromBodyIndex === joint.bodyIndexB) {
@@ -363,14 +391,50 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionA
         ));
 
-        rotateBody(fromBody, toBody, joint.positionB, joint.positionA);
+        //rotateBody(fromBody, toBody, joint.positionB, joint.positionA);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = toBody.rotation;
+          fromJointPosition = toBody.position.clone()
+            .add(joint.positionA.clone().applyEuler(toBody.rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = toBody.rotation;
+          toJointPosition = toBody.position.clone()
+            .add(joint.positionA.clone().applyEuler(toBody.rotation));
+        }
 
         jointCount++;
       }
     });
 
-    if (jointCount)
+    if (jointCount) {
       fromBody.position.copy(position.divideScalar(jointCount));
+
+      if (fromJointPosition!.equals(toJointPosition!))
+        fromBody.rotation.copy(fromJointEuler!);
+      else {
+        const up = new THREE.Vector3(0, 1).applyEuler(fromJointEuler!)
+          .add(new THREE.Vector3(0, 1).applyEuler(toJointEuler!))
+          .normalize();
+        const forward = toJointPosition!.clone()
+          .sub(fromJointPosition!)
+          .normalize();
+
+        const angleY = Math.atan2(forward.x, forward.z);
+        const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
+        const angleX = Math.atan2(aVector.y, aVector.z);
+        const bVector = up.applyEuler(new THREE.Euler(
+          angleX,
+          -angleY
+        ));
+        fromBody.rotation.set(
+          -angleX,
+          angleY,
+          Math.atan2(-bVector.x, bVector.y),
+          'YXZ'
+        );
+      }
+    }
   });
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();

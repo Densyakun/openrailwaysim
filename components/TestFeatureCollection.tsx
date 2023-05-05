@@ -34,16 +34,85 @@ function getGlobalEulerOfFirstAxle(axle: Axle) {
 }
 
 function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = []): Train {
-  const train = {
+  const train: Train = {
     bogies,
     otherBodies,
     bodySupporterJoints,
     otherJoints,
+    fromJointIndexes: [],
+    toJointIndexes: [],
     position: {
       euler: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
       elevation: 0,
     },
   }
+
+  train.bogies.forEach((fromBogie, fromBogieIndex) => {
+    let fromJointZ = 0
+    let toJointZ = 0
+    let fromJointIndex = -1
+    let toJointIndex = -1
+
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+      if (fromBogieIndex === joint.bogieIndex) {
+        if (fromJointIndex === -1 || joint.bogiePosition.z < fromJointZ) {
+          fromJointZ = joint.bogiePosition.z
+          fromJointIndex = jointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.bogiePosition.z) {
+          toJointZ = joint.bogiePosition.z
+          toJointIndex = jointIndex
+        }
+      }
+    })
+
+    train.fromJointIndexes[fromBogieIndex] = fromJointIndex
+    train.toJointIndexes[fromBogieIndex] = toJointIndex
+  })
+  train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
+    let fromJointZ = 0
+    let toJointZ = 0
+    let fromJointIndex = -1
+    let toJointIndex = -1
+
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+      if (fromOtherBodyIndex === joint.otherBodyIndex) {
+        if (fromJointIndex === -1 || joint.otherBodyPosition.z < fromJointZ) {
+          fromJointZ = joint.otherBodyPosition.z
+          fromJointIndex = jointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.otherBodyPosition.z) {
+          toJointZ = joint.otherBodyPosition.z
+          toJointIndex = jointIndex
+        }
+      }
+    })
+    const fromBodyIndex = fromOtherBodyIndex + train.bogies.length
+    train.otherJoints.forEach((joint, otherJointIndex) => {
+      if (fromBodyIndex === joint.bodyIndexA) {
+        if (fromJointIndex === -1 || joint.positionA.z < fromJointZ) {
+          fromJointZ = joint.positionA.z
+          fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.positionA.z) {
+          toJointZ = joint.positionA.z
+          toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+        }
+      } else if (fromBodyIndex === joint.bodyIndexB) {
+        if (fromJointIndex === -1 || joint.positionB.z < fromJointZ) {
+          fromJointZ = joint.positionB.z
+          fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.positionB.z) {
+          toJointZ = joint.positionB.z
+          toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+        }
+      }
+    })
+
+    train.fromJointIndexes[train.bogies.length + fromOtherBodyIndex] = fromJointIndex
+    train.toJointIndexes[train.bogies.length + fromOtherBodyIndex] = toJointIndex
+  })
 
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
     const position = new THREE.Vector3()
@@ -58,7 +127,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
           joint.bogiePosition
         ))
 
-        rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition)
+        //rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition)
 
         jointCount++
       }
@@ -79,8 +148,8 @@ function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train 
       createBogie(
         { projectedLine: projectedLine, length: length },
         [
-          -distanceBetweenBogiesHalf,
           distanceBetweenBogiesHalf,
+          -distanceBetweenBogiesHalf,
         ],
       ),
     ],
@@ -111,21 +180,9 @@ function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, length = 
     [
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(1, -1, distanceBetweenBogiesHalf),
-        bogieIndex: 0,
-        bogiePosition: new THREE.Vector3(1),
-      },
-      {
-        otherBodyIndex: 0,
         otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
         bogieIndex: 0,
         bogiePosition: new THREE.Vector3(0, 1),
-      },
-      {
-        otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(1, -1, -distanceBetweenBogiesHalf),
-        bogieIndex: 1,
-        bogiePosition: new THREE.Vector3(1),
       },
       {
         otherBodyIndex: 0,
@@ -146,15 +203,15 @@ function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0): Train
       createBogie(
         { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
         [
-          -wheelbaseHalf,
           wheelbaseHalf,
+          -wheelbaseHalf,
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
         [
-          -wheelbaseHalf,
           wheelbaseHalf,
+          -wheelbaseHalf,
         ],
       ),
     ],
@@ -170,21 +227,9 @@ function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0): Train
       },
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
-        bogieIndex: 0,
-        bogiePosition: new THREE.Vector3(0, 1),
-      },
-      {
-        otherBodyIndex: 0,
         otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
         bogieIndex: 1,
         bogiePosition: new THREE.Vector3(),
-      },
-      {
-        otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
-        bogieIndex: 1,
-        bogiePosition: new THREE.Vector3(0, 1),
       },
     ],
   )
@@ -199,31 +244,31 @@ function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): T
   return createTrain(
     [
       createBogie(
-        { projectedLine: projectedLine, length: length - carLengthHalf + distanceBetweenBogiesHalf },
-        [
-          -wheelbaseHalf,
-          wheelbaseHalf,
-        ],
-      ),
-      createBogie(
-        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
-        [
-          -wheelbaseHalf,
-          wheelbaseHalf,
-        ],
-      ),
-      createBogie(
         { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
         [
-          -wheelbaseHalf,
           wheelbaseHalf,
+          -wheelbaseHalf,
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length + carLengthHalf - distanceBetweenBogiesHalf },
         [
-          -wheelbaseHalf,
           wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - carLengthHalf + distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
         ],
       ),
     ],
@@ -241,21 +286,9 @@ function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): T
       },
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
-        bogieIndex: 0,
-        bogiePosition: new THREE.Vector3(0, 1),
-      },
-      {
-        otherBodyIndex: 0,
         otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
         bogieIndex: 1,
         bogiePosition: new THREE.Vector3(),
-      },
-      {
-        otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
-        bogieIndex: 1,
-        bogiePosition: new THREE.Vector3(0, 1),
       },
       {
         otherBodyIndex: 1,
@@ -265,21 +298,9 @@ function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): T
       },
       {
         otherBodyIndex: 1,
-        otherBodyPosition: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
-        bogieIndex: 2,
-        bogiePosition: new THREE.Vector3(0, 1),
-      },
-      {
-        otherBodyIndex: 1,
         otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
         bogieIndex: 3,
         bogiePosition: new THREE.Vector3(),
-      },
-      {
-        otherBodyIndex: 1,
-        otherBodyPosition: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
-        bogieIndex: 3,
-        bogiePosition: new THREE.Vector3(0, 1),
       },
     ],
     [

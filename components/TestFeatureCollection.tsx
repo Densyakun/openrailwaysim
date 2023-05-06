@@ -5,7 +5,7 @@ import pointOnFeature from '@turf/point-on-feature'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength, state as gisState } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody } from '@/lib/trains'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody, syncOtherBodies } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { useFrame } from '@react-three/fiber'
@@ -114,28 +114,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
     train.toJointIndexes[train.bogies.length + fromOtherBodyIndex] = toJointIndex
   })
 
-  train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
-    const position = new THREE.Vector3()
-    let jointCount = 0
-
-    train.bodySupporterJoints.forEach(joint => {
-      if (fromOtherBodyIndex === joint.otherBodyIndex) {
-        position.add(getFromPosition(
-          fromBody,
-          train.bogies[joint.bogieIndex],
-          joint.otherBodyPosition,
-          joint.bogiePosition
-        ))
-
-        //rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition)
-
-        jointCount++
-      }
-    })
-
-    if (jointCount)
-      fromBody.position.copy(position.divideScalar(jointCount))
-  })
+  syncOtherBodies(train)
 
   return train
 }

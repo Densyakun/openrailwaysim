@@ -259,80 +259,14 @@ export function rotateBody(fromBody: CarBody, toBody: CarBody, fromPosition: THR
   ));
 }
 
-export function rollAxles(train: Train, distance: number) {
-  let bogiesQuaternion = getBogiesQuaternion(train);
-
-  const center = new THREE.Vector3();
-  const newCenter = new THREE.Vector3();
-  train.bogies.forEach(bogie => {
-    center.add(bogie.position);
-
-    // 輪軸を転がす
-    bogie.axles.forEach(axle => axle.pointOnTrack.length += distance);
-
-    // ボギーを輪軸に合わせる
-    bogieToAxles(train, bogie);
-
-    newCenter.add(bogie.position);
-  });
-  center.divideScalar(train.bogies.length);
-  newCenter.divideScalar(train.bogies.length);
-
-  const newBogiesQuaternion = getBogiesQuaternion(train);
-
-  // otherBodiesをボギーに合わせる
-  train.otherBodies.forEach(fromBody => {
-    fromBody.position.sub(center).applyQuaternion(bogiesQuaternion.invert())
-      .applyQuaternion(newBogiesQuaternion)
-      .add(newCenter);
-  });
-
-  // A otherBodiesをボギーに合わせる
-  /*train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
-    const position = new THREE.Vector3();
-    let jointCount = 0;
-
-    train.bodySupporterJoints.forEach(joint => {
-      if (fromOtherBodyIndex === joint.otherBodyIndex) {
-        const toBody = getBodyFromBodyIndex(train, joint.bogieIndex);
-
-        position.add(getFromPosition(
-          fromBody,
-          toBody,
-          joint.otherBodyPosition,
-          joint.bogiePosition
-        ));
-
-        const fromVector = joint.otherBodyPosition.clone().applyEuler(fromBody.rotation);
-        const toVector = toBody.position.clone()
-          .add(joint.bogiePosition.clone().applyEuler(toBody.rotation))
-          .sub(fromBody.position);
-        fromBody.rotation.copy(new THREE.Euler().setFromQuaternion(
-          new THREE.Quaternion().setFromEuler(fromBody.rotation)
-            //.multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), fromVector).invert())
-            //.multiply(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), toVector.normalize()))
-            .multiply(new THREE.Quaternion().setFromUnitVectors(fromVector, toVector.normalize()))
-        ));
-
-        jointCount++;
-      }
-    });
-
-    fromBody.position.copy(position.divideScalar(jointCount));
-  });*/
-
-  // ボギーを含むCarBodyの位置と向きをジョイントに合わせる
+export function syncOtherBodies(train: Train) {
+  // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
     const position = new THREE.Vector3();
     let jointCount = 0;
 
-    let fromJointEuler: THREE.Euler;
-    let fromJointPosition: THREE.Vector3;
-    let toJointEuler: THREE.Euler;
-    let toJointPosition: THREE.Vector3;
-
     const fromBodyIndex = train.bogies.length + fromOtherBodyIndex;
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+    train.bodySupporterJoints.forEach(joint => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         position.add(getFromPosition(
           fromBody,
@@ -341,23 +275,10 @@ export function rollAxles(train: Train, distance: number) {
           joint.bogiePosition
         ));
 
-        //rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition);
-        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
-          fromJointEuler = train.bogies[joint.bogieIndex].rotation;
-          fromJointPosition = train.bogies[joint.bogieIndex].position.clone()
-            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
-        }
-        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
-          toJointEuler = train.bogies[joint.bogieIndex].rotation;
-          toJointPosition = train.bogies[joint.bogieIndex].position.clone()
-            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
-        }
-
         jointCount++;
       }
     });
-    train.otherJoints.forEach((joint, otherJointIndex) => {
-      const jointIndex = train.bodySupporterJoints.length + otherJointIndex;
+    train.otherJoints.forEach(joint => {
       if (fromBodyIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
@@ -367,18 +288,6 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionA,
           joint.positionB
         ));
-
-        //rotateBody(fromBody, toBody, joint.positionA, joint.positionB);
-        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
-          fromJointEuler = toBody.rotation;
-          fromJointPosition = toBody.position.clone()
-            .add(joint.positionB.clone().applyEuler(toBody.rotation));
-        }
-        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
-          toJointEuler = toBody.rotation;
-          toJointPosition = toBody.position.clone()
-            .add(joint.positionB.clone().applyEuler(toBody.rotation));
-        }
 
         jointCount++;
       } else if (fromBodyIndex === joint.bodyIndexB) {
@@ -391,25 +300,39 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionA
         ));
 
-        //rotateBody(fromBody, toBody, joint.positionB, joint.positionA);
-        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
-          fromJointEuler = toBody.rotation;
-          fromJointPosition = toBody.position.clone()
-            .add(joint.positionA.clone().applyEuler(toBody.rotation));
-        }
-        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
-          toJointEuler = toBody.rotation;
-          toJointPosition = toBody.position.clone()
-            .add(joint.positionA.clone().applyEuler(toBody.rotation));
-        }
-
         jointCount++;
       }
     });
 
-    if (jointCount) {
+    if (jointCount)
       fromBody.position.copy(position.divideScalar(jointCount));
+  });
 
+  // 回転を設定する
+  train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
+    let fromJointEuler: THREE.Euler | undefined;
+    let fromJointPosition: THREE.Vector3;
+    let toJointEuler: THREE.Euler;
+    let toJointPosition: THREE.Vector3;
+
+    const fromBodyIndex = train.bogies.length + fromOtherBodyIndex;
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+      if (fromOtherBodyIndex === joint.otherBodyIndex) {
+        //rotateBody(fromBody, train.bogies[joint.bogieIndex], joint.otherBodyPosition, joint.bogiePosition);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = train.bogies[joint.bogieIndex].rotation;
+          fromJointPosition = train.bogies[joint.bogieIndex].position.clone()
+            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = train.bogies[joint.bogieIndex].rotation;
+          toJointPosition = train.bogies[joint.bogieIndex].position.clone()
+            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+        }
+      }
+    });
+
+    if (fromJointEuler) {
       if (fromJointPosition!.equals(toJointPosition!))
         fromBody.rotation.copy(fromJointEuler!);
       else {
@@ -436,6 +359,46 @@ export function rollAxles(train: Train, distance: number) {
       }
     }
   });
+}
+
+export function rollAxles(train: Train, distance: number) {
+  let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
+
+  const center = new THREE.Vector3();
+  const newCenter = new THREE.Vector3();
+  train.bogies.forEach(bogie => {
+    center.add(bogie.position);
+
+    // 輪軸を転がす
+    bogie.axles.forEach(axle => axle.pointOnTrack.length += distance);
+
+    // ボギーを輪軸に合わせる
+    bogieToAxles(train, bogie);
+
+    newCenter.add(bogie.position);
+  });
+  center.divideScalar(train.bogies.length);
+  newCenter.divideScalar(train.bogies.length);
+
+  const newBogiesQuaternion = getBogiesQuaternion(train);
+
+  // otherBodiesをボギーに合わせる
+  train.otherBodies.forEach(fromBody => {
+    if (fromBody.position)
+      fromBody.position.sub(center).applyQuaternion(oldBogiesInvertedQuaternion)
+        .applyQuaternion(newBogiesQuaternion)
+        .add(newCenter);
+
+    fromBody.rotation.copy(new THREE.Euler().setFromQuaternion(
+      new THREE.Quaternion().setFromEuler(fromBody.rotation)
+        .multiply(oldBogiesInvertedQuaternion)
+        .multiply(newBogiesQuaternion)
+    ));
+  });
+
+  // ボギーを含むCarBodyの位置と向きをジョイントに合わせる
+  syncOtherBodies(train);
+
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();
     let jointCount = 0;

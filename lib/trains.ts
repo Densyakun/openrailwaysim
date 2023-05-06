@@ -449,7 +449,7 @@ export function rollAxles(train: Train, distance: number) {
           joint.otherBodyPosition
         ));
 
-        rotateBody(fromBogie, train.otherBodies[joint.otherBodyIndex], joint.bogiePosition, joint.otherBodyPosition);
+        //rotateBody(fromBogie, train.otherBodies[joint.otherBodyIndex], joint.bogiePosition, joint.otherBodyPosition);
 
         jointCount++;
       }
@@ -465,7 +465,7 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionB
         ));
 
-        rotateBody(fromBogie, toBody, joint.positionA, joint.positionB);
+        //rotateBody(fromBogie, toBody, joint.positionA, joint.positionB);
 
         jointCount++;
       } else if (fromBogieIndex === joint.bodyIndexB) {
@@ -478,7 +478,7 @@ export function rollAxles(train: Train, distance: number) {
           joint.positionA
         ));
 
-        rotateBody(fromBogie, toBody, joint.positionB, joint.positionA);
+        //rotateBody(fromBogie, toBody, joint.positionB, joint.positionA);
 
         jointCount++;
       }

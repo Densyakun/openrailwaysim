@@ -259,6 +259,79 @@ export function rotateBody(fromBody: CarBody, toBody: CarBody, fromPosition: THR
   ));
 }
 
+export function calcJointsToRotateBody(train: Train) {
+  train.bogies.forEach((_, fromBogieIndex) => {
+    let fromJointZ = 0
+    let toJointZ = 0
+    let fromJointIndex = -1
+    let toJointIndex = -1
+
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+      if (fromBogieIndex === joint.bogieIndex) {
+        if (fromJointIndex === -1 || joint.bogiePosition.z < fromJointZ) {
+          fromJointZ = joint.bogiePosition.z
+          fromJointIndex = jointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.bogiePosition.z) {
+          toJointZ = joint.bogiePosition.z
+          toJointIndex = jointIndex
+        }
+      }
+    })
+
+    train.fromJointIndexes[fromBogieIndex] = fromJointIndex
+    train.toJointIndexes[fromBogieIndex] = toJointIndex
+  })
+  train.otherBodies.forEach((_, fromOtherBodyIndex) => {
+    let fromJointZ = 0
+    let toJointZ = 0
+    let fromJointIndex = -1
+    let toJointIndex = -1
+
+    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+      if (fromOtherBodyIndex === joint.otherBodyIndex) {
+        if (fromJointIndex === -1 || joint.otherBodyPosition.z < fromJointZ) {
+          fromJointZ = joint.otherBodyPosition.z
+          fromJointIndex = jointIndex
+        }
+        if (toJointIndex === -1 || toJointZ < joint.otherBodyPosition.z) {
+          toJointZ = joint.otherBodyPosition.z
+          toJointIndex = jointIndex
+        }
+      }
+    })
+    // otherJointsはボールジョイントのため、otherBodyの向きは、otherBodyに合わせないが、
+    // 連結器のような、BogieとジョイントされていないotherBodyは、ジョイントされたotherBodyに合わせる。
+    const fromBodyIndex = train.bogies.length + fromOtherBodyIndex
+    if (fromJointIndex === -1 || toJointIndex === -1) {
+      train.otherJoints.forEach((joint, otherJointIndex) => {
+        if (fromBodyIndex === joint.bodyIndexA) {
+          if (fromJointIndex === -1 || joint.positionA.z < fromJointZ && train.bodySupporterJoints.length <= fromJointIndex) {
+            fromJointZ = joint.positionA.z
+            fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+          }
+          if (toJointIndex === -1 || toJointZ < joint.positionA.z && train.bodySupporterJoints.length <= fromJointIndex) {
+            toJointZ = joint.positionA.z
+            toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+          }
+        } else if (fromBodyIndex === joint.bodyIndexB) {
+          if (fromJointIndex === -1 || joint.positionB.z < fromJointZ && train.bodySupporterJoints.length <= fromJointIndex) {
+            fromJointZ = joint.positionB.z
+            fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+          }
+          if (toJointIndex === -1 || toJointZ < joint.positionB.z && train.bodySupporterJoints.length <= fromJointIndex) {
+            toJointZ = joint.positionB.z
+            toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+          }
+        }
+      })
+    }
+
+    train.fromJointIndexes[fromBodyIndex] = fromJointIndex
+    train.toJointIndexes[fromBodyIndex] = toJointIndex
+  })
+}
+
 export function syncOtherBodies(train: Train) {
   // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
@@ -328,6 +401,38 @@ export function syncOtherBodies(train: Train) {
           toJointEuler = train.bogies[joint.bogieIndex].rotation;
           toJointPosition = train.bogies[joint.bogieIndex].position.clone()
             .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+        }
+      }
+    });
+    train.otherJoints.forEach((joint, otherJointIndex) => {
+      const jointIndex = train.bodySupporterJoints.length + otherJointIndex;
+      if (fromBodyIndex === joint.bodyIndexA) {
+        const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
+
+        //rotateBody(fromBody, toBody, joint.positionA, joint.positionB);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = toBody.rotation;
+          fromJointPosition = toBody.position.clone()
+            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = toBody.rotation;
+          toJointPosition = toBody.position.clone()
+            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+        }
+      } else if (fromBodyIndex === joint.bodyIndexB) {
+        const toBody = getBodyFromBodyIndex(train, joint.bodyIndexA);
+
+        //rotateBody(fromBody, toBody, joint.positionB, joint.positionA);
+        if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
+          fromJointEuler = toBody.rotation;
+          fromJointPosition = toBody.position.clone()
+            .add(joint.positionA.clone().applyEuler(toBody.rotation));
+        }
+        if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
+          toJointEuler = toBody.rotation;
+          toJointPosition = toBody.position.clone()
+            .add(joint.positionA.clone().applyEuler(toBody.rotation));
         }
       }
     });

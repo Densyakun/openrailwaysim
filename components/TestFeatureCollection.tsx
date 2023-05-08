@@ -5,7 +5,7 @@ import pointOnFeature from '@turf/point-on-feature'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength, state as gisState } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody, syncOtherBodies } from '@/lib/trains'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody, syncOtherBodies, calcJointsToRotateBody } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { useFrame } from '@react-three/fiber'
@@ -47,72 +47,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
     },
   }
 
-  train.bogies.forEach((fromBogie, fromBogieIndex) => {
-    let fromJointZ = 0
-    let toJointZ = 0
-    let fromJointIndex = -1
-    let toJointIndex = -1
-
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
-      if (fromBogieIndex === joint.bogieIndex) {
-        if (fromJointIndex === -1 || joint.bogiePosition.z < fromJointZ) {
-          fromJointZ = joint.bogiePosition.z
-          fromJointIndex = jointIndex
-        }
-        if (toJointIndex === -1 || toJointZ < joint.bogiePosition.z) {
-          toJointZ = joint.bogiePosition.z
-          toJointIndex = jointIndex
-        }
-      }
-    })
-
-    train.fromJointIndexes[fromBogieIndex] = fromJointIndex
-    train.toJointIndexes[fromBogieIndex] = toJointIndex
-  })
-  train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
-    let fromJointZ = 0
-    let toJointZ = 0
-    let fromJointIndex = -1
-    let toJointIndex = -1
-
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
-      if (fromOtherBodyIndex === joint.otherBodyIndex) {
-        if (fromJointIndex === -1 || joint.otherBodyPosition.z < fromJointZ) {
-          fromJointZ = joint.otherBodyPosition.z
-          fromJointIndex = jointIndex
-        }
-        if (toJointIndex === -1 || toJointZ < joint.otherBodyPosition.z) {
-          toJointZ = joint.otherBodyPosition.z
-          toJointIndex = jointIndex
-        }
-      }
-    })
-    const fromBodyIndex = fromOtherBodyIndex + train.bogies.length
-    train.otherJoints.forEach((joint, otherJointIndex) => {
-      if (fromBodyIndex === joint.bodyIndexA) {
-        if (fromJointIndex === -1 || joint.positionA.z < fromJointZ) {
-          fromJointZ = joint.positionA.z
-          fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
-        }
-        if (toJointIndex === -1 || toJointZ < joint.positionA.z) {
-          toJointZ = joint.positionA.z
-          toJointIndex = train.bodySupporterJoints.length + otherJointIndex
-        }
-      } else if (fromBodyIndex === joint.bodyIndexB) {
-        if (fromJointIndex === -1 || joint.positionB.z < fromJointZ) {
-          fromJointZ = joint.positionB.z
-          fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
-        }
-        if (toJointIndex === -1 || toJointZ < joint.positionB.z) {
-          toJointZ = joint.positionB.z
-          toJointIndex = train.bodySupporterJoints.length + otherJointIndex
-        }
-      }
-    })
-
-    train.fromJointIndexes[train.bogies.length + fromOtherBodyIndex] = fromJointIndex
-    train.toJointIndexes[train.bogies.length + fromOtherBodyIndex] = toJointIndex
-  })
+  calcJointsToRotateBody(train)
 
   syncOtherBodies(train)
 

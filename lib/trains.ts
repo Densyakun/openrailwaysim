@@ -84,7 +84,6 @@ export function getSegmentCacheFromAxle(axle: Axle) {
 
 export function getAxlePosition(train: Train, axle: Axle) {
   const { pointOnTrack: { length } } = axle;
-  updateSegmentCacheToAxle(axle); // TODO 輪軸を移動するときに設定する
 
   const axleRelativePosition = getPositionFromLength(getSegmentCacheFromAxle(axle), length);
 
@@ -475,7 +474,10 @@ export function rollAxles(train: Train, distance: number) {
     center.add(bogie.position);
 
     // 輪軸を転がす
-    bogie.axles.forEach(axle => axle.pointOnTrack.length += distance);
+    bogie.axles.forEach(axle => {
+      axle.pointOnTrack.length += distance;
+      updateSegmentCacheToAxle(axle);
+    });
 
     // ボギーを輪軸に合わせる
     bogieToAxles(train, bogie);

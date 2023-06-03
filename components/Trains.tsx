@@ -61,7 +61,7 @@ export default function Bogies() {
             position={position}
             rotation={rotation}
           >
-            <Instance rotation={[0, 0, Math.PI / 2]} />
+            <Instance />
           </group>
         </FeatureObject>
       )
@@ -90,7 +90,7 @@ export default function Bogies() {
             position={position}
             rotation={rotation}
           >
-            <Instance rotation={[0, 0, Math.PI / 2]} />
+            <Instance />
           </group>
         </FeatureObject>
       )
@@ -104,7 +104,7 @@ export default function Bogies() {
         receiveShadow
         castShadow
       >
-        <boxGeometry args={[1, 1, 1]} />
+        <boxGeometry args={[1, 0.3, 3]} />
         <meshStandardMaterial />
         {bogieInstances}
       </Instances>
@@ -137,7 +137,7 @@ export default function Bogies() {
         receiveShadow
         castShadow
       >
-        <boxGeometry args={[1, 1, 1]} />
+        <boxGeometry args={[1, 0.3, 3]} />
         <meshStandardMaterial />
         {otherBodyInstances}
       </Instances>

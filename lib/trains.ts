@@ -130,7 +130,7 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
 
   let forward: THREE.Vector3;
   if (2 <= bogie.axles.length) {
-    forward = lastAxlePosition.sub(firstAxlePosition).normalize();
+    forward = firstAxlePosition.sub(lastAxlePosition).normalize();
   } else {
     const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[0]);
     forward = nextPoint.clone().sub(point).normalize();

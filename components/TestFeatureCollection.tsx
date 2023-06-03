@@ -49,6 +49,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
 
   calcJointsToRotateBody(train)
 
+  // 連結器の向きを反転させないため
   placeTrain(train)
 
   return train

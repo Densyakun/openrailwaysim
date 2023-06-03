@@ -569,6 +569,7 @@ export function rollAxles(train: Train, distance: number) {
     axlesToBogie(train, fromBogie);
   });
 
+  // 連結器の向きを反転させないため
   //placeTrain(train);
   train.bogies.forEach(bogie => bogieToAxles(train, bogie));
 

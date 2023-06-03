@@ -235,6 +235,69 @@ function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): T
   )
 }
 
+function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, length = 0): Train {
+  const carLengthHalf = 20 / 2
+  const couplerLengthHalf = 0.92
+  const distanceBetweenBogiesHalf = 13.8 / 2
+  const wheelbaseHalf = 2.1 / 2
+
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+    ],
+    [
+      createCarBody(),
+      createCarBody(),
+    ],
+    [
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, -1, distanceBetweenBogiesHalf),
+        bogieIndex: 0,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, -1, couplerLengthHalf - carLengthHalf),
+        bogieIndex: 1,
+        bogiePosition: new THREE.Vector3(0, 0, couplerLengthHalf),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, -1, carLengthHalf - couplerLengthHalf),
+        bogieIndex: 1,
+        bogiePosition: new THREE.Vector3(0, 0, -couplerLengthHalf),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
+        bogieIndex: 2,
+        bogiePosition: new THREE.Vector3(),
+      },
+    ],
+  )
+}
+
 export default function TestFeatureCollection() {
   React.useEffect(() => {
     const featureCollection_: FeatureCollection = featureCollection
@@ -260,7 +323,8 @@ export default function TestFeatureCollection() {
       //createTestTwoAxlesCar(tracksState.projectedLines[1]),
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
       //createTestTwoBogiesCar(tracksState.projectedLines[1]),
-      createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
+      //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
+      createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(

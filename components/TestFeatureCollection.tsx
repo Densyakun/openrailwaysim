@@ -298,6 +298,42 @@ function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, length 
   )
 }
 
+function createTestMalletLocomotive(projectedLine: ProjectedLine, length = 0): Train {
+  const distanceBetweenBogiesHalf = 13.8 / 2
+  const wheelbaseHalf = 2.1 / 2
+
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
+        [
+          wheelbaseHalf,
+          -wheelbaseHalf,
+        ],
+      ),
+    ],
+    [
+    ],
+    [
+    ],
+    [
+      {
+        bodyIndexA: 0,
+        positionA: new THREE.Vector3(0, 0, -distanceBetweenBogiesHalf),
+        bodyIndexB: 1,
+        positionB: new THREE.Vector3(0, 0, distanceBetweenBogiesHalf),
+      },
+    ],
+  )
+}
+
 export default function TestFeatureCollection() {
   React.useEffect(() => {
     const featureCollection_: FeatureCollection = featureCollection
@@ -324,7 +360,8 @@ export default function TestFeatureCollection() {
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
       //createTestTwoBogiesCar(tracksState.projectedLines[1]),
       //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
-      createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
+      //createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
+      createTestMalletLocomotive(tracksState.projectedLines[1]),
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(

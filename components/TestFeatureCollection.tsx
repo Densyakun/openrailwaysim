@@ -240,6 +240,21 @@ export default function TestFeatureCollection() {
     featureCollectionsState.featureCollections = addNewIdArray([{ value: featureCollection_ }])
     tracksState.projectedLines = addNewIdArray(getProjectedLines(featureCollection_))
 
+    // Loop line test
+    const points = []
+    const radius = 20
+    const pointCount = 64
+    const loopCount = 2
+    const euler = new THREE.Euler(0.5)
+    for (let i = 0; i < pointCount * loopCount; i++) {
+      points[i] = new THREE.Vector3(
+        Math.cos(Math.PI * 2 * i / pointCount) * radius,
+        0,
+        Math.sin(Math.PI * 2 * i / pointCount) * radius
+      ).applyEuler(euler)
+    }
+    tracksState.projectedLines[1].points = points
+
     trainsState.trains = addNewIdArray([
       //createTestTwoAxlesCar(tracksState.projectedLines[1]),
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
@@ -248,7 +263,8 @@ export default function TestFeatureCollection() {
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(
-      pointOnFeature(featureCollection_).geometry.coordinates
+      //pointOnFeature(featureCollection_).geometry.coordinates
+      tracksState.projectedLines[1].centerCoordinate
     )))
   }, [])
 

@@ -5,7 +5,7 @@ import pointOnFeature from '@turf/point-on-feature'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength, state as gisState } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody, syncOtherBodies, calcJointsToRotateBody } from '@/lib/trains'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, getFromPosition, rotateBody, syncOtherBodies, calcJointsToRotateBody, placeTrain } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { useFrame } from '@react-three/fiber'
@@ -49,7 +49,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
 
   calcJointsToRotateBody(train)
 
-  syncOtherBodies(train)
+  placeTrain(train)
 
   return train
 }
@@ -243,8 +243,8 @@ export default function TestFeatureCollection() {
     trainsState.trains = addNewIdArray([
       //createTestTwoAxlesCar(tracksState.projectedLines[1]),
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
-      createTestTwoBogiesCar(tracksState.projectedLines[1]),
-      //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
+      //createTestTwoBogiesCar(tracksState.projectedLines[1]),
+      createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(

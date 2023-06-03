@@ -465,6 +465,14 @@ export function syncOtherBodies(train: Train) {
   });
 }
 
+export function placeTrain(train: Train) {
+  train.bogies.forEach(bogie => bogieToAxles(train, bogie));
+
+  syncOtherBodies(train);
+
+  train.bogies.forEach(fromBogie => axlesToBogie(train, fromBogie));
+}
+
 export function rollAxles(train: Train, distance: number) {
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
@@ -560,6 +568,9 @@ export function rollAxles(train: Train, distance: number) {
     // 輪軸をボギーに合わせる
     axlesToBogie(train, fromBogie);
   });
+
+  //placeTrain(train);
+  train.bogies.forEach(bogie => bogieToAxles(train, bogie));
 
   // A ボギーとジョイントしていないCarBody（=連結器のような中間のotherBody）の位置を、それぞれのジョイントから求める
   /*train.otherJoints.forEach(joint => {

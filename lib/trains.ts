@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { proxy } from "valtio";
-import { ProjectedLineAndLength, getRelativePosition, GlobalPositionEuler, eulerToCoordinate } from './gis';
+import { ProjectedLineAndLength, getRelativePosition, eulerToCoordinate } from './gis';
 import { getPositionFromLength, getSegment, Segment } from "./projectedLine";
 import { IdentifiedRecord } from './saveData';
 
@@ -42,7 +42,7 @@ export type Train = {
   otherJoints: Joint[];
   fromJointIndexes: number[];
   toJointIndexes: number[];
-  position: GlobalPositionEuler; // TODO elevationを使っていない
+  globalPosition: THREE.Euler;
 };
 
 export const state = proxy<{
@@ -61,17 +61,15 @@ export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3)
   otherBodies.forEach(body => body.position.add(vector));
 }
 
-export function moveGlobalPositionOfTrain(train: Train, newPosition: GlobalPositionEuler) {
+export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler) {
   const relativePosition = getRelativePosition(
-    eulerToCoordinate(newPosition.euler),
-    train.position.euler,
-    undefined,
-    newPosition.elevation - train.position.elevation,
+    eulerToCoordinate(newPosition),
+    train.globalPosition,
   );
 
   moveTrain(train, relativePosition);
 
-  train.position = newPosition;
+  train.globalPosition = newPosition;
 }
 
 export function updateSegmentCacheToAxle(axle: Axle) {
@@ -89,9 +87,7 @@ export function getAxlePosition(train: Train, axle: Axle) {
 
   const globalTrackRelativePosition = getRelativePosition(
     axle.pointOnTrack.projectedLine.centerCoordinate,
-    train.position.euler,
-    undefined,
-    train.position.elevation,
+    train.globalPosition,
   );
 
   return globalTrackRelativePosition.add(axleRelativePosition);
@@ -171,9 +167,7 @@ export function axlesToBogie(train: Train, bogie: Bogie) {
 
     const globalTrackRelativePosition = getRelativePosition(
       axle.pointOnTrack.projectedLine.centerCoordinate,
-      train.position.euler,
-      undefined,
-      train.position.elevation,
+      train.globalPosition,
     );
 
     axle.pointOnTrack.length = lengthFromStartingPointToNextPoint

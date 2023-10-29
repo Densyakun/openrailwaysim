@@ -14,11 +14,6 @@ export type GlobalTransform = {
   elevation: number;
 }
 
-export type GlobalPositionEuler = {
-  euler: THREE.Euler;
-  elevation: number;
-}
-
 export const state = proxy<{
   originTransform: GlobalTransform;
 }>({

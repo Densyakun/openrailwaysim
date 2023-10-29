@@ -42,10 +42,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
     otherJoints,
     fromJointIndexes: [],
     toJointIndexes: [],
-    position: {
-      euler: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
-      elevation: 0,
-    },
+    globalPosition: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
   }
 
   calcJointsToRotateBody(train)

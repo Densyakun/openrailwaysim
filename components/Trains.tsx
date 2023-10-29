@@ -51,7 +51,7 @@ export default function Bogies() {
   const otherBodyInstances: JSX.Element[] = [];
 
   (trains as (IdentifiedRecord & Train)[]).forEach(train => {
-    const centerCoordinate = eulerToCoordinate(train.position.euler)
+    const centerCoordinate = eulerToCoordinate(train.globalPosition)
 
     train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {
       bogieInstances.push(

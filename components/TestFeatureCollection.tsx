@@ -9,6 +9,7 @@ import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as tr
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { useFrame } from '@react-three/fiber'
+import { state } from './SunAndSky'
 
 function createCarBody(): CarBody {
   return {
@@ -334,6 +335,178 @@ function createTestMalletLocomotive(projectedLine: ProjectedLine, length = 0): T
   )
 }
 
+function createTestShikiSeries700(projectedLine: ProjectedLine, length = 0): Train {
+  return createTrain(
+    [
+      createBogie(
+        { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 + 2.61 },
+        [
+          0.64 + 1.2,
+          0.64,
+          -0.56,
+          -0.56 - 1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 - 2.55 },
+        [
+          0.6 + 1.2,
+          0.6,
+          -0.6,
+          -0.6 - 1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 + 0.8 + 1.2 },
+        [
+          1.2,
+          0,
+          -1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 - 0.8 - 1.2 },
+        [
+          1.2,
+          0,
+          -1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 + 0.8 + 1.2 },
+        [
+          1.2,
+          0,
+          -1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 - 0.8 - 1.2 },
+        [
+          1.2,
+          0,
+          -1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 + 2.55 },
+        [
+          0.6 + 1.2,
+          0.6,
+          -0.6,
+          -0.6 - 1.2,
+        ],
+      ),
+      createBogie(
+        { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 - 2.61 },
+        [
+          0.56 + 1.2,
+          0.56,
+          -0.64,
+          -0.64 - 1.2,
+        ],
+      ),
+    ],
+    [
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+      createCarBody(),
+    ],
+    [
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, -1, 2.6),
+        bogieIndex: 0,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 0,
+        otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
+        bogieIndex: 1,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+        bogieIndex: 2,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 1,
+        otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+        bogieIndex: 3,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 2,
+        otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+        bogieIndex: 4,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 2,
+        otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+        bogieIndex: 5,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 3,
+        otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
+        bogieIndex: 6,
+        bogiePosition: new THREE.Vector3(),
+      },
+      {
+        otherBodyIndex: 3,
+        otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
+        bogieIndex: 7,
+        bogiePosition: new THREE.Vector3(),
+      },
+    ],
+    [
+      {
+        bodyIndexA: 8,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 12,
+        positionB: new THREE.Vector3(0, 0, 1.6 + 4.07),
+      },
+      {
+        bodyIndexA: 9,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 12,
+        positionB: new THREE.Vector3(0, 0, 1.6 - 5.48),
+      },
+      {
+        bodyIndexA: 10,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 13,
+        positionB: new THREE.Vector3(0, 0, -1.6 + 5.48),
+      },
+      {
+        bodyIndexA: 11,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 13,
+        positionB: new THREE.Vector3(0, 0, -1.6 - 4.07),
+      },
+      {
+        bodyIndexA: 12,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 14,
+        positionB: new THREE.Vector3(0, 0, 12.6),
+      },
+      {
+        bodyIndexA: 13,
+        positionA: new THREE.Vector3(),
+        bodyIndexB: 14,
+        positionB: new THREE.Vector3(0, 0, -12.6),
+      },
+    ],
+  )
+}
+
 export default function TestFeatureCollection() {
   React.useEffect(() => {
     const featureCollection_: FeatureCollection = featureCollection
@@ -361,13 +534,16 @@ export default function TestFeatureCollection() {
       //createTestTwoBogiesCar(tracksState.projectedLines[1]),
       //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
       //createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
-      createTestMalletLocomotive(tracksState.projectedLines[1]),
+      //createTestMalletLocomotive(tracksState.projectedLines[1]),
+      createTestShikiSeries700(tracksState.projectedLines[1]),
     ])
 
     gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(
       //pointOnFeature(featureCollection_).geometry.coordinates
       tracksState.projectedLines[1].centerCoordinate
     )))
+
+    state.elevation = 1
   }, [])
 
   useFrame(({ }, delta) => {

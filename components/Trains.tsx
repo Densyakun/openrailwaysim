@@ -18,7 +18,7 @@ function WheelAndAxleModel(props: any) {
   )
 }
 
-export default function Bogies() {
+export default function Trains() {
   const bogieGroupsRef = React.useRef<(THREE.Group | null)[]>([])
   const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
   const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])

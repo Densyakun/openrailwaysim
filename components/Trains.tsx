@@ -111,7 +111,7 @@ export default function Trains() {
       {/*(trains as (IdentifiedRecord & Train)[]).map(train => (
         <>
           {train.bogies.map(({ axles }, bogieIndex) => (
-            <FeatureObject key={bogieIndex} centerCoordinate={eulerToCoordinate(train.position.euler)}>
+            <FeatureObject key={bogieIndex} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
               {axles.map(({ position, rotation }, axleIndex) => (
                 <WheelAndAxleModel
                   key={axleIndex}

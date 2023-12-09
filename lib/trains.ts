@@ -68,6 +68,8 @@ export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler
   const relativePosition = getRelativePosition(
     eulerToCoordinate(newPosition),
     train.globalPosition,
+    undefined,
+    0
   );
 
   moveTrain(train, relativePosition);
@@ -91,6 +93,8 @@ export function getAxlePosition(train: Train, axle: Axle) {
   const globalTrackRelativePosition = getRelativePosition(
     axle.pointOnTrack.projectedLine.centerCoordinate,
     train.globalPosition,
+    undefined,
+    0
   );
 
   return globalTrackRelativePosition.add(axleRelativePosition);
@@ -165,6 +169,8 @@ export function axlesToBogie(train: Train, bogie: Bogie) {
     const globalTrackRelativePosition = getRelativePosition(
       axle.pointOnTrack.projectedLine.centerCoordinate,
       train.globalPosition,
+      undefined,
+      0
     );
 
     axle.pointOnTrack.length = lengthFromStartingPointToNextPoint

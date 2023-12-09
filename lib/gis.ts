@@ -38,6 +38,16 @@ export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: nu
   )
 }
 
+export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.EventDispatcher<THREE.Event>) {
+  move(state.originTransform.quaternion, mainCamera.position.x, mainCamera.position.z)
+
+  state.originTransform.elevation += mainCamera.position.y;
+
+  ((mainControls as any).target as THREE.Vector3).sub(mainCamera.position)
+
+  mainCamera.position.set(0, 0, 0)
+}
+
 export function getOriginEuler() {
   return new THREE.Euler(0, 0, 0, 'YXZ')
     .setFromQuaternion(state.originTransform.quaternion.clone(), 'YXZ')

@@ -2,13 +2,14 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { FeatureCollection } from '@turf/helpers'
 import featureCollection from '@/data/sakurajosui.geojson'
-import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength, state as gisState } from '@/lib/gis'
+import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, calcJointsToRotateBody, placeTrain } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { useFrame } from '@react-three/fiber'
-import { state } from './SunAndSky'
+import { state as skyState } from './SunAndSky'
+import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 
 function createCarBody(): CarBody {
   return {
@@ -534,12 +535,13 @@ export default function TestFeatureCollection() {
       createTestShikiSeries700(tracksState.projectedLines[1]),
     ])
 
-    gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(
-      //pointOnFeature(featureCollection_).geometry.coordinates
-      tracksState.projectedLines[1].centerCoordinate
-    )))
+    // Setting up the camera
+    //const targetCoordinate = pointOnFeature(featureCollection_).geometry.coordinates
+    const targetCoordinate = tracksState.projectedLines[1].centerCoordinate
+    const targetElevation = 0 < tracksState.projectedLines[1].points.length ? tracksState.projectedLines[1].points[0].y : 0
+    setCameraTargetPosition(targetCoordinate, targetElevation)
 
-    state.elevation = 1
+    //skyState.elevation = 1
   }, [])
 
   useFrame(({ }, delta) => {

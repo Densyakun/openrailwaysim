@@ -46,6 +46,7 @@ export type Train = {
   fromJointIndexes: number[];
   toJointIndexes: number[];
   globalPosition: THREE.Euler;
+  speed: number; // m/s
 };
 
 export const state = proxy<{

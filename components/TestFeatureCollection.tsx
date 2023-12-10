@@ -4,10 +4,9 @@ import { FeatureCollection } from '@turf/helpers'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, rollAxles, state as trainsState, Train, calcJointsToRotateBody, placeTrain } from '@/lib/trains'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, state as trainsState, Train, calcJointsToRotateBody, placeTrain } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
-import { useFrame } from '@react-three/fiber'
 import { state as skyState } from './SunAndSky'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 
@@ -43,6 +42,7 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
     fromJointIndexes: [],
     toJointIndexes: [],
     globalPosition: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
+    speed: 10,
   }
 
   calcJointsToRotateBody(train)
@@ -528,11 +528,12 @@ export default function TestFeatureCollection() {
     trainsState.trains = addNewIdArray([
       //createTestTwoAxlesCar(tracksState.projectedLines[1]),
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
-      //createTestTwoBogiesCar(tracksState.projectedLines[1]),
+      createTestTwoBogiesCar(tracksState.projectedLines[1]),
+      createTestTwoBogiesCar(tracksState.projectedLines[1], 100),
       //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
       //createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
       //createTestMalletLocomotive(tracksState.projectedLines[1]),
-      createTestShikiSeries700(tracksState.projectedLines[1]),
+      //createTestShikiSeries700(tracksState.projectedLines[1]),
     ])
 
     // Setting up the camera
@@ -543,12 +544,6 @@ export default function TestFeatureCollection() {
 
     //skyState.elevation = 1
   }, [])
-
-  useFrame(({ }, delta) => {
-    trainsState.trains.forEach(train =>
-      rollAxles(train, delta * 10)
-    )
-  })
 
   return null
 }

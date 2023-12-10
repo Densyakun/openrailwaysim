@@ -1,11 +1,19 @@
 import * as React from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Instance, Instances } from '@react-three/drei'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate } from '@/lib/gis'
 import { IdentifiedRecord } from '@/lib/saveData'
-import { state as trainsState, Train } from '@/lib/trains'
+import { state as trainsState, Train, rollAxles } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
+
+function BogieModel(props: any) {
+  return (
+    <mesh {...props}>
+      <boxGeometry args={[1, 0.3, 3]} />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
 
 function WheelAndAxleModel(props: any) {
   return (
@@ -18,129 +26,54 @@ function WheelAndAxleModel(props: any) {
   )
 }
 
-export default function Trains() {
-  const bogieGroupsRef = React.useRef<(THREE.Group | null)[]>([])
-  const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
-  const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])
+function OtherBodyModel(props: any) {
+  return (
+    <mesh {...props}>
+      <boxGeometry args={[1, 0.3, 3]} />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
 
+export default function Trains() {
   const { trains } = useSnapshot(trainsState)
 
-  useFrame(() => {
+  useFrame(({ }, delta) => {
     trainsState.trains.forEach(train => {
-      train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {
-        const bogieGroup = bogieGroupsRef.current[bogieIndex]
-        bogieGroup?.position.copy(position)
-        bogieGroup?.rotation.copy(rotation)
-
-        axles.forEach(({ position, rotation }, axleIndex) => {
-          const axleGroup = (axleGroupsRef.current[bogieIndex] ? axleGroupsRef.current[bogieIndex] : axleGroupsRef.current[bogieIndex] = [])[axleIndex]
-          axleGroup?.position.copy(position)
-          axleGroup?.rotation.copy(rotation)
-        })
-      })
-      train.otherBodies.forEach(({ position, rotation }, otherBodyIndex) => {
-        const otherBodyGroup = otherBodyGroupsRef.current[otherBodyIndex]
-        otherBodyGroup?.position.copy(position)
-        otherBodyGroup?.rotation.copy(rotation)
-      })
-    })
-  })
-
-  const bogieInstances: JSX.Element[] = []
-  const axleInstances: JSX.Element[] = []
-  const otherBodyInstances: JSX.Element[] = [];
-
-  (trains as (IdentifiedRecord & Train)[]).forEach(train => {
-    const centerCoordinate = eulerToCoordinate(train.globalPosition)
-
-    train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {
-      bogieInstances.push(
-        <FeatureObject key={bogieIndex} centerCoordinate={centerCoordinate}>
-          <group
-            ref={el => bogieGroupsRef.current[bogieIndex] = el}
-            position={position}
-            rotation={rotation}
-          >
-            <Instance />
-          </group>
-        </FeatureObject>
-      )
-
-      axleInstances.push(
-        <FeatureObject key={bogieIndex} centerCoordinate={centerCoordinate}>
-          {axles.map(({ position, rotation }, axleIndex) => (
-            <group
-              key={axleIndex}
-              ref={el => (axleGroupsRef.current[bogieIndex] ? axleGroupsRef.current[bogieIndex] : axleGroupsRef.current[bogieIndex] = [])[axleIndex] = el}
-              position={position}
-              rotation={rotation}
-            >
-              <Instance rotation={[0, 0, Math.PI / 2]} />
-            </group>
-          ))}
-        </FeatureObject>
-      )
-    })
-
-    train.otherBodies.forEach(({ position, rotation }, otherBodyIndex) => {
-      otherBodyInstances.push(
-        <FeatureObject key={otherBodyIndex} centerCoordinate={centerCoordinate}>
-          <group
-            ref={el => otherBodyGroupsRef.current[otherBodyIndex] = el}
-            position={position}
-            rotation={rotation}
-          >
-            <Instance />
-          </group>
-        </FeatureObject>
-      )
+      // Run a trains
+      rollAxles(train, train.speed * delta)
     })
   })
 
   return (
     <>
-      <Instances
-        limit={1000}
-        receiveShadow
-        castShadow
-      >
-        <boxGeometry args={[1, 0.3, 3]} />
-        <meshStandardMaterial />
-        {bogieInstances}
-      </Instances>
-      {/*(trains as (IdentifiedRecord & Train)[]).map(train => (
-        <>
-          {train.bogies.map(({ axles }, bogieIndex) => (
-            <FeatureObject key={bogieIndex} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
-              {axles.map(({ position, rotation }, axleIndex) => (
+      {(trains as (IdentifiedRecord & Train)[]).map((train, trainIndex) => (
+        <FeatureObject key={trainIndex} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
+          {train.bogies.map(({ position: bogiePosition, rotation: bogieRotation, axles }, bogieIndex) => (
+            <>
+              <BogieModel
+                key={bogieIndex}
+                position={bogiePosition.clone()}
+                rotation={bogieRotation.clone()}
+              />
+              {axles.map(({ position: axlePosition, rotation: axleRotation }, axleIndex) => (
                 <WheelAndAxleModel
                   key={axleIndex}
-                  position={position}
-                  rotation={rotation}
+                  position={axlePosition.clone()}
+                  rotation={axleRotation.clone()}
                 />
               ))}
-            </FeatureObject>
+            </>
           ))}
-        </>
-      ))*/}
-      <Instances
-        limit={1000}
-        receiveShadow
-        castShadow
-      >
-        <cylinderGeometry args={[0.43, 0.43, 1.267, 8]} />
-        <meshStandardMaterial />
-        {axleInstances}
-      </Instances>
-      <Instances
-        limit={1000}
-        receiveShadow
-        castShadow
-      >
-        <boxGeometry args={[1, 0.3, 3]} />
-        <meshStandardMaterial />
-        {otherBodyInstances}
-      </Instances>
+          {train.otherBodies.map(({ position, rotation }, otherBodieIndex) => (
+            <OtherBodyModel
+              key={otherBodieIndex}
+              position={position.clone()}
+              rotation={rotation.clone()}
+            />
+          ))}
+        </FeatureObject>
+      ))}
     </>
   )
 }

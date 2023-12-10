@@ -51,8 +51,16 @@ export type Train = {
 
 export const state = proxy<{
   trains: (IdentifiedRecord & Train)[];
+  hoveredTrainIndex: number;
+  hoveredBogieIndex: number;
+  activeTrainIndex: number;
+  activeBogieIndex: number;
 }>({
   trains: [],
+  hoveredTrainIndex: -1,
+  hoveredBogieIndex: -1,
+  activeTrainIndex: -1,
+  activeBogieIndex: -1,
 });
 
 export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3) {

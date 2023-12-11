@@ -17,9 +17,26 @@ export type CarBody = {
   rotation: THREE.Euler;
 }
 
+export type UIOneHandleMasterControllerConfig = {
+  steps: number[];
+  marks: {
+    value: number,
+    label: string,
+  }[];
+  maxValue: number;
+  nValue: number;
+  stepRangeList: [number, number][];
+};
+
+export type OneHandleMasterController = {
+  value: number;
+  uiOptionsIndex: number;
+};
+
 // 台車。CarBodyの一種
 export type Bogie = CarBody & {
   axles: Axle[];
+  masterControllers: OneHandleMasterController[];
 };
 
 // BogieとotherBodyを接続するジョイント
@@ -55,12 +72,14 @@ export const state = proxy<{
   hoveredBogieIndex: number;
   activeTrainIndex: number;
   activeBogieIndex: number;
+  uiOneHandleMasterControllerConfigs: UIOneHandleMasterControllerConfig[];
 }>({
   trains: [],
   hoveredTrainIndex: -1,
   hoveredBogieIndex: -1,
   activeTrainIndex: -1,
   activeBogieIndex: -1,
+  uiOneHandleMasterControllerConfigs: [],
 });
 
 export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3) {

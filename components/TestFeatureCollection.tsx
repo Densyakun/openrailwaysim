@@ -4,7 +4,7 @@ import { FeatureCollection } from '@turf/helpers'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { coordinateToEuler, getProjectedLines, ProjectedLine, ProjectedLineAndLength } from '@/lib/gis'
 import { addNewIdArray } from '@/lib/saveData'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, state as trainsState, Train, calcJointsToRotateBody, placeTrain } from '@/lib/trains'
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, state as trainsState, Train, calcJointsToRotateBody, placeTrain, UIOneHandleMasterControllerConfig, OneHandleMasterController } from '@/lib/trains'
 import { state as featureCollectionsState } from './FeatureCollections'
 import { state as tracksState } from './Tracks'
 import { state as skyState } from './SunAndSky'
@@ -17,7 +17,7 @@ function createCarBody(): CarBody {
   }
 }
 
-function createBogie({ projectedLine, length }: ProjectedLineAndLength, axlesZ: number[]): Bogie {
+function createBogie({ projectedLine, length }: ProjectedLineAndLength, axlesZ: number[], masterControllers: OneHandleMasterController[] = []): Bogie {
   return {
     ...createCarBody(),
     axles: axlesZ.map(z => ({
@@ -26,6 +26,7 @@ function createBogie({ projectedLine, length }: ProjectedLineAndLength, axlesZ: 
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
     })),
+    masterControllers,
   }
 }
 
@@ -53,7 +54,71 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
   return train
 }
 
-function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train {
+function createUIOneHandleMasterControllerConfig(): UIOneHandleMasterControllerConfig {
+  return {
+    steps: [
+      9,
+      12,
+      15,
+      18,
+      20,
+      22,
+      24,
+      26,
+      29,
+    ],
+    marks: [
+      {
+        value: 9,
+        label: '50K',
+      },
+      {
+        value: 12,
+        label: 'ON',
+      },
+      {
+        value: 15,
+        label: 'N',
+      },
+      {
+        value: 18,
+        label: 'B1',
+      },
+      {
+        value: 20,
+        label: 'B2',
+      },
+      {
+        value: 22,
+        label: 'B3',
+      },
+      {
+        value: 24,
+        label: 'B4',
+      },
+      {
+        value: 26,
+        label: 'B5',
+      },
+      {
+        value: 29,
+        label: 'E',
+      },
+    ],
+    maxValue: 29,
+    nValue: 15,
+    stepRangeList: [[9, 29]],
+  }
+}
+
+function createOneHandleMasterController(uiOptionsIndex: number): OneHandleMasterController {
+  return {
+    uiOptionsIndex,
+    value: trainsState.uiOneHandleMasterControllerConfigs[uiOptionsIndex].maxValue,
+  }
+}
+
+function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0, uiMasterControllerOptionsIndex: number): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
 
   return createTrain(
@@ -64,6 +129,7 @@ function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0): Train 
           distanceBetweenBogiesHalf,
           -distanceBetweenBogiesHalf,
         ],
+        [createOneHandleMasterController(uiMasterControllerOptionsIndex)],
       ),
     ],
   )
@@ -525,11 +591,16 @@ export default function TestFeatureCollection() {
     }
     tracksState.projectedLines[1].points = points
 
+    trainsState.uiOneHandleMasterControllerConfigs = [
+      createUIOneHandleMasterControllerConfig(),
+    ];
+
     trainsState.trains = addNewIdArray([
-      //createTestTwoAxlesCar(tracksState.projectedLines[1]),
+      createTestTwoAxlesCar(tracksState.projectedLines[1], 0, 0),
+      createTestTwoAxlesCar(tracksState.projectedLines[1], 100, 0),
       //createTestTwoAxlesCarWithBogies(tracksState.projectedLines[1]),
-      createTestTwoBogiesCar(tracksState.projectedLines[1]),
-      createTestTwoBogiesCar(tracksState.projectedLines[1], 100),
+      //createTestTwoBogiesCar(tracksState.projectedLines[1]),
+      //createTestTwoBogiesCar(tracksState.projectedLines[1], 100),
       //createTestTwoBogiesTwoCars(tracksState.projectedLines[1]),
       //createTestTwoCarsWithJacobsBogies(tracksState.projectedLines[1]),
       //createTestMalletLocomotive(tracksState.projectedLines[1]),

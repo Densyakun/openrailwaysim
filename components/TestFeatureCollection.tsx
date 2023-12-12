@@ -55,6 +55,93 @@ function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporter
 }
 
 function createUIOneHandleMasterControllerConfig(): UIOneHandleMasterControllerConfig {
+  //return createUIKeiseiAESeriesMasterController()
+  return createUISotetsu20000SeriesMasterController()
+}
+
+function createUISotetsu20000SeriesMasterController(): UIOneHandleMasterControllerConfig {
+  return {
+    steps: [
+      0,
+      4,
+      8,
+      12,
+      16,
+      19,
+      21,
+      23,
+      25,
+      27,
+      29,
+      31,
+      34,
+      37,
+    ],
+    marks: [
+      {
+        value: 0,
+        label: 'P4',
+      },
+      {
+        value: 4,
+        label: 'P3',
+      },
+      {
+        value: 8,
+        label: 'P2',
+      },
+      {
+        value: 12,
+        label: 'P1',
+      },
+      {
+        value: 16,
+        label: '切',
+      },
+      {
+        value: 19,
+        label: 'B1',
+      },
+      {
+        value: 21,
+        label: 'B2',
+      },
+      {
+        value: 23,
+        label: 'B3',
+      },
+      {
+        value: 25,
+        label: 'B4',
+      },
+      {
+        value: 27,
+        label: 'B5',
+      },
+      {
+        value: 29,
+        label: 'B6',
+      },
+      {
+        value: 31,
+        label: 'B7',
+      },
+      {
+        value: 34,
+        label: '非常',
+      },
+      {
+        value: 37,
+        label: '抜取',
+      },
+    ],
+    maxValue: 37,
+    nValue: 16,
+    stepRangeList: [[0, 37]],
+  }
+}
+
+function createUIKeiseiAESeriesMasterController(): UIOneHandleMasterControllerConfig {
   return {
     steps: [
       9,

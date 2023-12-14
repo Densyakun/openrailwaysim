@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { eulerToCoordinate, state as gisState, move } from '@/lib/gis'
+import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
 import { IdentifiedRecord } from '@/lib/saveData'
 import { state as trainsState, Train, rollAxles, getOneHandleMasterControllerOutput, state } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
@@ -21,11 +21,11 @@ function BogieModel({ isHovered, isActive, ...props }: any) {
   )
 }
 
-function WheelAndAxleModel(props: any) {
+function WheelAndAxleModel({ diameter, rotationX, ...props }: any) {
   return (
     <group {...props}>
-      <mesh rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.43, 0.43, 1.267, 8]} />
+      <mesh rotation={[rotationX, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[diameter, diameter, 1.267, 8]} />
         <meshStandardMaterial />
       </mesh>
     </group>
@@ -113,11 +113,13 @@ export default function Trains() {
                   isActive={isActive}
                   isHovered={isHovered}
                 />
-                {axles.map(({ position: axlePosition, rotation: axleRotation }, axleIndex) => (
+                {axles.map(({ position: axlePosition, rotation: axleRotation, diameter, rotationX }, axleIndex) => (
                   <WheelAndAxleModel
                     key={axleIndex}
                     position={axlePosition.clone()}
                     rotation={axleRotation.clone()}
+                    diameter={diameter}
+                    rotationX={rotationX}
                   />
                 ))}
               </>

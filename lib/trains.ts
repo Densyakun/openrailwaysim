@@ -10,28 +10,14 @@ export type Axle = {
   segment?: Segment;
   position: THREE.Vector3;
   rotation: THREE.Euler;
+  diameter: number;
+  rotationX: number;
 };
 
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
 }
-
-export type UIOneHandleMasterControllerConfig = {
-  steps: number[];
-  marks: {
-    value: number,
-    label: string,
-  }[];
-  maxValue: number;
-  nValue: number;
-  stepRangeList: [number, number][];
-};
-
-export type OneHandleMasterController = {
-  value: number;
-  uiOptionsIndex: number;
-};
 
 // 台車。CarBodyの一種
 export type Bogie = CarBody & {
@@ -461,6 +447,7 @@ export function rollAxles(train: Train, distance: number) {
     bogie.axles.forEach(axle => {
       axle.pointOnTrack.length += distance;
       updateSegmentCacheToAxle(axle);
+      axle.rotationX += distance * axle.diameter;
     });
 
     // ボギーを輪軸に合わせる

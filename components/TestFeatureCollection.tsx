@@ -17,14 +17,23 @@ function createCarBody(): CarBody {
   }
 }
 
-function createBogie({ projectedLine, length }: ProjectedLineAndLength, axlesZ: number[], masterControllers: OneHandleMasterController[] = []): Bogie {
+function createBogie(
+  { projectedLine, length }: ProjectedLineAndLength,
+  axles: {
+    z: number,
+    diameter: number,
+  }[],
+  masterControllers: OneHandleMasterController[] = [],
+): Bogie {
   return {
     ...createCarBody(),
-    axles: axlesZ.map(z => ({
+    axles: axles.map(({ z, diameter }) => ({
       pointOnTrack: { projectedLine: projectedLine, length: length + z },
       z,
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
+      diameter,
+      rotationX: 0,
     })),
     masterControllers,
   }
@@ -213,8 +222,8 @@ function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0, uiMaste
       createBogie(
         { projectedLine: projectedLine, length: length },
         [
-          distanceBetweenBogiesHalf,
-          -distanceBetweenBogiesHalf,
+          { z: distanceBetweenBogiesHalf, diameter: 0.86 },
+          { z: -distanceBetweenBogiesHalf, diameter: 0.86 },
         ],
         [createOneHandleMasterController(uiMasterControllerOptionsIndex)],
       ),
@@ -230,13 +239,13 @@ function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, length = 
       createBogie(
         { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
         [
-          0,
+          { z: 0, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
         [
-          0,
+          { z: 0, diameter: 0.86 },
         ],
       ),
     ],
@@ -269,15 +278,15 @@ function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0): Train
       createBogie(
         { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
     ],
@@ -312,29 +321,29 @@ function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): T
       createBogie(
         { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length + carLengthHalf - distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - carLengthHalf + distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
     ],
@@ -397,22 +406,22 @@ function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, length 
       createBogie(
         { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
     ],
@@ -458,15 +467,15 @@ function createTestMalletLocomotive(projectedLine: ProjectedLine, length = 0): T
       createBogie(
         { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
         [
-          wheelbaseHalf,
-          -wheelbaseHalf,
+          { z: wheelbaseHalf, diameter: 0.86 },
+          { z: -wheelbaseHalf, diameter: 0.86 },
         ],
       ),
     ],
@@ -491,69 +500,69 @@ function createTestShikiSeries700(projectedLine: ProjectedLine, length = 0): Tra
       createBogie(
         { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 + 2.61 },
         [
-          0.64 + 1.2,
-          0.64,
-          -0.56,
-          -0.56 - 1.2,
+          { z: 0.64 + 1.2, diameter: 0.86 },
+          { z: 0.64, diameter: 0.86 },
+          { z: -0.56, diameter: 0.86 },
+          { z: -0.56 - 1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 - 2.55 },
         [
-          0.6 + 1.2,
-          0.6,
-          -0.6,
-          -0.6 - 1.2,
+          { z: 0.6 + 1.2, diameter: 0.86 },
+          { z: 0.6, diameter: 0.86 },
+          { z: -0.6, diameter: 0.86 },
+          { z: -0.6 - 1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 + 0.8 + 1.2 },
         [
-          1.2,
-          0,
-          -1.2,
+          { z: 1.2, diameter: 0.86 },
+          { z: 0, diameter: 0.86 },
+          { z: -1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 - 0.8 - 1.2 },
         [
-          1.2,
-          0,
-          -1.2,
+          { z: 1.2, diameter: 0.86 },
+          { z: 0, diameter: 0.86 },
+          { z: -1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 + 0.8 + 1.2 },
         [
-          1.2,
-          0,
-          -1.2,
+          { z: 1.2, diameter: 0.86 },
+          { z: 0, diameter: 0.86 },
+          { z: -1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 - 0.8 - 1.2 },
         [
-          1.2,
-          0,
-          -1.2,
+          { z: 1.2, diameter: 0.86 },
+          { z: 0, diameter: 0.86 },
+          { z: -1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 + 2.55 },
         [
-          0.6 + 1.2,
-          0.6,
-          -0.6,
-          -0.6 - 1.2,
+          { z: 0.6 + 1.2, diameter: 0.86 },
+          { z: 0.6, diameter: 0.86 },
+          { z: -0.6, diameter: 0.86 },
+          { z: -0.6 - 1.2, diameter: 0.86 },
         ],
       ),
       createBogie(
         { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 - 2.61 },
         [
-          0.56 + 1.2,
-          0.56,
-          -0.64,
-          -0.64 - 1.2,
+          { z: 0.56 + 1.2, diameter: 0.86 },
+          { z: 0.56, diameter: 0.86 },
+          { z: -0.64, diameter: 0.86 },
+          { z: -0.64 - 1.2, diameter: 0.86 },
         ],
       ),
     ],

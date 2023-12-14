@@ -541,3 +541,30 @@ export function rollAxles(train: Train, distance: number) {
 
   train.bogies.forEach(bogie => bogieToAxles(train, bogie));
 }
+
+export type UIOneHandleMasterControllerConfig = {
+  steps: number[];
+  marks: {
+    value: number,
+    label: string,
+  }[];
+  maxValue: number;
+  nValue: number;
+  stepRangeList: [number, number][];
+};
+
+export type OneHandleMasterController = {
+  value: number;
+  uiOptionsIndex: number;
+};
+
+export function getOneHandleMasterControllerOutput(masterController: OneHandleMasterController) {
+  // TODO Call different functions depending on the vehicle
+  return getOneHandleMasterControllerSimpleOutput(masterController);
+}
+
+export function getOneHandleMasterControllerSimpleOutput(masterController: OneHandleMasterController) {
+  const config = state.uiOneHandleMasterControllerConfigs[masterController.uiOptionsIndex];
+
+  return [Math.max(0, 1 - masterController.value / config.nValue), Math.max(0, (masterController.value - config.nValue) / (config.maxValue - config.nValue))];
+}

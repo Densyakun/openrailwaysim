@@ -1,10 +1,11 @@
 import * as React from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { eulerToCoordinate } from '@/lib/gis'
+import { eulerToCoordinate, state as gisState, move } from '@/lib/gis'
 import { IdentifiedRecord } from '@/lib/saveData'
-import { state as trainsState, Train, rollAxles } from '@/lib/trains'
+import { state as trainsState, Train, rollAxles, getOneHandleMasterControllerOutput, state } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
+import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 
 function BogieModel({ isHovered, isActive, ...props }: any) {
   return (
@@ -47,6 +48,34 @@ export default function Trains() {
     trainsState.trains.forEach(train => {
       // Run a trains
       rollAxles(train, train.speed * delta)
+
+      // Track the camera to the selected bogie
+      if (state.activeBogieIndex !== -1) {
+        const selectedTrain = trains[state.activeTrainIndex]
+        const selectedBogie = selectedTrain.bogies[state.activeBogieIndex]
+        setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBogie.position.y)
+        move(gisState.originTransform.quaternion, selectedTrain.bogies[0].position.x, selectedTrain.bogies[0].position.z)
+      }
+
+      // 自動でマスコンと主制御器（Control System）を接続する
+      let accel = 0
+      let brake = 1
+      train.bogies.forEach(bogie => {
+        bogie.masterControllers.forEach(masterController => {
+          const [accel1, brake1] = getOneHandleMasterControllerOutput(masterController)
+
+          accel = Math.max(accel, accel1)
+          brake = Math.min(brake, brake1)
+        })
+      })
+
+      const acceleration = 3.0 / 3.6 // 3.0 km/h/s
+      const deceleration = 4.5 / 3.6 // 4.5 km/h/s
+      train.speed += accel * acceleration * delta
+      train.speed =
+        0 <= train.speed
+          ? Math.max(0, train.speed - brake * deceleration * delta)
+          : Math.min(0, train.speed + brake * deceleration * delta)
     })
   })
 

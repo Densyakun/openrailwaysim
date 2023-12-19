@@ -61,7 +61,7 @@ export default function ProjectionTest() {
           </mesh>
         </FeatureObject>
       ))}
-      <mesh position={new THREE.Vector3(0, -gisState.elevation, 0)}>
+      <mesh position={new THREE.Vector3(0, -gisState.originTransform.elevation, 0)}>
         <boxGeometry args={[10, 10, 10]} />
         <meshStandardMaterial color="#00f" />
       </mesh>

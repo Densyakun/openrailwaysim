@@ -1,4 +1,5 @@
 import * as React from 'react'
+import * as THREE from "three";
 import { FeatureCollection } from '@turf/helpers'
 import featureCollection from '@/data/sakurajosui.geojson'
 import { getProjectedLines } from '@/lib/gis'

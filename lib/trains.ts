@@ -18,6 +18,7 @@ export type Axle = {
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
+  pointOnTrack: ProjectedLineAndLength;
   weight: number; // ton
   masterControllers: OneHandleMasterController[];
 }
@@ -300,6 +301,44 @@ export function calcJointsToRotateBody(train: Train) {
   })
 }
 
+export function placeOtherBodies(train: Train) {
+  train.otherBodies.forEach(otherBody => {
+    const segment = getSegment(otherBody.pointOnTrack.projectedLine.points, otherBody.pointOnTrack.length);
+    const axleRelativePosition = getPositionFromLength(segment, otherBody.pointOnTrack.length);
+
+    const globalTrackRelativePosition = getRelativePosition(
+      otherBody.pointOnTrack.projectedLine.centerCoordinate,
+      train.globalPosition,
+      undefined,
+      0
+    );
+
+    otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
+
+    const { point, nextPoint } = segment;
+    const forward = nextPoint.clone().sub(point).normalize();
+    const angleY = Math.atan2(forward.x, forward.z);
+    const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
+    const angleX = Math.atan2(aVector.y, aVector.z);
+    const up = new THREE.Vector3(0, 1).applyEuler(new THREE.Euler(
+      -angleX,
+      angleY,
+      0,
+      'YXZ'
+    ));
+    const bVector = up.applyEuler(new THREE.Euler(
+      angleX,
+      -angleY
+    ));
+    otherBody.rotation.set(
+      -angleX,
+      angleY,
+      Math.atan2(-bVector.x, bVector.y),
+      'YXZ'
+    );
+  });
+}
+
 export function syncOtherBodies(train: Train) {
   // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
@@ -432,6 +471,9 @@ export function syncOtherBodies(train: Train) {
 }
 
 export function placeTrain(train: Train) {
+  // 連結器の向きを反転させないため
+  placeOtherBodies(train);
+
   train.bogies.forEach(bogie => bogieToAxles(train, bogie));
 
   syncOtherBodies(train);

@@ -5,10 +5,12 @@ import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, state as trainsState, 
 // Commons
 
 export function createCarBody(
+  pointOnTrack: ProjectedLineAndLength, // 列車を設置するときにOtherBodiesを同期する前のCarBodyを設置する線路上の位置。Jointの向きが逆にならないようにするために必要
   weight = 30,
   masterControllers: OneHandleMasterController[] = [],
 ): CarBody {
   return {
+    pointOnTrack,
     position: new THREE.Vector3(),
     rotation: new THREE.Euler(),
     weight,
@@ -17,7 +19,7 @@ export function createCarBody(
 }
 
 export function createBogie(
-  { projectedLine, length }: ProjectedLineAndLength,
+  pointOnTrack: ProjectedLineAndLength,
   axles: {
     z: number,
     diameter: number,
@@ -28,11 +30,12 @@ export function createBogie(
 ): Bogie {
   return {
     ...createCarBody(
+      pointOnTrack,
       weight,
       masterControllers,
     ),
     axles: axles.map(({ z, diameter, hasMotor }) => ({
-      pointOnTrack: { projectedLine: projectedLine, length: length + z },
+      pointOnTrack: { projectedLine: pointOnTrack.projectedLine, length: pointOnTrack.length + z },
       z,
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
@@ -63,7 +66,6 @@ export function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySu
 
   calcJointsToRotateBody(train)
 
-  // 連結器の向きを反転させないため
   placeTrain(train)
 
   return train
@@ -256,7 +258,7 @@ export function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, le
       ),
     ],
     [
-      createCarBody(),
+      createCarBody({ projectedLine, length: length }),
     ],
     [
       {
@@ -297,7 +299,7 @@ export function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0)
       ),
     ],
     [
-      createCarBody(),
+      createCarBody({ projectedLine, length: length }),
     ],
     [
       {
@@ -354,9 +356,9 @@ export function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length 
       ),
     ],
     [
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
+      createCarBody({ projectedLine, length: length + carLengthHalf }),
+      createCarBody({ projectedLine, length: length - carLengthHalf }),
+      createCarBody({ projectedLine, length: length }),
     ],
     [
       {
@@ -426,13 +428,13 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
     0, // Kuha
     1, // Moha 102
     2, // Moha 103
-    /*3, // Saha
+    3, // Saha
     1,
     2,
     3,
     1,
     2,
-    0,*/
+    0,
   ]
 
   let trainWeight = 0
@@ -470,6 +472,7 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
       motorCars += 1
 
     otherBodies.push(createCarBody(
+      { projectedLine, length: length_ },
       carWeight,
       index === 0 || index === cars.length - 1 ? [createOneHandleMasterController(uiMasterControllerOptionsIndex)] : [],
     ))
@@ -489,8 +492,10 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
       },
     )
   })
-  /*for (let i = 0; i <= cars.length - 2; i++) {
-    otherBodies.push(createCarBody())
+  for (let i = 0; i <= cars.length - 2; i++) {
+    otherBodies.push(createCarBody(
+      { projectedLine, length: length + carLength * (cars.length - 1) / 2 - carLength * i - carLength / 2 }
+    ))
 
     otherJoints.push(
       {
@@ -506,7 +511,7 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
         positionB: new THREE.Vector3(0, 0, carLength / 2 - couplerLengthHalf),
       },
     )
-  }*/
+  }
 
   return createTrain(
     bogies,
@@ -549,8 +554,8 @@ export function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, 
       ),
     ],
     [
-      createCarBody(),
-      createCarBody(),
+      createCarBody({ projectedLine, length: length + carLengthHalf }),
+      createCarBody({ projectedLine, length: length - carLengthHalf }),
     ],
     [
       {
@@ -690,18 +695,18 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
       ),
     ],
     [
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
-      createCarBody(),
+      createCarBody({ projectedLine, length: length + 12.6 + 1.6 + 4.07 }),
+      createCarBody({ projectedLine, length: length + 12.6 + 1.6 - 5.48 }),
+      createCarBody({ projectedLine, length: length - 12.6 - 1.6 + 5.48 }),
+      createCarBody({ projectedLine, length: length - 12.6 - 1.6 - 4.07 }),
+      createCarBody({ projectedLine, length: length + 12.6 + 1.6 }),
+      createCarBody({ projectedLine, length: length + 12.6 + 1.6 }),
+      createCarBody({ projectedLine, length: length }),
     ],
     [
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, -1, 2.6),
+        otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
         bogieIndex: 0,
         bogiePosition: new THREE.Vector3(),
       },

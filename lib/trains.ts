@@ -12,17 +12,19 @@ export type Axle = {
   rotation: THREE.Euler;
   diameter: number;
   rotationX: number;
+  hasMotor: boolean;
 };
 
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
+  weight: number; // ton
+  masterControllers: OneHandleMasterController[];
 }
 
 // 台車。CarBodyの一種
 export type Bogie = CarBody & {
   axles: Axle[];
-  masterControllers: OneHandleMasterController[];
 };
 
 // BogieとotherBodyを接続するジョイント
@@ -50,21 +52,23 @@ export type Train = {
   toJointIndexes: number[];
   globalPosition: THREE.Euler;
   speed: number; // m/s
+  weight: number; // ton
+  motorCars: number;
 };
 
 export const state = proxy<{
   trains: (IdentifiedRecord & Train)[];
   hoveredTrainIndex: number;
-  hoveredBogieIndex: number;
+  hoveredBodyIndex: number;
   activeTrainIndex: number;
-  activeBogieIndex: number;
+  activeBobyIndex: number;
   uiOneHandleMasterControllerConfigs: UIOneHandleMasterControllerConfig[];
 }>({
   trains: [],
   hoveredTrainIndex: -1,
-  hoveredBogieIndex: -1,
+  hoveredBodyIndex: -1,
   activeTrainIndex: -1,
-  activeBogieIndex: -1,
+  activeBobyIndex: -1,
   uiOneHandleMasterControllerConfigs: [],
 });
 
@@ -554,4 +558,14 @@ export function getOneHandleMasterControllerSimpleOutput(masterController: OneHa
   const config = state.uiOneHandleMasterControllerConfigs[masterController.uiOptionsIndex];
 
   return [Math.max(0, 1 - masterController.value / config.nValue), Math.max(0, (masterController.value - config.nValue) / (config.maxValue - config.nValue))];
+}
+
+export function getTractiveForcePerMotorCars(speed: number/*, voltage: number, fieldCoil: number*/) {
+  // TODO Call different functions depending on the vehicle
+  return getTractiveForcePerMotorCarsJNR103Series(speed)
+}
+
+export function getTractiveForcePerMotorCarsJNR103Series(speed: number/*, voltage: number, fieldCoil: number*/) {
+  // TODO 性能曲線（力行ノッチ曲線）を追加する
+  return 4500
 }

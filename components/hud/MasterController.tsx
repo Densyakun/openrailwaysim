@@ -13,9 +13,12 @@ const Box_ = Box as (props: {
 export default function MasterController() {
   useSnapshot(trainsState);
 
-  const { masterControllers } = trainsState.trains[trainsState.activeTrainIndex].bogies[trainsState.activeBogieIndex];
+  const train = trainsState.trains[trainsState.activeTrainIndex];
+  const { masterControllers } = trainsState.activeBobyIndex < train.bogies.length ? train.bogies[trainsState.activeBobyIndex] : train.otherBodies[trainsState.activeBobyIndex - train.bogies.length];
   // TODO 複数のマスコンの追加されたボギー台車に対応する
   const masterController = masterControllers[0];
+  if (!masterController) return;
+
   const { uiOptionsIndex, value } = masterController;
   const { marks, maxValue, nValue, stepRangeList, steps } = trainsState.uiOneHandleMasterControllerConfigs[uiOptionsIndex];
 

@@ -4,6 +4,13 @@ import { ProjectedLineAndLength, getRelativePosition, eulerToCoordinate } from '
 import { getPositionFromLength, getSegment, Segment } from "./projectedLine";
 import { IdentifiedRecord } from './saveData';
 
+// Resistances
+
+export const startingResistance = 30; // 出発抵抗 (N/t)
+export const runningResistanceA = 1.273; // 走行抵抗の定数A。輪軸あたりの車軸と軸受の摩擦に依存する値
+export const runningResistanceB = 0.001; // 走行抵抗の定数B。輪軸あたりの車輪とレールの摩擦に依存する値
+export const runningResistanceC = 0.0001381; // 走行抵抗の定数C。空気抵抗に依存する値
+
 export type Axle = {
   pointOnTrack: ProjectedLineAndLength;
   z: number;
@@ -481,6 +488,64 @@ export function placeTrain(train: Train) {
   train.bogies.forEach(fromBogie => axlesToBogie(train, fromBogie));
 }
 
+export function updateTime(train: Train, delta: number) {
+  // 自動でマスコンと主制御器（Control System）を接続する
+  let accel = 0
+  let brake = 1
+  train.bogies.forEach(bogie => {
+    bogie.masterControllers.forEach(masterController => {
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(masterController)
+
+      accel = Math.max(accel, accel1)
+      brake = Math.min(brake, brake1)
+    })
+  })
+  train.otherBodies.forEach(body => {
+    body.masterControllers.forEach(masterController => {
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(masterController)
+
+      accel = Math.max(accel, accel1)
+      brake = Math.min(brake, brake1)
+    })
+  })
+
+  const speedKMH = train.speed * 3.6
+
+  // Accel
+  //const fieldCoil = 1 // TODO 界磁 (0-1)
+  const tractiveForce = getTractiveForcePerMotorCars(train.speed/*, fieldCoil*/) // 牽引力 (引張力, kg)
+  const a = 30.9
+
+  //const acceleration = 3.0 / 3.6 // 3.0 km/h/s
+  const acceleration = accel * tractiveForce * train.motorCars / train.weight / a / 3.6 // m/s/s
+
+  // Braking and resistance
+  let deceleration = brake * 4.5 / 3.6 // 4.5 km/h/s
+
+  // 出発抵抗
+  const startingResistance_ = startingResistance * (3 - Math.min(3, Math.max(0, speedKMH))) / 1000
+
+  // 走行抵抗
+  const resistances = Math.max(
+    startingResistance_,
+    9.80665 * (runningResistanceA + runningResistanceB * speedKMH + runningResistanceC * speedKMH * speedKMH)
+  )
+
+  deceleration += resistances / train.weight
+
+  train.speed += acceleration * delta
+
+  train.speed =
+    0 <= train.speed
+      ? Math.max(0, train.speed - deceleration * delta)
+      : Math.min(0, train.speed + deceleration * delta)
+
+  console.log(acceleration * 3.6 + ", " + deceleration * 3.6) // km/h/s
+
+  // Run a trains
+  rollAxles(train, train.speed * delta)
+}
+
 export function rollAxles(train: Train, distance: number) {
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
@@ -602,12 +667,12 @@ export function getOneHandleMasterControllerSimpleOutput(masterController: OneHa
   return [Math.max(0, 1 - masterController.value / config.nValue), Math.max(0, (masterController.value - config.nValue) / (config.maxValue - config.nValue))];
 }
 
-export function getTractiveForcePerMotorCars(speed: number/*, voltage: number, fieldCoil: number*/) {
+export function getTractiveForcePerMotorCars(speed: number/*, fieldCoil: number*/) {
   // TODO Call different functions depending on the vehicle
   return getTractiveForcePerMotorCarsJNR103Series(speed)
 }
 
-export function getTractiveForcePerMotorCarsJNR103Series(speed: number/*, voltage: number, fieldCoil: number*/) {
+export function getTractiveForcePerMotorCarsJNR103Series(speed: number/*, fieldCoil: number*/) {
   // TODO 性能曲線（力行ノッチ曲線）を追加する
   return 4500
 }

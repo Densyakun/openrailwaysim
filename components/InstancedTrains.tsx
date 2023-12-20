@@ -7,7 +7,7 @@ import { IdentifiedRecord } from '@/lib/saveData'
 import { state as trainsState, Train } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 
-export default function Trains() {
+export default function InstancedTrains() {
   const bogieGroupsRef = React.useRef<(THREE.Group | null)[]>([])
   const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
   const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])

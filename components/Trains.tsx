@@ -24,7 +24,7 @@ function BogieModel({ isHovered, isActive, ...props }: any) {
 function WheelAndAxleModel({ diameter, rotationX, ...props }: any) {
   return (
     <group {...props}>
-      <mesh rotation={[rotationX, 0, Math.PI / 2]}>
+      <mesh position={[0, diameter / 2, 0]} rotation={[rotationX, 0, Math.PI / 2]}>
         <cylinderGeometry args={[diameter / 2, diameter / 2, 1.267, 8]} />
         <meshStandardMaterial />
       </mesh>

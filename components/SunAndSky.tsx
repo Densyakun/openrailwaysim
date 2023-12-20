@@ -35,25 +35,26 @@ function getSunPosition() {
 }
 
 export default function SunAndSky() {
-  const [ambientLightIntensity, setAmbientLightIntensity] = React.useState(maxAmbientLightIntensity)
+  const ambientLightRef = React.useRef<THREE.AmbientLight>(null)
 
-  const directionalLightRef = React.useCallback((directionalLight: THREE.DirectionalLight) => {
-    if (state.directionalLight.value = directionalLight) {
-      directionalLight.shadow.mapSize.width = 4096
-      directionalLight.shadow.mapSize.height = 4096
-      directionalLight.shadow.camera.far = directionalLightDistance * 2
-      directionalLight.shadow.camera.left = -directionalLightCameraSize
-      directionalLight.shadow.camera.bottom = -directionalLightCameraSize
-      directionalLight.shadow.camera.right = directionalLightCameraSize
-      directionalLight.shadow.camera.top = directionalLightCameraSize
+  const directionalLightRef = React.useRef<THREE.DirectionalLight>(null)
+  React.useEffect(() => {
+    if (!directionalLightRef.current) return
+
+    if (state.directionalLight.value = directionalLightRef.current) {
+      directionalLightRef.current.shadow.mapSize.width = 4096
+      directionalLightRef.current.shadow.mapSize.height = 4096
+      directionalLightRef.current.shadow.camera.far = directionalLightDistance * 2
+      directionalLightRef.current.shadow.camera.left = -directionalLightCameraSize
+      directionalLightRef.current.shadow.camera.bottom = -directionalLightCameraSize
+      directionalLightRef.current.shadow.camera.right = directionalLightCameraSize
+      directionalLightRef.current.shadow.camera.top = directionalLightCameraSize
     }
   }, [])
 
   const sunPosition = getSunPosition()
 
-  const [directionalLightPosition, setDirectionalLightPosition] = React.useState(sunPosition.clone().multiplyScalar(directionalLightDistance))
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
-  const [directionalLightIntensity, setDirectionalLightIntensity] = React.useState(1)
 
   let timeRemainder = 0
 
@@ -79,20 +80,18 @@ export default function SunAndSky() {
       ))
     }
 
-    setAmbientLightIntensity((sunPosition.y + 1) * maxAmbientLightIntensity / 2)
-    setDirectionalLightIntensity(Math.max(0, Math.min(1, sunPosition.y * 18)))
+    ambientLightRef.current!.intensity = ((sunPosition.y + 1) * maxAmbientLightIntensity / 2)
+    directionalLightRef.current!.intensity = Math.max(0, Math.min(1, sunPosition.y * 18))
 
-    setDirectionalLightPosition(sunPosition.clone().multiplyScalar(directionalLightDistance))
+    directionalLightRef.current!.position.copy(sunPosition.clone().multiplyScalar(directionalLightDistance))
   })
 
   return (
     <>
-      <ambientLight intensity={ambientLightIntensity} />
+      <ambientLight ref={ambientLightRef} />
       <directionalLight
         ref={directionalLightRef}
         castShadow
-        position={directionalLightPosition}
-        intensity={directionalLightIntensity}
       />
       <FollowCamera>
         <Sky

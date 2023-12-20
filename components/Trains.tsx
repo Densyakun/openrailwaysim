@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
 import { IdentifiedRecord } from '@/lib/saveData'
-import { state as trainsState, Train, getOneHandleMasterControllerOutput, getTractiveForcePerMotorCars, updateTime } from '@/lib/trains'
+import { state as trainsState, Train, updateTime } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 

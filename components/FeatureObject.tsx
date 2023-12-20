@@ -21,20 +21,21 @@ export default function FeatureObject({
   if (!centerCoordinate)
     centerCoordinate = originCoordinate
 
-  const [centerPosition, setCenterPosition] = React.useState<THREE.Vector3>(getRelativePosition(centerCoordinate, originCoordinateEuler, originCoordinate))
-  const [rotation, setRotation] = React.useState(getRotation(centerCoordinate, originCoordinateEuler, originCoordinate))
-
+  const groupRef = React.useRef<THREE.Group>(null)
   useFrame(() => {
     originCoordinateEuler = getOriginEuler()
     originCoordinate = eulerToCoordinate(originCoordinateEuler)
 
-    setCenterPosition(getRelativePosition(centerCoordinate!, originCoordinateEuler, originCoordinate))
-    setRotation(getRotation(centerCoordinate!, originCoordinateEuler, originCoordinate))
+    const centerPosition = getRelativePosition(centerCoordinate!, originCoordinateEuler, originCoordinate)
+    const rotation = getRotation(centerCoordinate!, originCoordinateEuler, originCoordinate)
+
+    groupRef.current!.position.copy(centerPosition)
+    groupRef.current!.rotation.copy(rotation)
   })
 
   return (
     <>
-      <group position={centerPosition} rotation={rotation}>
+      <group ref={groupRef}>
         {children}
       </group>
     </>

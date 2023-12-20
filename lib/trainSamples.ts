@@ -50,7 +50,27 @@ export function getGlobalEulerOfFirstAxle(axle: Axle) {
   return coordinateToEuler(axle.pointOnTrack.projectedLine.centerCoordinate || [0, 0])
 }
 
-export function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], weight: number = 30, motorCars: number = 0): Train {
+export function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], weight?: number, motorCars: number = 0): Train {
+  let weight_ = weight
+
+  if (weight_ === undefined) {
+    weight_ = 0
+    bogies.forEach(bogie => weight_! += bogie.weight)
+    otherBodies.forEach(body => weight_! += body.weight)
+  }
+
+  // 重心を計算
+  // TODO CarBodyなどの重量を含め、列車の重心を計算する
+  // TODO 軌道の接続に対応したら、異なるTrackから重心を求める
+  let centroidZ = 0
+  let axleCount = 0
+  bogies.forEach(bogie => {
+    bogie.axles.forEach(axle => centroidZ += axle.pointOnTrack.length)
+    axleCount += bogie.axles.length
+  })
+  centroidZ /= axleCount
+  centroidZ -= bogies[0].axles[0].pointOnTrack.length
+
   const train: Train = {
     bogies,
     otherBodies,
@@ -58,7 +78,8 @@ export function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySu
     otherJoints,
     fromJointIndexes: [],
     toJointIndexes: [],
-    weight,
+    weight: weight_,
+    centroidZ,
     motorCars,
     globalPosition: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
     speed: 0,

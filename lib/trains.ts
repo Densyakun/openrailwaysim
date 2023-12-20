@@ -61,6 +61,7 @@ export type Train = {
   globalPosition: THREE.Euler;
   speed: number; // m/s
   weight: number; // ton
+  centroidZ: number; // 第一軸から重心に近い軌道上の相対位置
   motorCars: number;
 };
 
@@ -517,7 +518,7 @@ export function updateTime(train: Train, delta: number) {
   const a = 30.9
 
   //const acceleration = 3.0 / 3.6 // 3.0 km/h/s
-  const acceleration = accel * tractiveForce * train.motorCars / train.weight / a / 3.6 // m/s/s
+  let acceleration = accel * tractiveForce * train.motorCars / train.weight / a / 3.6 // m/s/s
 
   // Braking and resistance
   let deceleration = brake * 4.5 / 3.6 // 4.5 km/h/s
@@ -525,11 +526,19 @@ export function updateTime(train: Train, delta: number) {
   // 出発抵抗
   const startingResistance_ = startingResistance * (3 - Math.min(3, Math.max(0, speedKMH))) / 1000
 
+  const g = 9.80665 // 重力加速度 (m/s/s)
+
   // 走行抵抗
   const resistances = Math.max(
     startingResistance_,
-    9.80665 * (runningResistanceA + runningResistanceB * speedKMH + runningResistanceC * speedKMH * speedKMH)
+    g * (runningResistanceA + runningResistanceB * speedKMH + runningResistanceC * speedKMH * speedKMH)
   )
+
+  // 勾配抵抗を計算する。計算を単純化するため、重心に近い地点の勾配から抵抗を計算する
+  const projectedLine = train.bogies[0].axles[0].pointOnTrack.projectedLine
+  const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
+  const distance = point.distanceTo(nextPoint)
+  acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight
 
   deceleration += resistances / train.weight
 
@@ -539,8 +548,6 @@ export function updateTime(train: Train, delta: number) {
     0 <= train.speed
       ? Math.max(0, train.speed - deceleration * delta)
       : Math.min(0, train.speed + deceleration * delta)
-
-  console.log(acceleration * 3.6 + ", " + deceleration * 3.6) // km/h/s
 
   // Run a trains
   rollAxles(train, train.speed * delta)

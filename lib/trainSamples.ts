@@ -1,6 +1,7 @@
 import * as THREE from 'three'
-import { coordinateToEuler, ProjectedLine, ProjectedLineAndLength } from '@/lib/gis'
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, state as trainsState, Train, calcJointsToRotateBody, placeTrain, UIOneHandleMasterControllerConfig, OneHandleMasterController } from '@/lib/trains'
+import { ProjectedLineAndLength } from './gis'
+import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, OneHandleMasterController, createTrain } from './trains'
+import { GameStateType } from './game'
 
 // Commons
 
@@ -35,7 +36,7 @@ export function createBogie(
       masterControllers,
     ),
     axles: axles.map(({ z, diameter, hasMotor }) => ({
-      pointOnTrack: { projectedLine: pointOnTrack.projectedLine, length: pointOnTrack.length + z },
+      pointOnTrack: { projectedLineId: pointOnTrack.projectedLineId, length: pointOnTrack.length + z },
       z,
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
@@ -46,55 +47,9 @@ export function createBogie(
   }
 }
 
-export function getGlobalEulerOfFirstAxle(axle: Axle) {
-  return coordinateToEuler(axle.pointOnTrack.projectedLine.centerCoordinate || [0, 0])
-}
+// One handle master controller
 
-export function createTrain(bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], weight?: number, motorCars: number = 0): Train {
-  let weight_ = weight
-
-  if (weight_ === undefined) {
-    weight_ = 0
-    bogies.forEach(bogie => weight_! += bogie.weight)
-    otherBodies.forEach(body => weight_! += body.weight)
-  }
-
-  // 重心を計算
-  // TODO CarBodyなどの重量を含め、列車の重心を計算する
-  // TODO 軌道の接続に対応したら、異なるTrackから重心を求める
-  let centroidZ = 0
-  let axleCount = 0
-  bogies.forEach(bogie => {
-    bogie.axles.forEach(axle => centroidZ += axle.pointOnTrack.length)
-    axleCount += bogie.axles.length
-  })
-  centroidZ /= axleCount
-  centroidZ -= bogies[0].axles[0].pointOnTrack.length
-
-  const train: Train = {
-    bogies,
-    otherBodies,
-    bodySupporterJoints,
-    otherJoints,
-    fromJointIndexes: [],
-    toJointIndexes: [],
-    weight: weight_,
-    centroidZ,
-    motorCars,
-    globalPosition: getGlobalEulerOfFirstAxle(bogies[0].axles[0]),
-    speed: 0,
-  }
-
-  calcJointsToRotateBody(train)
-
-  placeTrain(train)
-
-  return train
-}
-
-// One handle master controllers
-
-export function createUISotetsu20000SeriesMasterController(): UIOneHandleMasterControllerConfig {
+export function createUISotetsu20000SeriesMasterControllerConfig(): UIOneHandleMasterControllerConfig {
   return {
     steps: [
       0,
@@ -176,7 +131,7 @@ export function createUISotetsu20000SeriesMasterController(): UIOneHandleMasterC
   }
 }
 
-export function createUIKeiseiAESeriesMasterController(): UIOneHandleMasterControllerConfig {
+export function createUIKeiseiAESeriesMasterControllerConfig(): UIOneHandleMasterControllerConfig {
   return {
     steps: [
       9,
@@ -233,53 +188,53 @@ export function createUIKeiseiAESeriesMasterController(): UIOneHandleMasterContr
   }
 }
 
-export function createOneHandleMasterController(uiOptionsIndex: number): OneHandleMasterController {
+export function createOneHandleMasterController(gameState: GameStateType, uiOptionId: string): OneHandleMasterController {
   return {
-    uiOptionsIndex,
-    value: trainsState.uiOneHandleMasterControllerConfigs[uiOptionsIndex].maxValue,
+    uiOptionId,
+    value: gameState.uiOneHandleMasterControllerConfigs[uiOptionId].maxValue,
   }
 }
 
 // Trains
 
-export function createTestTwoAxlesCar(projectedLine: ProjectedLine, length = 0, uiMasterControllerOptionsIndex: number): Train {
+export function createTestTwoAxlesCar(gameState: GameStateType, projectedLineId: string, length = 0, uiMasterControllerOptionId: string): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length },
+        { projectedLineId, length: length },
         [
           { z: distanceBetweenBogiesHalf, diameter: 0.86, hasMotor: true },
           { z: -distanceBetweenBogiesHalf, diameter: 0.86, hasMotor: true },
         ],
         30,
-        [createOneHandleMasterController(uiMasterControllerOptionsIndex)],
+        [createOneHandleMasterController(gameState, uiMasterControllerOptionId)],
       ),
     ],
   )
 }
 
-export function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, length = 0): Train {
+export function createTestTwoAxlesCarWithBogies(gameState: GameStateType, projectedLineId: string, length = 0): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + distanceBetweenBogiesHalf },
         [
           { z: 0, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - distanceBetweenBogiesHalf },
         [
           { z: 0, diameter: 0.86, hasMotor: true },
         ],
       ),
     ],
     [
-      createCarBody({ projectedLine, length: length }),
+      createCarBody({ projectedLineId, length: length }),
     ],
     [
       {
@@ -298,21 +253,21 @@ export function createTestTwoAxlesCarWithBogies(projectedLine: ProjectedLine, le
   )
 }
 
-export function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0): Train {
+export function createTestTwoBogiesCar(gameState: GameStateType, projectedLineId: string, length = 0): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
@@ -320,7 +275,7 @@ export function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0)
       ),
     ],
     [
-      createCarBody({ projectedLine, length: length }),
+      createCarBody({ projectedLineId, length: length }),
     ],
     [
       {
@@ -339,37 +294,37 @@ export function createTestTwoBogiesCar(projectedLine: ProjectedLine, length = 0)
   )
 }
 
-export function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length = 0): Train {
+export function createTestTwoBogiesTwoCars(gameState: GameStateType, projectedLineId: string, length = 0): Train {
   const carLengthHalf = 20 / 2
   const couplerLengthHalf = 0.92
   const distanceBetweenBogiesHalf = 13.8 / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + carLengthHalf + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length + carLengthHalf - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + carLengthHalf - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - carLengthHalf + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - carLengthHalf + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - carLengthHalf - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
@@ -377,9 +332,9 @@ export function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length 
       ),
     ],
     [
-      createCarBody({ projectedLine, length: length + carLengthHalf }),
-      createCarBody({ projectedLine, length: length - carLengthHalf }),
-      createCarBody({ projectedLine, length: length }),
+      createCarBody({ projectedLineId, length: length + carLengthHalf }),
+      createCarBody({ projectedLineId, length: length - carLengthHalf }),
+      createCarBody({ projectedLineId, length: length }),
     ],
     [
       {
@@ -424,7 +379,7 @@ export function createTestTwoBogiesTwoCars(projectedLine: ProjectedLine, length 
   )
 }
 
-export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiMasterControllerOptionsIndex: number): Train {
+export function createJNR103Series(gameState: GameStateType, projectedLineId: string, length = 0, uiMasterControllerOptionId: string): Train {
   const carLength = 20
   const couplerLengthHalf = 0.92
   const distanceBetweenBogiesHalf = 13.8 / 2
@@ -468,14 +423,14 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
 
     bogies.push(
       createBogie(
-        { projectedLine: projectedLine, length: length_ + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length_ + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
           { z: -wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length_ - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length_ - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
           { z: -wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
@@ -493,9 +448,9 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
       motorCars += 1
 
     otherBodies.push(createCarBody(
-      { projectedLine, length: length_ },
+      { projectedLineId, length: length_ },
       carWeight,
-      index === 0 || index === cars.length - 1 ? [createOneHandleMasterController(uiMasterControllerOptionsIndex)] : [],
+      index === 0 || index === cars.length - 1 ? [createOneHandleMasterController(gameState, uiMasterControllerOptionId)] : [],
     ))
 
     bodySupporterJoints.push(
@@ -515,7 +470,7 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
   })
   for (let i = 0; i <= cars.length - 2; i++) {
     otherBodies.push(createCarBody(
-      { projectedLine, length: length + carLength * (cars.length - 1) / 2 - carLength * i - carLength / 2 }
+      { projectedLineId, length: length + carLength * (cars.length - 1) / 2 - carLength * i - carLength / 2 }
     ))
 
     otherJoints.push(
@@ -535,39 +490,41 @@ export function createJNR103Series(projectedLine: ProjectedLine, length = 0, uiM
   }
 
   return createTrain(
+    gameState,
     bogies,
     otherBodies,
     bodySupporterJoints,
     otherJoints,
+    0,
     trainWeight,
     motorCars,
   )
 }
 
-export function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, length = 0): Train {
+export function createTestTwoCarsWithJacobsBogies(gameState: GameStateType, projectedLineId: string, length = 0): Train {
   const carLengthHalf = 20 / 2
   const couplerLengthHalf = 0.92
   const distanceBetweenBogiesHalf = 13.8 / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + carLengthHalf + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + carLengthHalf + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length },
+        { projectedLineId, length: length },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - carLengthHalf - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - carLengthHalf - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
@@ -575,8 +532,8 @@ export function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, 
       ),
     ],
     [
-      createCarBody({ projectedLine, length: length + carLengthHalf }),
-      createCarBody({ projectedLine, length: length - carLengthHalf }),
+      createCarBody({ projectedLineId, length: length + carLengthHalf }),
+      createCarBody({ projectedLineId, length: length - carLengthHalf }),
     ],
     [
       {
@@ -607,21 +564,21 @@ export function createTestTwoCarsWithJacobsBogies(projectedLine: ProjectedLine, 
   )
 }
 
-export function createTestMalletLocomotive(projectedLine: ProjectedLine, length = 0): Train {
+export function createTestMalletLocomotive(gameState: GameStateType, projectedLineId: string, length = 0): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + distanceBetweenBogiesHalf },
+        { projectedLineId, length: length + distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: false },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: false },
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - distanceBetweenBogiesHalf },
+        { projectedLineId, length: length - distanceBetweenBogiesHalf },
         [
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: false },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: false },
@@ -643,11 +600,11 @@ export function createTestMalletLocomotive(projectedLine: ProjectedLine, length 
   )
 }
 
-export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 0): Train {
-  return createTrain(
+export function createTestShikiSeries700(gameState: GameStateType, projectedLineId: string, length = 0): Train {
+  return createTrain(gameState,
     [
       createBogie(
-        { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 + 2.61 },
+        { projectedLineId, length: length + 12.6 + 1.6 + 4.07 + 2.61 },
         [
           { z: 0.64 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.64, diameter: 0.86, hasMotor: false },
@@ -656,7 +613,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length + 12.6 + 1.6 + 4.07 - 2.55 },
+        { projectedLineId, length: length + 12.6 + 1.6 + 4.07 - 2.55 },
         [
           { z: 0.6 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.6, diameter: 0.86, hasMotor: false },
@@ -665,7 +622,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 + 0.8 + 1.2 },
+        { projectedLineId, length: length + 12.6 + 1.6 - 5.48 + 0.8 + 1.2 },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
@@ -673,7 +630,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length + 12.6 + 1.6 - 5.48 - 0.8 - 1.2 },
+        { projectedLineId, length: length + 12.6 + 1.6 - 5.48 - 0.8 - 1.2 },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
@@ -681,7 +638,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 + 0.8 + 1.2 },
+        { projectedLineId, length: length - 12.6 - 1.6 + 5.48 + 0.8 + 1.2 },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
@@ -689,7 +646,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - 12.6 - 1.6 + 5.48 - 0.8 - 1.2 },
+        { projectedLineId, length: length - 12.6 - 1.6 + 5.48 - 0.8 - 1.2 },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
@@ -697,7 +654,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 + 2.55 },
+        { projectedLineId, length: length - 12.6 - 1.6 - 4.07 + 2.55 },
         [
           { z: 0.6 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.6, diameter: 0.86, hasMotor: false },
@@ -706,7 +663,7 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
         ],
       ),
       createBogie(
-        { projectedLine: projectedLine, length: length - 12.6 - 1.6 - 4.07 - 2.61 },
+        { projectedLineId, length: length - 12.6 - 1.6 - 4.07 - 2.61 },
         [
           { z: 0.56 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.56, diameter: 0.86, hasMotor: false },
@@ -716,13 +673,13 @@ export function createTestShikiSeries700(projectedLine: ProjectedLine, length = 
       ),
     ],
     [
-      createCarBody({ projectedLine, length: length + 12.6 + 1.6 + 4.07 }),
-      createCarBody({ projectedLine, length: length + 12.6 + 1.6 - 5.48 }),
-      createCarBody({ projectedLine, length: length - 12.6 - 1.6 + 5.48 }),
-      createCarBody({ projectedLine, length: length - 12.6 - 1.6 - 4.07 }),
-      createCarBody({ projectedLine, length: length + 12.6 + 1.6 }),
-      createCarBody({ projectedLine, length: length + 12.6 + 1.6 }),
-      createCarBody({ projectedLine, length: length }),
+      createCarBody({ projectedLineId, length: length + 12.6 + 1.6 + 4.07 }),
+      createCarBody({ projectedLineId, length: length + 12.6 + 1.6 - 5.48 }),
+      createCarBody({ projectedLineId, length: length - 12.6 - 1.6 + 5.48 }),
+      createCarBody({ projectedLineId, length: length - 12.6 - 1.6 - 4.07 }),
+      createCarBody({ projectedLineId, length: length + 12.6 + 1.6 }),
+      createCarBody({ projectedLineId, length: length + 12.6 + 1.6 }),
+      createCarBody({ projectedLineId, length: length }),
     ],
     [
       {

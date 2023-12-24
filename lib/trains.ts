@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { proxy } from "valtio";
-import { ProjectedLineAndLength, getRelativePosition, eulerToCoordinate } from './gis';
+import { ProjectedLineAndLength, getRelativePosition, eulerToCoordinate, coordinateToEuler } from './gis';
 import { getPositionFromLength, getSegment, Segment } from "./projectedLine";
-import { IdentifiedRecord } from './saveData';
+import { GameStateType, IdentifiedRecord } from "./game";
 
 // Resistances
 
@@ -22,6 +22,15 @@ export type Axle = {
   hasMotor: boolean;
 };
 
+export type SerializableAxle = {
+  pointOnTrack: ProjectedLineAndLength;
+  z: number;
+  position: THREE.Vector3Tuple;
+  rotation: [number, number, number, THREE.EulerOrder];
+  diameter: number;
+  hasMotor: boolean;
+};
+
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
@@ -30,9 +39,21 @@ export type CarBody = {
   masterControllers: OneHandleMasterController[];
 }
 
+export type SerializableCarBody = {
+  position: THREE.Vector3Tuple;
+  rotation: [number, number, number, THREE.EulerOrder];
+  pointOnTrack: ProjectedLineAndLength;
+  weight: number;
+  masterControllers: OneHandleMasterController[];
+}
+
 // 台車。CarBodyの一種
 export type Bogie = CarBody & {
   axles: Axle[];
+};
+
+export type SerializableBogie = SerializableCarBody & {
+  axles: SerializableAxle[];
 };
 
 // BogieとotherBodyを接続するジョイント
@@ -43,11 +64,25 @@ export type BodySupporterJoint = {
   bogiePosition: THREE.Vector3;
 };
 
+export type SerializableBodySupporterJoint = {
+  otherBodyIndex: number;
+  otherBodyPosition: THREE.Vector3Tuple;
+  bogieIndex: number;
+  bogiePosition: THREE.Vector3Tuple;
+};
+
 export type Joint = {
   bodyIndexA: number;
   positionA: THREE.Vector3;
   bodyIndexB: number;
   positionB: THREE.Vector3;
+};
+
+export type SerializableJoint = {
+  bodyIndexA: number;
+  positionA: THREE.Vector3Tuple;
+  bodyIndexB: number;
+  positionB: THREE.Vector3Tuple;
 };
 
 // ジョイントで繋いだ複数のCarBody
@@ -65,21 +100,72 @@ export type Train = {
   motorCars: number;
 };
 
+export type SerializableTrain = IdentifiedRecord & {
+  bogies: SerializableBogie[];
+  otherBodies: SerializableCarBody[];
+  bodySupporterJoints: SerializableBodySupporterJoint[];
+  otherJoints: SerializableJoint[];
+  speed: number;
+  motorCars: number;
+};
+
 export const state = proxy<{
-  trains: (IdentifiedRecord & Train)[];
-  hoveredTrainIndex: number;
+  hoveredTrainId: string;
   hoveredBodyIndex: number;
-  activeTrainIndex: number;
+  activeTrainId: string;
   activeBobyIndex: number;
-  uiOneHandleMasterControllerConfigs: UIOneHandleMasterControllerConfig[];
 }>({
-  trains: [],
-  hoveredTrainIndex: -1,
+  hoveredTrainId: "",
   hoveredBodyIndex: -1,
-  activeTrainIndex: -1,
+  activeTrainId: "",
   activeBobyIndex: -1,
-  uiOneHandleMasterControllerConfigs: [],
 });
+
+export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) {
+  return coordinateToEuler(gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate || [0, 0])
+}
+
+export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motorCars = 0): Train {
+  let weight_ = weight
+
+  if (weight_ === undefined) {
+    weight_ = 0
+    bogies.forEach(bogie => weight_! += bogie.weight)
+    otherBodies.forEach(body => weight_! += body.weight)
+  }
+
+  // 重心を計算
+  // TODO CarBodyなどの重量を含め、列車の重心を計算する
+  // TODO 軌道の接続に対応したら、異なるTrackから重心を求める
+  let centroidZ = 0
+  let axleCount = 0
+  bogies.forEach(bogie => {
+    bogie.axles.forEach(axle => centroidZ += axle.pointOnTrack.length)
+    axleCount += bogie.axles.length
+  })
+  centroidZ /= axleCount
+  centroidZ -= bogies[0].axles[0].pointOnTrack.length
+
+  const train: Train = {
+    bogies,
+    otherBodies,
+    bodySupporterJoints,
+    otherJoints,
+    fromJointIndexes: [],
+    toJointIndexes: [],
+    globalPosition: getGlobalEulerOfFirstAxle(gameState, bogies[0].axles[0]),
+    speed,
+    weight: weight_,
+    centroidZ,
+    motorCars,
+  }
+
+  calcJointsToRotateBody(train)
+
+  placeTrain(gameState, train)
+
+  return train
+}
 
 export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3) {
   bogies.forEach(bogie => {
@@ -104,21 +190,21 @@ export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler
   train.globalPosition = newPosition;
 }
 
-export function updateSegmentCacheToAxle(axle: Axle) {
-  return axle.segment = getSegment(axle.pointOnTrack.projectedLine.points, axle.pointOnTrack.length);
+export function updateSegmentCacheToAxle(gameState: GameStateType, axle: Axle) {
+  return axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length);
 }
 
-export function getSegmentCacheFromAxle(axle: Axle) {
-  return axle.segment || updateSegmentCacheToAxle(axle);
+export function getSegmentCacheFromAxle(gameState: GameStateType, axle: Axle) {
+  return axle.segment || updateSegmentCacheToAxle(gameState, axle);
 }
 
-export function getAxlePosition(train: Train, axle: Axle) {
+export function getAxlePosition(gameState: GameStateType, train: Train, axle: Axle) {
   const { pointOnTrack: { length } } = axle;
 
-  const axleRelativePosition = getPositionFromLength(getSegmentCacheFromAxle(axle), length);
+  const axleRelativePosition = getPositionFromLength(getSegmentCacheFromAxle(gameState, axle), length);
 
   const globalTrackRelativePosition = getRelativePosition(
-    axle.pointOnTrack.projectedLine.centerCoordinate,
+    gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate,
     train.globalPosition,
     undefined,
     0
@@ -127,7 +213,7 @@ export function getAxlePosition(train: Train, axle: Axle) {
   return globalTrackRelativePosition.add(axleRelativePosition);
 }
 
-export function bogieToAxles(train: Train, bogie: Bogie) {
+export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
@@ -136,11 +222,11 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
       lastAxlePosition.copy(
-        getAxlePosition(train, bogie.axles[index])
+        getAxlePosition(gameState, train, bogie.axles[index])
       )
     );
 
-    const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[index]);
+    const { point, nextPoint } = getSegmentCacheFromAxle(gameState, bogie.axles[index]);
     const forward = nextPoint.clone().sub(point).normalize();
     const angleY = Math.atan2(forward.x, forward.z);
     const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
@@ -162,7 +248,7 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
   if (2 <= bogie.axles.length) {
     forward = firstAxlePosition.sub(lastAxlePosition).normalize();
   } else {
-    const { point, nextPoint } = getSegmentCacheFromAxle(bogie.axles[0]);
+    const { point, nextPoint } = getSegmentCacheFromAxle(gameState, bogie.axles[0]);
     forward = nextPoint.clone().sub(point).normalize();
   }
 
@@ -182,7 +268,7 @@ export function bogieToAxles(train: Train, bogie: Bogie) {
   );
 }
 
-export function axlesToBogie(train: Train, bogie: Bogie) {
+export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogie) {
   bogie.axles.forEach(axle => {
     // axles to bogie
     axle.position.copy(new THREE.Vector3(0, 0, axle.z)
@@ -191,10 +277,10 @@ export function axlesToBogie(train: Train, bogie: Bogie) {
     axle.rotation.copy(bogie.rotation);
 
     // axle.pointOnTrack to track
-    const { point, nextPoint, distance, lengthFromStartingPointToNextPoint } = axle.segment || (axle.segment = getSegment(axle.pointOnTrack.projectedLine.points, axle.pointOnTrack.length));
+    const { point, nextPoint, distance, lengthFromStartingPointToNextPoint } = axle.segment || (axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length));
 
     const globalTrackRelativePosition = getRelativePosition(
-      axle.pointOnTrack.projectedLine.centerCoordinate,
+      gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate,
       train.globalPosition,
       undefined,
       0
@@ -208,8 +294,8 @@ export function axlesToBogie(train: Train, bogie: Bogie) {
   });
 }
 
-export function axlesToBogies(train: Train) {
-  train.bogies.forEach(bogie => axlesToBogie(train, bogie));
+export function axlesToBogies(gameState: GameStateType, train: Train) {
+  train.bogies.forEach(bogie => axlesToBogie(gameState, train, bogie));
 
   return train;
 }
@@ -309,13 +395,13 @@ export function calcJointsToRotateBody(train: Train) {
   })
 }
 
-export function placeOtherBodies(train: Train) {
+export function placeOtherBodies(gameState: GameStateType, train: Train) {
   train.otherBodies.forEach(otherBody => {
-    const segment = getSegment(otherBody.pointOnTrack.projectedLine.points, otherBody.pointOnTrack.length);
+    const segment = getSegment(gameState.projectedLines[otherBody.pointOnTrack.projectedLineId].points, otherBody.pointOnTrack.length);
     const axleRelativePosition = getPositionFromLength(segment, otherBody.pointOnTrack.length);
 
     const globalTrackRelativePosition = getRelativePosition(
-      otherBody.pointOnTrack.projectedLine.centerCoordinate,
+      gameState.projectedLines[otherBody.pointOnTrack.projectedLineId].centerCoordinate,
       train.globalPosition,
       undefined,
       0
@@ -478,24 +564,24 @@ export function syncOtherBodies(train: Train) {
   });
 }
 
-export function placeTrain(train: Train) {
+export function placeTrain(gameState: GameStateType, train: Train) {
   // 連結器の向きを反転させないため
-  placeOtherBodies(train);
+  placeOtherBodies(gameState, train);
 
-  train.bogies.forEach(bogie => bogieToAxles(train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
 
   syncOtherBodies(train);
 
-  train.bogies.forEach(fromBogie => axlesToBogie(train, fromBogie));
+  train.bogies.forEach(fromBogie => axlesToBogie(gameState, train, fromBogie));
 }
 
-export function updateTime(train: Train, delta: number) {
+export function updateTime(gameState: GameStateType, train: Train, delta: number) {
   // 自動でマスコンと主制御器（Control System）を接続する
   let accel = 0
   let brake = 1
   train.bogies.forEach(bogie => {
     bogie.masterControllers.forEach(masterController => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(masterController)
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, masterController)
 
       accel = Math.max(accel, accel1)
       brake = Math.min(brake, brake1)
@@ -503,7 +589,7 @@ export function updateTime(train: Train, delta: number) {
   })
   train.otherBodies.forEach(body => {
     body.masterControllers.forEach(masterController => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(masterController)
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, masterController)
 
       accel = Math.max(accel, accel1)
       brake = Math.min(brake, brake1)
@@ -535,7 +621,7 @@ export function updateTime(train: Train, delta: number) {
   )
 
   // 勾配抵抗を計算する。計算を単純化するため、重心に近い地点の勾配から抵抗を計算する
-  const projectedLine = train.bogies[0].axles[0].pointOnTrack.projectedLine
+  const projectedLine = gameState.projectedLines[train.bogies[0].axles[0].pointOnTrack.projectedLineId]
   const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
   const distance = point.distanceTo(nextPoint)
   acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight
@@ -550,10 +636,10 @@ export function updateTime(train: Train, delta: number) {
       : Math.min(0, train.speed + deceleration * delta)
 
   // Run a trains
-  rollAxles(train, train.speed * delta)
+  rollAxles(gameState, train, train.speed * delta)
 }
 
-export function rollAxles(train: Train, distance: number) {
+export function rollAxles(gameState: GameStateType, train: Train, distance: number) {
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
   const center = new THREE.Vector3();
@@ -564,12 +650,12 @@ export function rollAxles(train: Train, distance: number) {
     // 輪軸を転がす
     bogie.axles.forEach(axle => {
       axle.pointOnTrack.length += distance;
-      updateSegmentCacheToAxle(axle);
+      updateSegmentCacheToAxle(gameState, axle);
       axle.rotationX += distance * axle.diameter;
     });
 
     // ボギーを輪軸に合わせる
-    bogieToAxles(train, bogie);
+    bogieToAxles(gameState, train, bogie);
 
     newCenter.add(bogie.position);
   });
@@ -641,10 +727,10 @@ export function rollAxles(train: Train, distance: number) {
       fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
-    axlesToBogie(train, fromBogie);
+    axlesToBogie(gameState, train, fromBogie);
   });
 
-  train.bogies.forEach(bogie => bogieToAxles(train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
 }
 
 export type UIOneHandleMasterControllerConfig = {
@@ -660,16 +746,16 @@ export type UIOneHandleMasterControllerConfig = {
 
 export type OneHandleMasterController = {
   value: number;
-  uiOptionsIndex: number;
+  uiOptionId: string;
 };
 
-export function getOneHandleMasterControllerOutput(masterController: OneHandleMasterController) {
+export function getOneHandleMasterControllerOutput(gameState: GameStateType, masterController: OneHandleMasterController) {
   // TODO Call different functions depending on the vehicle
-  return getOneHandleMasterControllerSimpleOutput(masterController);
+  return getOneHandleMasterControllerSimpleOutput(gameState, masterController);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(masterController: OneHandleMasterController) {
-  const config = state.uiOneHandleMasterControllerConfigs[masterController.uiOptionsIndex];
+export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, masterController: OneHandleMasterController) {
+  const config = gameState.uiOneHandleMasterControllerConfigs[masterController.uiOptionId];
 
   return [Math.max(0, 1 - masterController.value / config.nValue), Math.max(0, (masterController.value - config.nValue) / (config.maxValue - config.nValue))];
 }

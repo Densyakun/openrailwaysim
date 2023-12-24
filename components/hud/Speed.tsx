@@ -2,11 +2,12 @@ import * as React from 'react';
 import { Paper } from '@mui/material';
 import { useSnapshot } from 'valtio';
 import { state as trainsState } from '@/lib/trains';
+import { gameState } from '@/lib/client';
 
 export default function Speed() {
-  useSnapshot(trainsState);
+  useSnapshot(gameState);
 
-  const train = trainsState.trains[trainsState.activeTrainIndex];
+  const train = gameState.trains[trainsState.activeTrainId];
 
   return (
     <Paper>

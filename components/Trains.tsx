@@ -3,20 +3,20 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
-import { IdentifiedRecord } from '@/lib/saveData'
-import { state as trainsState, Train, updateTime, Axle, Bogie, CarBody } from '@/lib/trains'
+import { state as trainsState, updateTime, Axle, Bogie, CarBody } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
+import { gameState } from '@/lib/client'
 
 function BogieModel({
-  trainIndex,
+  trainId,
   bogieIndex,
   bogie,
   isHovered,
   isActive,
   ...props
 }: {
-  trainIndex: number;
+  trainId: string;
   bogieIndex: number;
   bogie: Bogie;
   isHovered: boolean;
@@ -36,19 +36,19 @@ function BogieModel({
         onClick={() => {
           if (isActive) {
             trainsState.activeBobyIndex = -1
-            trainsState.activeTrainIndex = -1
+            trainsState.activeTrainId = ""
           } else {
             trainsState.activeBobyIndex = bogieIndex
-            trainsState.activeTrainIndex = trainIndex
+            trainsState.activeTrainId = trainId
           }
         }}
         onPointerOver={() => {
           trainsState.hoveredBodyIndex = bogieIndex
-          trainsState.hoveredTrainIndex = trainIndex
+          trainsState.hoveredTrainId = trainId
         }}
         onPointerOut={() => {
           trainsState.hoveredBodyIndex = -1
-          trainsState.hoveredTrainIndex = -1
+          trainsState.hoveredTrainId = ""
         }}
         {...props}
       >
@@ -89,14 +89,14 @@ function WheelAndAxleModel({ axle, ...props }: { axle: Axle }) {
 }
 
 function OtherBodyModel({
-  trainIndex,
+  trainId,
   bodyIndex,
   carBody,
   isHovered,
   isActive,
   ...props
 }: {
-  trainIndex: number;
+  trainId: string;
   bodyIndex: number;
   carBody: CarBody;
   isHovered: boolean;
@@ -115,19 +115,19 @@ function OtherBodyModel({
       onClick={() => {
         if (isActive) {
           trainsState.activeBobyIndex = -1
-          trainsState.activeTrainIndex = -1
+          trainsState.activeTrainId = ""
         } else {
           trainsState.activeBobyIndex = bodyIndex
-          trainsState.activeTrainIndex = trainIndex
+          trainsState.activeTrainId = trainId
         }
       }}
       onPointerOver={() => {
         trainsState.hoveredBodyIndex = bodyIndex
-        trainsState.hoveredTrainIndex = trainIndex
+        trainsState.hoveredTrainId = trainId
       }}
       onPointerOut={() => {
         trainsState.hoveredBodyIndex = -1
-        trainsState.hoveredTrainIndex = -1
+        trainsState.hoveredTrainId = ""
       }}
       {...props}
     >
@@ -143,15 +143,18 @@ function OtherBodyModel({
 }
 
 export default function Trains() {
+  useSnapshot(gameState)
   useSnapshot(trainsState)
 
   useFrame(({ }, delta) => {
-    trainsState.trains.forEach(train => {
-      updateTime(train, delta)
+    Object.keys(gameState.trains).forEach(trainId => {
+      const train = gameState.trains[trainId]
+
+      updateTime(gameState, train, delta)
 
       // Track the camera to the selected bogie
       if (trainsState.activeBobyIndex !== -1) {
-        const selectedTrain = trainsState.trains[trainsState.activeTrainIndex]
+        const selectedTrain = gameState.trains[trainsState.activeTrainId]
         const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
         setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
         move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
@@ -161,41 +164,45 @@ export default function Trains() {
 
   return (
     <>
-      {(trainsState.trains as (IdentifiedRecord & Train)[]).map((train, trainIndex) => (
-        <FeatureObject key={trainIndex} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
-          {train.bogies.map((bogie, bogieIndex) => {
-            const isActive = trainsState.activeTrainIndex === trainIndex && trainsState.activeBobyIndex === bogieIndex
-            const isHovered = trainsState.hoveredTrainIndex === trainIndex && trainsState.hoveredBodyIndex === bogieIndex
+      {Object.keys(gameState.trains).map(trainId => {
+        const train = gameState.trains[trainId]
 
-            return (
-              <BogieModel
-                key={bogieIndex}
-                trainIndex={trainIndex}
-                bogieIndex={bogieIndex}
-                bogie={bogie}
-                isActive={isActive}
-                isHovered={isHovered}
-              />
-            )
-          })}
-          {train.otherBodies.map((carBody, otherBodieIndex) => {
-            const bodyIndex = otherBodieIndex + train.bogies.length
-            const isActive = trainsState.activeTrainIndex === trainIndex && trainsState.activeBobyIndex === bodyIndex
-            const isHovered = trainsState.hoveredTrainIndex === trainIndex && trainsState.hoveredBodyIndex === bodyIndex
+        return (
+          <FeatureObject key={trainId} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
+            {train.bogies.map((bogie, bogieIndex) => {
+              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBobyIndex === bogieIndex
+              const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
 
-            return (
-              <OtherBodyModel
-                key={otherBodieIndex}
-                trainIndex={trainIndex}
-                bodyIndex={bodyIndex}
-                carBody={carBody}
-                isActive={isActive}
-                isHovered={isHovered}
-              />
-            )
-          })}
-        </FeatureObject>
-      ))}
+              return (
+                <BogieModel
+                  key={bogieIndex}
+                  trainId={trainId}
+                  bogieIndex={bogieIndex}
+                  bogie={bogie}
+                  isActive={isActive}
+                  isHovered={isHovered}
+                />
+              )
+            })}
+            {train.otherBodies.map((carBody, otherBodieIndex) => {
+              const bodyIndex = otherBodieIndex + train.bogies.length
+              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBobyIndex === bodyIndex
+              const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
+
+              return (
+                <OtherBodyModel
+                  key={otherBodieIndex}
+                  trainId={trainId}
+                  bodyIndex={bodyIndex}
+                  carBody={carBody}
+                  isActive={isActive}
+                  isHovered={isHovered}
+                />
+              )
+            })}
+          </FeatureObject>
+        )
+      })}
     </>
   )
 }

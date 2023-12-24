@@ -2,12 +2,10 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { Instance, Instances, useGLTF } from '@react-three/drei'
 import { useSnapshot } from 'valtio'
-import { ProjectedLine } from '@/lib/gis'
 import { getRotationFromTwoPoints } from '@/lib/projectedLine'
-import { IdentifiedRecord } from '@/lib/saveData'
 import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
-import { state } from './Tracks'
+import { gameState } from '@/lib/client'
 
 function LineTrack({ from, to, meshChild }: { from: THREE.Vector3, to: THREE.Vector3, meshChild: THREE.Mesh }) {
   const groupRef = React.useRef<THREE.Group>(null)
@@ -34,7 +32,7 @@ export default function InstancedTracks() {
 
   const instancedMeshesRef = React.useRef<(THREE.InstancedMesh | null)[]>([])
 
-  useSnapshot(state)
+  useSnapshot(gameState)
 
   return (
     <>
@@ -47,8 +45,10 @@ export default function InstancedTracks() {
         receiveShadow
         castShadow
       >
-        {(state.projectedLines as (IdentifiedRecord & ProjectedLine)[]).map(({ id, centerCoordinate, points }) => {
-          return <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+        {Object.keys(gameState.projectedLines).map(projectedLineId => {
+          const { centerCoordinate, points } = gameState.projectedLines[projectedLineId]
+
+          return <FeatureObject key={projectedLineId} centerCoordinate={centerCoordinate}>
             {points.map((nextPoint, index, array) => {
               if (index === 0) return null
 

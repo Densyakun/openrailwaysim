@@ -5,6 +5,8 @@ const Container = dynamic(() => import('@/components/Container'), {
   ssr: false,
 })
 
+const Client = dynamic(() => import('../components/Client'), { ssr: false })
+
 export default function Home() {
   return (
     <>
@@ -14,6 +16,7 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container />
+      <Client />
     </>
   )
 }

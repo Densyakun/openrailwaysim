@@ -3,20 +3,21 @@ import { useFrame } from '@react-three/fiber'
 import { Instance, Instances } from '@react-three/drei'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate } from '@/lib/gis'
-import { IdentifiedRecord } from '@/lib/saveData'
-import { state as trainsState, Train } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
+import { gameState } from '@/lib/client'
 
 export default function InstancedTrains() {
   const bogieGroupsRef = React.useRef<(THREE.Group | null)[]>([])
   const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
   const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])
 
-  const { trains } = useSnapshot(trainsState)
+  useSnapshot(gameState)
 
   // TODO Correctly display multiple train locations
   useFrame(() => {
-    trainsState.trains.forEach(train => {
+    Object.keys(gameState.trains).forEach(trainId => {
+      const train = gameState.trains[trainId]
+
       train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {
         const bogieGroup = bogieGroupsRef.current[bogieIndex]
         bogieGroup?.position.copy(position)
@@ -40,7 +41,9 @@ export default function InstancedTrains() {
   const axleInstances: JSX.Element[] = []
   const otherBodyInstances: JSX.Element[] = [];
 
-  (trains as (IdentifiedRecord & Train)[]).forEach(train => {
+  Object.keys(gameState.trains).forEach(trainId => {
+    const train = gameState.trains[trainId]
+
     const centerCoordinate = eulerToCoordinate(train.globalPosition)
 
     train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {

@@ -1,18 +1,11 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { proxy, useSnapshot } from 'valtio'
-import { ProjectedLine } from '@/lib/gis'
+import { useSnapshot } from 'valtio'
 import { getRotationFromTwoPoints } from '@/lib/projectedLine'
-import { IdentifiedRecord } from '@/lib/saveData'
 import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
-
-export const state = proxy<{
-  projectedLines: (IdentifiedRecord & ProjectedLine)[];
-}>({
-  projectedLines: [],
-})
+import { gameState } from '@/lib/client'
 
 function LineTrack({ from, to, object }: { from: THREE.Vector3, to: THREE.Vector3, object: THREE.Group }) {
   const groupRef = React.useRef<THREE.Group>(null)
@@ -44,12 +37,14 @@ function LineTrack({ from, to, object }: { from: THREE.Vector3, to: THREE.Vector
 export default function Tracks() {
   const { scene } = useGLTF('https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf')
 
-  useSnapshot(state)
+  useSnapshot(gameState)
 
   return (
     <>
-      {(state.projectedLines as (IdentifiedRecord & ProjectedLine)[]).map(({ id, centerCoordinate, points }) => {
-        return <FeatureObject key={id} centerCoordinate={centerCoordinate}>
+      {Object.keys(gameState.projectedLines).map(projectedLineId => {
+        const { centerCoordinate, points } = gameState.projectedLines[projectedLineId]
+
+        return <FeatureObject key={projectedLineId} centerCoordinate={centerCoordinate}>
           {points.map((nextPoint, index, array) => {
             if (index === 0) return null
 

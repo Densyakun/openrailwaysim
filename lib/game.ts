@@ -1,0 +1,188 @@
+import * as THREE from 'three'
+import EventEmitter from "events"
+import { proxy } from "valtio"
+import { WebSocket as WebSocketInNode } from "ws"
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain } from "./trains";
+import { ProjectedLine, SerializableProjectedLine } from "./gis";
+import { FeatureCollection } from "@turf/helpers";
+
+export type IdentifiedRecord = { id: string };
+
+// 参照されるデータの後に参照するデータの順で並べる必要がある
+export type GameStateType = { [key: string]: any } & {
+  featureCollections: { [key: string]: { value: FeatureCollection } };
+  projectedLines: { [key: string]: ProjectedLine };
+  trains: { [key: string]: Train };
+  uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
+}
+
+export function getNewState() {
+  const state = proxy<GameStateType>({
+    featureCollections: {},
+    projectedLines: {},
+    trains: {},
+    uiOneHandleMasterControllerConfigs: {},
+  })
+
+  return state
+}
+
+export function toSerializableProp(key: string, value: any) {
+  if (key === "projectedLines") {
+    const prop = value as GameStateType["projectedLines"]
+
+    return Object.keys(prop).map(projectedLineId => {
+      const { centerCoordinate, points } = prop[projectedLineId]
+
+      return {
+        id: projectedLineId,
+        centerCoordinate,
+        points: points.map(point => point.toArray()),
+      }
+    }) as SerializableProjectedLine[]
+  } else if (key === "trains") {
+    const prop = value as GameStateType["trains"]
+
+    return Object.keys(prop).map(trainId => {
+      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = prop[trainId]
+
+      return {
+        id: trainId,
+        bogies: bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
+          position: position.toArray(),
+          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+          pointOnTrack,
+          weight,
+          masterControllers,
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+            pointOnTrack,
+            z,
+            position: position.toArray(),
+            rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+            diameter,
+            hasMotor,
+          } as SerializableAxle)),
+        } as SerializableBogie)),
+        otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+          position: position.toArray(),
+          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+          pointOnTrack,
+          weight,
+          masterControllers,
+        } as SerializableCarBody)),
+        bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+          otherBodyIndex,
+          otherBodyPosition: otherBodyPosition.toArray(),
+          bogieIndex,
+          bogiePosition: bogiePosition.toArray(),
+        })),
+        otherJoints: otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+          bodyIndexA,
+          positionA: positionA.toArray(),
+          bodyIndexB,
+          positionB: positionB.toArray(),
+        })),
+        speed,
+        motorCars,
+      }
+    }) as SerializableTrain[]
+  }
+
+  return value
+}
+
+export function fromSerializableProp(key: string, value: any, gameState: GameStateType) {
+  if (key === "projectedLines") {
+    const json = value as SerializableProjectedLine[]
+
+    const prop: GameStateType["projectedLines"] = {}
+    json.forEach(({ id, centerCoordinate, points }) =>
+      prop[id] = {
+        centerCoordinate,
+        points: points.map(point => new THREE.Vector3(...point)),
+      }
+    )
+    return prop
+  } else if (key === "trains") {
+    const json = value as SerializableTrain[]
+
+    const prop: GameStateType["trains"] = {}
+    json.forEach(({ id, bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars }) =>
+      prop[id] = createTrain(
+        gameState,
+        bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
+          position: new THREE.Vector3(...position),
+          rotation: new THREE.Euler(...rotation),
+          pointOnTrack,
+          weight,
+          masterControllers,
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+            pointOnTrack,
+            z,
+            position: new THREE.Vector3(...position),
+            rotation: new THREE.Euler(...rotation),
+            diameter,
+            rotationX: 0,
+            hasMotor,
+          } as Axle)),
+        } as Bogie)),
+        otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+          position: new THREE.Vector3(...position),
+          rotation: new THREE.Euler(...rotation),
+          pointOnTrack,
+          weight,
+          masterControllers,
+        } as CarBody)),
+        bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+          otherBodyIndex,
+          otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
+          bogieIndex,
+          bogiePosition: new THREE.Vector3(...bogiePosition),
+        } as BodySupporterJoint)),
+        otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+          bodyIndexA,
+          positionA: new THREE.Vector3(...positionA),
+          bodyIndexB,
+          positionB: new THREE.Vector3(...positionB),
+        } as Joint)),
+        speed,
+        undefined,
+        motorCars,
+      )
+    )
+    return prop
+  }
+
+  return value
+}
+
+export type OnMessageInClient = (id: number, value: any, ws: WebSocket | WebSocket) => void;
+export type OnMessageInServer = (id: number, value: any, ws: WebSocket | WebSocketInNode) => void;
+
+export class MessageEmitter extends EventEmitter {
+  isInvalidMessage: boolean
+
+  constructor() {
+    super()
+
+    this.isInvalidMessage = false
+  }
+
+  emit(eventName: string | symbol, ...args: any[]): boolean {
+    if (eventName === "message") {
+      this.isInvalidMessage = true
+
+      const result = super.emit(eventName, ...args)
+
+      if (this.isInvalidMessage)
+        console.log(`Received invalid message. id: ${args[0]}, value: ${args[1]}`)
+
+      return result
+    } else
+      return super.emit(eventName, ...args)
+  }
+}
+
+export const FROM_SERVER_STATE = 0
+export const FROM_SERVER_STATE_OPS = 1
+export const FROM_SERVER_CANCEL = 2

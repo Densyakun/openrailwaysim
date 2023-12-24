@@ -1,15 +1,14 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
 import Fab from '@mui/material/Fab';
 import MenuIcon from '@mui/icons-material/Menu';
 import { SxProps } from '@mui/system';
 import { proxy, useSnapshot } from 'valtio';
 import Canvas from './Canvas';
 import TimeChip from './TimeChip';
-import Admin from './admin/App';
 import { Stack } from '@mui/material';
 import ControlStand from './hud/ControlStand';
+import SyncedChip from './SyncedChip';
 
 export const state = proxy<{
   isOpen: boolean;
@@ -88,11 +87,14 @@ export default function Container() {
             display: "flex",
             justifyContent: 'center',
           }}>
-            <Box_ sx={{
-              p: 1,
-            }}>
+            <Stack
+              sx={{ p: 1 }}
+              direction={'row'}
+              spacing={1}
+            >
               <TimeChip />
-            </Box_>
+              <SyncedChip />
+            </Stack>
           </Box_>
           <Box_ sx={{
             width: "100%",
@@ -164,13 +166,6 @@ export default function Container() {
           </Box_>
         </Stack>
       </Stack>
-      <Drawer
-        anchor='bottom'
-        open={isOpen}
-        onClose={toggleDrawer(false)}
-      >
-        <Admin />
-      </Drawer>
     </>
   )
 }

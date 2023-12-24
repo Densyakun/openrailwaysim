@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
 import { state as trainsState } from '@/lib/trains';
+import { gameState } from '@/lib/client';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -13,14 +14,14 @@ const Box_ = Box as (props: {
 export default function MasterController() {
   useSnapshot(trainsState);
 
-  const train = trainsState.trains[trainsState.activeTrainIndex];
+  const train = gameState.trains[trainsState.activeTrainId];
   const { masterControllers } = trainsState.activeBobyIndex < train.bogies.length ? train.bogies[trainsState.activeBobyIndex] : train.otherBodies[trainsState.activeBobyIndex - train.bogies.length];
   // TODO 複数のマスコンの追加されたボギー台車に対応する
   const masterController = masterControllers[0];
   if (!masterController) return null;
 
-  const { uiOptionsIndex, value } = masterController;
-  const { marks, maxValue, nValue, stepRangeList, steps } = trainsState.uiOneHandleMasterControllerConfigs[uiOptionsIndex];
+  const { uiOptionId, value } = masterController;
+  const { marks, maxValue, nValue, stepRangeList, steps } = gameState.uiOneHandleMasterControllerConfigs[uiOptionId];
 
   const handleChange = (event: Event, newValue: number | number[]) => {
     const newValue_ = newValue as number;

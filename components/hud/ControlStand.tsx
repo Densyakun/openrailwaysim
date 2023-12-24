@@ -15,7 +15,7 @@ const Box_ = Box as (props: {
 export default function ControlStand() {
   useSnapshot(trainsState);
 
-  if (trainsState.activeTrainIndex === -1) return null;
+  if (!trainsState.activeTrainId) return null;
 
   return (
     <>

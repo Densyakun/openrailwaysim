@@ -6,6 +6,7 @@ import { default as turfDistance } from '@turf/distance'
 import { point as turfPoint } from '@turf/helpers'
 import pointOnFeature from '@turf/point-on-feature'
 import { proxy } from 'valtio'
+import { IdentifiedRecord } from './game'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
 
@@ -107,6 +108,11 @@ export type ProjectedLine = {
   points: THREE.Vector3[];
 }
 
+export type SerializableProjectedLine = IdentifiedRecord & {
+  centerCoordinate: Position;
+  points: THREE.Vector3Tuple[];
+}
+
 export function getProjectedLines(featureCollection: FeatureCollection): ProjectedLine[] {
   return featureCollection.features.map(feature => {
     switch (feature.geometry.type) {
@@ -127,6 +133,6 @@ export function getProjectedLines(featureCollection: FeatureCollection): Project
 }
 
 export type ProjectedLineAndLength = {
-  projectedLine: ProjectedLine;
+  projectedLineId: string;
   length: number;
 }

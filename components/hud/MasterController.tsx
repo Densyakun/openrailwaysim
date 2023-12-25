@@ -12,6 +12,7 @@ const Box_ = Box as (props: {
 }) => JSX.Element;
 
 export default function MasterController() {
+  useSnapshot(gameState);
   useSnapshot(trainsState);
 
   const train = gameState.trains[trainsState.activeTrainId];

@@ -7,7 +7,7 @@ import { GameStateType } from './game'
 
 export function createCarBody(
   pointOnTrack: ProjectedLineAndLength, // 列車を設置するときにOtherBodiesを同期する前のCarBodyを設置する線路上の位置。Jointの向きが逆にならないようにするために必要
-  weight = 30,
+  weight = 0,
   masterControllers: OneHandleMasterController[] = [],
 ): CarBody {
   return {
@@ -26,7 +26,7 @@ export function createBogie(
     diameter: number,
     hasMotor: boolean,
   }[],
-  weight: number = 30,
+  weight = 0,
   masterControllers: OneHandleMasterController[] = [],
 ): Bogie {
   return {

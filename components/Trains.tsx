@@ -151,15 +151,15 @@ export default function Trains() {
       const train = gameState.trains[trainId]
 
       updateTime(gameState, train, delta)
-
-      // Track the camera to the selected bogie
-      if (trainsState.activeBobyIndex !== -1) {
-        const selectedTrain = gameState.trains[trainsState.activeTrainId]
-        const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
-        setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
-        move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
-      }
     })
+
+    // Track the camera to the selected car body
+    if (trainsState.activeBobyIndex !== -1) {
+      const selectedTrain = gameState.trains[trainsState.activeTrainId]
+      const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
+      setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
+      move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
+    }
   })
 
   return (

@@ -10,7 +10,9 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
       const ops_: [string, string[], any][] = []
       ops.forEach(([op_, path, value, prevValue]) => {
         if (3 <= path.length && path[0] === "trains") {
-          if (path[2] === "bogies") {
+          if (path[2] === "speed") {
+            ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+          } else if (path[2] === "bogies") {
             if (6 <= path.length) {
               if (path[4] === "axles") {
                 if (path.length === 8 && path[6] === "pointOnTrack" && path[7] === "length")

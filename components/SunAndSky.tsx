@@ -4,8 +4,8 @@ import { useFrame } from '@react-three/fiber'
 import { Sky } from '@react-three/drei'
 import FollowCamera, { state as followCameraState } from './cameras-and-controls/FollowCamera'
 import { proxy, ref } from 'valtio'
-import { state as dateState } from '@/lib/date'
 import { getOriginEuler, state as gisState } from '@/lib/gis'
+import { gameState } from '@/lib/client'
 
 export const skyDistanceHalf = 149600000000
 
@@ -56,15 +56,8 @@ export default function SunAndSky() {
 
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
 
-  let timeRemainder = 0
-
-  useFrame(({ }, delta) => {
-    timeRemainder += delta * 1000
-    const deltaMilliseconds = Math.floor(timeRemainder)
-    timeRemainder -= deltaMilliseconds
-    dateState.nowDate += deltaMilliseconds
-
-    const nowDate = new Date(dateState.nowDate)
+  useFrame(() => {
+    const nowDate = new Date(gameState.nowDate)
     state.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
       + new THREE.Euler().setFromQuaternion(gisState.originTransform.quaternion, 'YXZ').y

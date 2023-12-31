@@ -14,6 +14,7 @@ export type GameStateType = { [key: string]: any } & {
   projectedLines: { [key: string]: ProjectedLine };
   trains: { [key: string]: Train };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
+  nowDate: number;
 }
 
 export function getNewState() {
@@ -22,6 +23,7 @@ export function getNewState() {
     projectedLines: {},
     trains: {},
     uiOneHandleMasterControllerConfigs: {},
+    nowDate: Date.now(),
   })
 
   return state
@@ -164,7 +166,16 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
   return value
 }
 
+let timeRemainder = 0;
+
 export function updateTime(gameState: GameStateType, delta: number) {
+  // Time
+  timeRemainder += delta * 1000
+  const deltaMilliseconds = Math.floor(timeRemainder)
+  timeRemainder -= deltaMilliseconds
+  gameState.nowDate += deltaMilliseconds
+
+  // Trains
   Object.keys(gameState.trains).forEach(trainId => {
     const train = gameState.trains[trainId]
 

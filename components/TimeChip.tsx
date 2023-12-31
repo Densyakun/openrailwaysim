@@ -1,13 +1,13 @@
 import * as React from 'react';
 import Chip from '@mui/material/Chip';
-import { state as dateState } from '@/lib/date';
 import { subscribe } from 'valtio';
+import { gameState } from '@/lib/client';
 
 export default function TimeChip() {
-  const [date, setDate] = React.useState(new Date(dateState.nowDate));
+  const [date, setDate] = React.useState(new Date(gameState.nowDate));
 
-  React.useEffect(() => subscribe(dateState, () => {
-    const newDate = new Date(dateState.nowDate);
+  React.useEffect(() => subscribe(gameState, () => {
+    const newDate = new Date(gameState.nowDate);
 
     if (!(
       date.getUTCSeconds() === newDate.getUTCSeconds()

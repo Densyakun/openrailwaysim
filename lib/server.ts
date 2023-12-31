@@ -9,24 +9,32 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
     wss.clients.forEach(client => {
       const ops_: [string, string[], any][] = []
       ops.forEach(([op_, path, value, prevValue]) => {
-        if (3 <= path.length && path[0] === "trains") {
-          if (path[2] === "speed") {
-            ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
-          } else if (path[2] === "bogies") {
-            if (6 <= path.length) {
-              if (path[4] === "axles") {
-                if (path.length === 8 && path[6] === "pointOnTrack" && path[7] === "length")
-                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
-              } else if (path[4] === "masterControllers") {
-                if (path.length === 7 && path[6] === "value")
-                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+        const push = function () {
+          ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+        }
+
+        if (path[0] === "nowDate") {
+          push()
+        } else if (path[0] === "trains") {
+          if (3 <= path.length) {
+            if (path[2] === "speed") {
+              push()
+            } else if (path[2] === "bogies") {
+              if (6 <= path.length) {
+                if (path[4] === "axles") {
+                  if (path.length === 8 && path[6] === "pointOnTrack" && path[7] === "length")
+                    push()
+                } else if (path[4] === "masterControllers") {
+                  if (path.length === 7 && path[6] === "value")
+                    push()
+                }
               }
-            }
-          } else if (path[2] === "otherBodies") {
-            if (6 <= path.length) {
-              if (path[4] === "masterControllers") {
-                if (path.length === 7 && path[6] === "value")
-                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+            } else if (path[2] === "otherBodies") {
+              if (6 <= path.length) {
+                if (path[4] === "masterControllers") {
+                  if (path.length === 7 && path[6] === "value")
+                    push()
+                }
               }
             }
           }

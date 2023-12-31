@@ -18,7 +18,7 @@ export default function MasterController() {
   useSnapshot(trainsState);
 
   const train = gameState.trains[trainsState.activeTrainId];
-  const { masterControllers } = trainsState.activeBobyIndex < train.bogies.length ? train.bogies[trainsState.activeBobyIndex] : train.otherBodies[trainsState.activeBobyIndex - train.bogies.length];
+  const { masterControllers } = trainsState.activeBodyIndex < train.bogies.length ? train.bogies[trainsState.activeBodyIndex] : train.otherBodies[trainsState.activeBodyIndex - train.bogies.length];
   // TODO 複数のマスコンの追加されたボギー台車に対応する
   const masterControllerIndex = 0;
   const masterController = masterControllers[masterControllerIndex];
@@ -50,7 +50,7 @@ export default function MasterController() {
     setValue(newValue_);
     socket.send(JSON.stringify([FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, [
       trainsState.activeTrainId,
-      trainsState.activeBobyIndex,
+      trainsState.activeBodyIndex,
       masterControllerIndex,
       masterController.value
     ]]));

@@ -113,12 +113,12 @@ export const state = proxy<{
   hoveredTrainId: string;
   hoveredBodyIndex: number;
   activeTrainId: string;
-  activeBobyIndex: number;
+  activeBodyIndex: number;
 }>({
   hoveredTrainId: "",
   hoveredBodyIndex: -1,
   activeTrainId: "",
-  activeBobyIndex: -1,
+  activeBodyIndex: -1,
 });
 
 export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) {

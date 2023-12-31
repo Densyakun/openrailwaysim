@@ -35,10 +35,10 @@ function BogieModel({
         ref={meshRef}
         onClick={() => {
           if (isActive) {
-            trainsState.activeBobyIndex = -1
+            trainsState.activeBodyIndex = -1
             trainsState.activeTrainId = ""
           } else {
-            trainsState.activeBobyIndex = bogieIndex
+            trainsState.activeBodyIndex = bogieIndex
             trainsState.activeTrainId = trainId
           }
         }}
@@ -114,10 +114,10 @@ function OtherBodyModel({
       ref={meshRef}
       onClick={() => {
         if (isActive) {
-          trainsState.activeBobyIndex = -1
+          trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""
         } else {
-          trainsState.activeBobyIndex = bodyIndex
+          trainsState.activeBodyIndex = bodyIndex
           trainsState.activeTrainId = trainId
         }
       }}
@@ -144,9 +144,9 @@ function OtherBodyModel({
 
 export function onFrame() {
   // Track the camera to the selected car body
-  if (trainsState.activeBobyIndex !== -1) {
+  if (trainsState.activeBodyIndex !== -1) {
     const selectedTrain = gameState.trains[trainsState.activeTrainId]
-    const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
+    const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
     setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
     move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
   }
@@ -164,7 +164,7 @@ export default function Trains() {
         return (
           <FeatureObject key={trainId} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
             {train.bogies.map((bogie, bogieIndex) => {
-              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBobyIndex === bogieIndex
+              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
               const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
 
               return (
@@ -180,7 +180,7 @@ export default function Trains() {
             })}
             {train.otherBodies.map((carBody, otherBodieIndex) => {
               const bodyIndex = otherBodieIndex + train.bogies.length
-              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBobyIndex === bodyIndex
+              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bodyIndex
               const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
 
               return (

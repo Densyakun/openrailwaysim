@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
@@ -9,8 +9,26 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
     wss.clients.forEach(client => {
       const ops_: [string, string[], any][] = []
       ops.forEach(([op_, path, value, prevValue]) => {
-        if (path.length === 8 && path[0] === "trains" && path[2] === "bogies" && path[4] === "axles" && path[6] === "pointOnTrack" && path[7] === "length")
-          ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+        if (3 <= path.length && path[0] === "trains") {
+          if (path[2] === "bogies") {
+            if (6 <= path.length) {
+              if (path[4] === "axles") {
+                if (path.length === 8 && path[6] === "pointOnTrack" && path[7] === "length")
+                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+              } else if (path[4] === "masterControllers") {
+                if (path.length === 7 && path[6] === "value")
+                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+              }
+            }
+          } else if (path[2] === "otherBodies") {
+            if (6 <= path.length) {
+              if (path[4] === "masterControllers") {
+                if (path.length === 7 && path[6] === "value")
+                  ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+              }
+            }
+          }
+        }
       })
 
       client.send(JSON.stringify([FROM_SERVER_STATE_OPS, ops_]))
@@ -48,6 +66,17 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
     onUpdateTime();
 
     switch (id) {
+      case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE:
+        const [trainId, bodyIndex, masterControllerIndex, newValue] = value;
+
+        const train = gameState.trains[trainId];
+        const carBody = bodyIndex < train.bogies.length ? train.bogies[bodyIndex] : train.otherBodies[bodyIndex - train.bogies.length];
+        const masterController = carBody.masterControllers[masterControllerIndex];
+
+        masterController.value = newValue;
+
+        messageEmitter.isInvalidMessage = false;
+        break;
       default:
         break;
     }

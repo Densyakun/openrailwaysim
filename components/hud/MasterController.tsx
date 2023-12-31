@@ -3,6 +3,8 @@ import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
 import { state as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
+import { socket } from '../Client';
+import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE } from '@/lib/game';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -18,7 +20,8 @@ export default function MasterController() {
   const train = gameState.trains[trainsState.activeTrainId];
   const { masterControllers } = trainsState.activeBobyIndex < train.bogies.length ? train.bogies[trainsState.activeBobyIndex] : train.otherBodies[trainsState.activeBobyIndex - train.bogies.length];
   // TODO 複数のマスコンの追加されたボギー台車に対応する
-  const masterController = masterControllers[0];
+  const masterControllerIndex = 0;
+  const masterController = masterControllers[masterControllerIndex];
   if (!masterController) return null;
 
   const { uiOptionId, value } = masterController;
@@ -26,20 +29,31 @@ export default function MasterController() {
 
   const handleChange = (event: Event, newValue: number | number[]) => {
     const newValue_ = newValue as number;
-    for (const stepRange of stepRangeList) {
-      if (stepRange[0] <= newValue_ && newValue_ <= stepRange[1]) {
-        for (let stepIndex = 0; stepIndex <= steps.length - 2; stepIndex++) {
-          if (steps[stepIndex] <= newValue_ && newValue_ <= steps[stepIndex + 1]) {
-            masterController.value = newValue_ < steps[stepIndex] + (steps[stepIndex + 1] - steps[stepIndex]) / 2
-              ? steps[stepIndex]
-              : steps[stepIndex + 1];
-            return;
+
+    const setValue = (newValue: number) => {
+      for (const stepRange of stepRangeList) {
+        if (stepRange[0] <= newValue && newValue <= stepRange[1]) {
+          for (let stepIndex = 0; stepIndex <= steps.length - 2; stepIndex++) {
+            if (steps[stepIndex] <= newValue && newValue <= steps[stepIndex + 1]) {
+              masterController.value = newValue < steps[stepIndex] + (steps[stepIndex + 1] - steps[stepIndex]) / 2
+                ? steps[stepIndex]
+                : steps[stepIndex + 1];
+              return;
+            }
           }
         }
-      }
-    };
+      };
 
-    masterController.value = newValue_;
+      masterController.value = newValue_;
+    }
+
+    setValue(newValue_);
+    socket.send(JSON.stringify([FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, [
+      trainsState.activeTrainId,
+      trainsState.activeBobyIndex,
+      masterControllerIndex,
+      masterController.value
+    ]]));
   };
 
   const trackColor = value < nValue ? "#00ff00" : "#ffff00"

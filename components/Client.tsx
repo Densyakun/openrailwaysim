@@ -6,6 +6,7 @@ import { setCameraToTestLine } from "@/lib/testClient"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
+import { onFrame as onFrameTrains } from "./Trains"
 
 export let socket: WebSocket
 
@@ -58,6 +59,8 @@ export default function Client() {
 
   useFrame(({ }, delta) => {
     updateTime(gameState, delta)
+
+    onFrameTrains()
   })
 
   useEffect(() => {

@@ -142,19 +142,19 @@ function OtherBodyModel({
   )
 }
 
+export function onFrame() {
+  // Track the camera to the selected car body
+  if (trainsState.activeBobyIndex !== -1) {
+    const selectedTrain = gameState.trains[trainsState.activeTrainId]
+    const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
+    setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
+    move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
+  }
+}
+
 export default function Trains() {
   useSnapshot(gameState)
   useSnapshot(trainsState)
-
-  useFrame(() => {
-    // Track the camera to the selected car body
-    if (trainsState.activeBobyIndex !== -1) {
-      const selectedTrain = gameState.trains[trainsState.activeTrainId]
-      const selectedBody = trainsState.activeBobyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBobyIndex] : selectedTrain.otherBodies[trainsState.activeBobyIndex - selectedTrain.bogies.length]
-      setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
-      move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
-    }
-  })
 
   return (
     <>

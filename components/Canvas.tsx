@@ -7,7 +7,7 @@ import SunAndSky from './SunAndSky'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
 import Trains from './Trains'
-import TestFeatureCollection from './TestFeatureCollection'
+import Client from './Client'
 
 export default function App() {
   return (
@@ -19,7 +19,7 @@ export default function App() {
       <FeatureCollections />
       <Tracks />
       <Trains />
-      <TestFeatureCollection />
+      <Client />
     </Canvas>
   )
 }

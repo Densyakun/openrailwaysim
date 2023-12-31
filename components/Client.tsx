@@ -2,6 +2,7 @@
 
 import { gameState, clientState, messageEmitter } from "@/lib/client"
 import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp } from "@/lib/game"
+import { setCameraToTestLine } from "@/lib/testClient"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
 
@@ -13,6 +14,8 @@ export default function Client() {
       case FROM_SERVER_STATE:
         clientState.isSynced = true
         Object.keys(gameState).forEach(key => (gameState as any)[key] = fromSerializableProp(key, value[key], gameState))
+
+        setCameraToTestLine()
 
         messageEmitter.isInvalidMessage = false
         break

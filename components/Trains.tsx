@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
-import { state as trainsState, updateTime, Axle, Bogie, CarBody } from '@/lib/trains'
+import { state as trainsState, Axle, Bogie, CarBody } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
@@ -146,13 +146,7 @@ export default function Trains() {
   useSnapshot(gameState)
   useSnapshot(trainsState)
 
-  useFrame(({ }, delta) => {
-    Object.keys(gameState.trains).forEach(trainId => {
-      const train = gameState.trains[trainId]
-
-      updateTime(gameState, train, delta)
-    })
-
+  useFrame(() => {
     // Track the camera to the selected car body
     if (trainsState.activeBobyIndex !== -1) {
       const selectedTrain = gameState.trains[trainsState.activeTrainId]

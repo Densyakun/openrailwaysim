@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import EventEmitter from "events"
 import { proxy } from "valtio"
 import { WebSocket as WebSocketInNode } from "ws"
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain } from "./trains";
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
 import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
 
@@ -154,6 +154,14 @@ export function fromSerializableProp(key: string, value: any, gameState: GameSta
   }
 
   return value
+}
+
+export function updateTime(gameState: GameStateType, delta: number) {
+  Object.keys(gameState.trains).forEach(trainId => {
+    const train = gameState.trains[trainId]
+
+    updateTrainOnTime(gameState, train, delta)
+  })
 }
 
 export type OnMessageInClient = (id: number, value: any, ws: WebSocket | WebSocket) => void;

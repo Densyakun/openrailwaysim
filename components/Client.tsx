@@ -1,8 +1,9 @@
 'use client'
 
 import { gameState, clientState, messageEmitter } from "@/lib/client"
-import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp } from "@/lib/game"
+import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp, updateTime } from "@/lib/game"
 import { setCameraToTestLine } from "@/lib/testClient"
+import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
 
@@ -49,6 +50,10 @@ export default function Client() {
         break
     }
   }
+
+  useFrame(({ }, delta) => {
+    updateTime(gameState, delta)
+  })
 
   useEffect(() => {
     const address = `ws://${location.hostname}:8080/ws`

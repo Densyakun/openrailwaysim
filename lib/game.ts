@@ -27,130 +27,138 @@ export function getNewState() {
   return state
 }
 
-export function toSerializableProp(key: string, value: any) {
-  if (key === "projectedLines") {
-    const prop = value as GameStateType["projectedLines"]
+export function toSerializableProp(path: string[], value: any) {
+  if (path[0] === "projectedLines") {
+    if (path.length === 1) {
+      const prop = value as GameStateType["projectedLines"]
 
-    return Object.keys(prop).map(projectedLineId => {
-      const { centerCoordinate, points } = prop[projectedLineId]
+      return Object.keys(prop).map(projectedLineId => {
+        const { centerCoordinate, points } = prop[projectedLineId]
 
-      return {
-        id: projectedLineId,
-        centerCoordinate,
-        points: points.map(point => point.toArray()),
-      }
-    }) as SerializableProjectedLine[]
-  } else if (key === "trains") {
-    const prop = value as GameStateType["trains"]
+        return {
+          id: projectedLineId,
+          centerCoordinate,
+          points: points.map(point => point.toArray()),
+        }
+      }) as SerializableProjectedLine[]
+    }
+  } else if (path[0] === "trains") {
+    if (path.length === 1) {
+      const prop = value as GameStateType["trains"]
 
-    return Object.keys(prop).map(trainId => {
-      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = prop[trainId]
+      return Object.keys(prop).map(trainId => {
+        const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = prop[trainId]
 
-      return {
-        id: trainId,
-        bogies: bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
-          position: position.toArray(),
-          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-          pointOnTrack,
-          weight,
-          masterControllers,
-          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
-            pointOnTrack,
-            z,
+        return {
+          id: trainId,
+          bogies: bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
             position: position.toArray(),
             rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-            diameter,
-            hasMotor,
-          } as SerializableAxle)),
-        } as SerializableBogie)),
-        otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
-          position: position.toArray(),
-          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-          pointOnTrack,
-          weight,
-          masterControllers,
-        } as SerializableCarBody)),
-        bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
-          otherBodyIndex,
-          otherBodyPosition: otherBodyPosition.toArray(),
-          bogieIndex,
-          bogiePosition: bogiePosition.toArray(),
-        })),
-        otherJoints: otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
-          bodyIndexA,
-          positionA: positionA.toArray(),
-          bodyIndexB,
-          positionB: positionB.toArray(),
-        })),
-        speed,
-        motorCars,
-      }
-    }) as SerializableTrain[]
+            pointOnTrack,
+            weight,
+            masterControllers,
+            axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+              pointOnTrack,
+              z,
+              position: position.toArray(),
+              rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+              diameter,
+              hasMotor,
+            } as SerializableAxle)),
+          } as SerializableBogie)),
+          otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+            position: position.toArray(),
+            rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+            pointOnTrack,
+            weight,
+            masterControllers,
+          } as SerializableCarBody)),
+          bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+            otherBodyIndex,
+            otherBodyPosition: otherBodyPosition.toArray(),
+            bogieIndex,
+            bogiePosition: bogiePosition.toArray(),
+          })),
+          otherJoints: otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+            bodyIndexA,
+            positionA: positionA.toArray(),
+            bodyIndexB,
+            positionB: positionB.toArray(),
+          })),
+          speed,
+          motorCars,
+        }
+      }) as SerializableTrain[]
+    }
   }
 
   return value
 }
 
-export function fromSerializableProp(key: string, value: any, gameState: GameStateType) {
-  if (key === "projectedLines") {
-    const json = value as SerializableProjectedLine[]
+export function fromSerializableProp(path: string[], value: any, gameState: GameStateType) {
+  if (path[0] === "projectedLines") {
+    if (path.length === 1) {
+      const json = value as SerializableProjectedLine[]
 
-    const prop: GameStateType["projectedLines"] = {}
-    json.forEach(({ id, centerCoordinate, points }) =>
-      prop[id] = {
-        centerCoordinate,
-        points: points.map(point => new THREE.Vector3(...point)),
-      }
-    )
-    return prop
-  } else if (key === "trains") {
-    const json = value as SerializableTrain[]
+      const prop: GameStateType["projectedLines"] = {}
+      json.forEach(({ id, centerCoordinate, points }) =>
+        prop[id] = {
+          centerCoordinate,
+          points: points.map(point => new THREE.Vector3(...point)),
+        }
+      )
+      return prop
+    }
+  } else if (path[0] === "trains") {
+    if (path.length === 1) {
+      const json = value as SerializableTrain[]
 
-    const prop: GameStateType["trains"] = {}
-    json.forEach(({ id, bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars }) =>
-      prop[id] = createTrain(
-        gameState,
-        bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
-          position: new THREE.Vector3(...position),
-          rotation: new THREE.Euler(...rotation),
-          pointOnTrack,
-          weight,
-          masterControllers,
-          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
-            pointOnTrack,
-            z,
+      const prop: GameStateType["trains"] = {}
+      json.forEach(({ id, bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars }) =>
+        prop[id] = createTrain(
+          gameState,
+          bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
             position: new THREE.Vector3(...position),
             rotation: new THREE.Euler(...rotation),
-            diameter,
-            rotationX: 0,
-            hasMotor,
-          } as Axle)),
-        } as Bogie)),
-        otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
-          position: new THREE.Vector3(...position),
-          rotation: new THREE.Euler(...rotation),
-          pointOnTrack,
-          weight,
-          masterControllers,
-        } as CarBody)),
-        bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
-          otherBodyIndex,
-          otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
-          bogieIndex,
-          bogiePosition: new THREE.Vector3(...bogiePosition),
-        } as BodySupporterJoint)),
-        otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
-          bodyIndexA,
-          positionA: new THREE.Vector3(...positionA),
-          bodyIndexB,
-          positionB: new THREE.Vector3(...positionB),
-        } as Joint)),
-        speed,
-        undefined,
-        motorCars,
+            pointOnTrack,
+            weight,
+            masterControllers,
+            axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+              pointOnTrack,
+              z,
+              position: new THREE.Vector3(...position),
+              rotation: new THREE.Euler(...rotation),
+              diameter,
+              rotationX: 0,
+              hasMotor,
+            } as Axle)),
+          } as Bogie)),
+          otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+            position: new THREE.Vector3(...position),
+            rotation: new THREE.Euler(...rotation),
+            pointOnTrack,
+            weight,
+            masterControllers,
+          } as CarBody)),
+          bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+            otherBodyIndex,
+            otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
+            bogieIndex,
+            bogiePosition: new THREE.Vector3(...bogiePosition),
+          } as BodySupporterJoint)),
+          otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+            bodyIndexA,
+            positionA: new THREE.Vector3(...positionA),
+            bodyIndexB,
+            positionB: new THREE.Vector3(...positionB),
+          } as Joint)),
+          speed,
+          undefined,
+          motorCars,
+        )
       )
-    )
-    return prop
+      return prop
+    }
   }
 
   return value

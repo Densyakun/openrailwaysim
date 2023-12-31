@@ -14,7 +14,7 @@ export default function Client() {
     switch (id) {
       case FROM_SERVER_STATE:
         clientState.isSynced = true
-        Object.keys(gameState).forEach(key => (gameState as any)[key] = fromSerializableProp(key, value[key], gameState))
+        Object.keys(gameState).forEach(key => (gameState as any)[key] = fromSerializableProp([key], value[key], gameState))
 
         setCameraToTestLine()
 
@@ -24,10 +24,15 @@ export default function Client() {
         (value as Parameters<Parameters<typeof subscribe>[1]>[0]).forEach(op => {
           switch (op[0]) {
             case "set":
-              if (op[1].length !== 1)
-                console.error(`op[1].length is ${op[1].length}`)
-              else
-                (gameState as any)[op[1][0]] = fromSerializableProp(op[1][0] as string, op[2], gameState)
+              const path = op[1] as string[]
+              const setObj = function (obj: any, path: string[], value: any, n = 0) {
+                if (n + 1 === path.length)
+                  obj[path[n]] = fromSerializableProp(path, value, gameState)
+                else
+                  setObj(obj[path[n]], path, value, n + 1)
+              }
+              setObj(gameState, path, op[2])
+
               break
             /*case "delete":
               break

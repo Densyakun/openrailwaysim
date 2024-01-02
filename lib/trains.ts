@@ -268,6 +268,22 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
   );
 }
 
+export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: ProjectedLineAndLength, { point, nextPoint, distance, lengthFromStartingPointToNextPoint }: Segment, globalPosition: THREE.Euler, position: THREE.Vector3) {
+  // axle.pointOnTrack to track
+  const globalTrackRelativePosition = getRelativePosition(
+    gameState.projectedLines[pointOnTrack.projectedLineId].centerCoordinate,
+    globalPosition,
+    undefined,
+    0
+  );
+
+  pointOnTrack.length = lengthFromStartingPointToNextPoint
+    + position.clone().sub(globalTrackRelativePosition).sub(point)
+      .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), nextPoint.clone().sub(point).normalize()).invert())
+      .x
+    - distance;
+}
+
 export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogie) {
   bogie.axles.forEach(axle => {
     // axles to bogie
@@ -277,20 +293,13 @@ export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogi
     axle.rotation.copy(bogie.rotation);
 
     // axle.pointOnTrack to track
-    const { point, nextPoint, distance, lengthFromStartingPointToNextPoint } = axle.segment || (axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length));
-
-    const globalTrackRelativePosition = getRelativePosition(
-      gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate,
+    pointOnTrackToTrack(
+      gameState,
+      axle.pointOnTrack,
+      axle.segment || (axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length)),
       train.globalPosition,
-      undefined,
-      0
-    );
-
-    axle.pointOnTrack.length = lengthFromStartingPointToNextPoint
-      + axle.position.clone().sub(globalTrackRelativePosition).sub(point)
-        .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), nextPoint.clone().sub(point).normalize()).invert())
-        .x
-      - distance;
+      axle.position,
+    )
   });
 }
 
@@ -433,7 +442,7 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
   });
 }
 
-export function syncOtherBodies(train: Train) {
+export function syncOtherBodies(gameState: GameStateType, train: Train) {
   // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
     const position = new THREE.Vector3();
@@ -480,6 +489,15 @@ export function syncOtherBodies(train: Train) {
 
     if (jointCount)
       fromBody.position.copy(position.divideScalar(jointCount));
+
+    // Update pointOnTrack of other body
+    pointOnTrackToTrack(
+      gameState,
+      fromBody.pointOnTrack,
+      getSegment(gameState.projectedLines[fromBody.pointOnTrack.projectedLineId].points, fromBody.pointOnTrack.length),
+      train.globalPosition,
+      fromBody.position,
+    );
   });
 
   // 回転を設定する
@@ -570,7 +588,7 @@ export function placeTrain(gameState: GameStateType, train: Train) {
 
   train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
 
-  syncOtherBodies(train);
+  syncOtherBodies(gameState, train);
 
   train.bogies.forEach(fromBogie => axlesToBogie(gameState, train, fromBogie));
 }
@@ -679,7 +697,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
   });
 
   // ボギーを含むCarBodyの位置と向きをジョイントに合わせる
-  syncOtherBodies(train);
+  syncOtherBodies(gameState, train);
 
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();

@@ -23,9 +23,10 @@ export default function Client() {
         break
       case FROM_SERVER_STATE_OPS:
         (value as Parameters<Parameters<typeof subscribe>[1]>[0]).forEach(op => {
+          const path = op[1] as string[]
+
           switch (op[0]) {
             case "set":
-              const path = op[1] as string[]
               const setObj = function (obj: any, path: string[], value: any, n = 0) {
                 if (n + 1 === path.length)
                   obj[path[n]] = fromSerializableProp(path, value, gameState)
@@ -35,9 +36,17 @@ export default function Client() {
               setObj(gameState, path, op[2])
 
               break
-            /*case "delete":
+            case "delete":
+              const deleteObj = function (obj: any, path: string[], n = 0) {
+                if (n + 1 === path.length)
+                  delete obj[path[n]]
+                else
+                  deleteObj(obj[path[n]], path, n + 1)
+              }
+              deleteObj(gameState, path)
+
               break
-            case "resolve":
+            /*case "resolve":
               break
             case "reject":
               break*/

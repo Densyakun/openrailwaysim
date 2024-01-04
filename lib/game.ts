@@ -213,4 +213,6 @@ export class MessageEmitter extends EventEmitter {
 export const FROM_SERVER_STATE = 0
 export const FROM_SERVER_STATE_OPS = 1
 export const FROM_SERVER_CANCEL = 2
-export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 3
+export const FROM_CLIENT_SET_FEATURE_COLLECTION = 3
+export const FROM_CLIENT_DELETE_FEATURE_COLLECTION = 4
+export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 5

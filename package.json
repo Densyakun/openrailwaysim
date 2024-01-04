@@ -33,6 +33,7 @@
     "next": "13.1.6",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-hook-form": "^7.49.2",
     "three": "^0.149.0",
     "three-stdlib": "^2.21.8",
     "typescript": "4.9.5",

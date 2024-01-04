@@ -1,16 +1,19 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_FEATURE_COLLECTION, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_FEATURE_COLLECTION, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
+import { FeatureCollection } from "@turf/helpers";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   let messageEmitter = new MessageEmitter();
 
   const unsubscribe = subscribe(gameState, ops => {
     wss.clients.forEach(client => {
-      const ops_: [string, string[], any][] = []
+      const ops_: [string, string[], any?][] = []
       ops.forEach(([op_, path, value, prevValue]) => {
         const push = function () {
-          ops_.push([op_, path as string[], toSerializableProp(path as string[], value)])
+          ops_.push(op_ === 'delete' ? [op_, path as string[]] :
+            [op_, path as string[], toSerializableProp(path as string[], value)]
+          )
         }
 
         if (path[0] === "nowDate") {
@@ -37,6 +40,10 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
                 }
               }
             }
+          }
+        } else if (path[0] === "featureCollections") {
+          if (path.length === 2) {
+            push()
           }
         }
       })
@@ -76,7 +83,34 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
     onUpdateTime();
 
     switch (id) {
-      case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE:
+      case FROM_CLIENT_SET_FEATURE_COLLECTION: {
+        const [id, newValue, newId] = value as [string, string, string];
+
+        const newValue_: { value: FeatureCollection } | "" = newValue && { value: JSON.parse(newValue) };
+
+        if (newId) {
+          if (id !== newId) {
+            if (newValue_)
+              gameState.featureCollections[newId] = newValue_;
+            else
+              gameState.featureCollections[newId] = gameState.featureCollections[id];
+            delete gameState.featureCollections[id];
+          }
+        } else if (newValue_)
+          gameState.featureCollections[id] = newValue_;
+
+        messageEmitter.isInvalidMessage = false;
+        break;
+      }
+      case FROM_CLIENT_DELETE_FEATURE_COLLECTION: {
+        const id = value as number;
+
+        delete gameState.featureCollections[id];
+
+        messageEmitter.isInvalidMessage = false;
+        break;
+      }
+      case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE: {
         const [trainId, bodyIndex, masterControllerIndex, newValue] = value;
 
         const train = gameState.trains[trainId];
@@ -87,8 +121,8 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
         messageEmitter.isInvalidMessage = false;
         break;
+      }
       default:
-        break;
     }
   };
 

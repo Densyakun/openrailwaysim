@@ -2,10 +2,10 @@ import * as React from 'react';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListSubheader from '@mui/material/ListSubheader';
-import CameraSwitch from './cameras-and-controls/CameraSwitch';
-import CameraControlsSwitch from './cameras-and-controls/CameraControlsSwitch';
+import CameraSwitch from '../cameras-and-controls/CameraSwitch';
+import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
 
-export default function Menu() {
+export default function Settings() {
   return (
     <>
       <List

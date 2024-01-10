@@ -1,8 +1,10 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
+import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
+import TrainIcon from '@mui/icons-material/Train';
 import { SxProps } from '@mui/system';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
@@ -11,7 +13,9 @@ import ControlStand from '../hud/ControlStand';
 import SyncedChip from '../SyncedChip';
 import { state as trainsState } from '@/lib/trains';
 import FeatureCollections from './FeatureCollections';
+import ProjectedLines from './ProjectedLines';
 import Settings from './Settings';
+import Trains from './Trains';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -82,6 +86,8 @@ export default function GUI() {
 
   const menuComponents: { [key: string]: JSX.Element } = {
     'featureCollections': <FeatureCollections />,
+    'projectedLines': <ProjectedLines />,
+    'trains': <Trains />,
     'settings': <Settings />,
   };
 
@@ -166,6 +172,18 @@ export default function GUI() {
             userSelect: 'none'
           }}>
             <PlaceIcon />
+          </Fab>
+          <Fab size="small" color="primary" onClick={toggleDrawer('projectedLines')} sx={{
+            pointerEvents: 'auto',
+            userSelect: 'none'
+          }}>
+            <RouteIcon />
+          </Fab>
+          <Fab size="small" color="primary" onClick={toggleDrawer('trains')} sx={{
+            pointerEvents: 'auto',
+            userSelect: 'none'
+          }}>
+            <TrainIcon />
           </Fab>
           <Fab size="small" color="primary" onClick={toggleDrawer('settings')} sx={{
             pointerEvents: 'auto',

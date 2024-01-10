@@ -1,7 +1,6 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_FEATURE_COLLECTION, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_FEATURE_COLLECTION, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
-import { FeatureCollection } from "@turf/helpers";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   let messageEmitter = new MessageEmitter();
@@ -40,8 +39,14 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
                 }
               }
             }
+          } else if (path.length === 2) {
+            push()
           }
         } else if (path[0] === "featureCollections") {
+          if (path.length === 2) {
+            push()
+          }
+        } else if (path[0] === "projectedLines") {
           if (path.length === 2) {
             push()
           }
@@ -83,29 +88,27 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
     onUpdateTime();
 
     switch (id) {
-      case FROM_CLIENT_SET_FEATURE_COLLECTION: {
-        const [id, newValue, newId] = value as [string, string, string];
-
-        const newValue_: { value: FeatureCollection } | "" = newValue && { value: JSON.parse(newValue) };
+      case FROM_CLIENT_SET_OBJECT: {
+        const [objectKey, id, newValue, newId] = value as [string, string, any, string];
 
         if (newId) {
           if (id !== newId) {
-            if (newValue_)
-              gameState.featureCollections[newId] = newValue_;
+            if (newValue)
+              gameState[objectKey][newId] = newValue;
             else
-              gameState.featureCollections[newId] = gameState.featureCollections[id];
-            delete gameState.featureCollections[id];
+              gameState[objectKey][newId] = gameState[objectKey][id];
+            delete gameState[objectKey][id];
           }
-        } else if (newValue_)
-          gameState.featureCollections[id] = newValue_;
+        } else if (newValue)
+          gameState[objectKey][id] = newValue;
 
         messageEmitter.isInvalidMessage = false;
         break;
       }
-      case FROM_CLIENT_DELETE_FEATURE_COLLECTION: {
-        const id = value as number;
+      case FROM_CLIENT_DELETE_OBJECT: {
+        const [objectKey, id] = value as [string, number];
 
-        delete gameState.featureCollections[id];
+        delete gameState[objectKey][id];
 
         messageEmitter.isInvalidMessage = false;
         break;

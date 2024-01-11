@@ -8,7 +8,7 @@ import TrainIcon from '@mui/icons-material/Train';
 import { SxProps } from '@mui/system';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
-import { Paper, Stack } from '@mui/material';
+import { Paper, Stack, Tooltip } from '@mui/material';
 import ControlStand from '../hud/ControlStand';
 import SyncedChip from '../SyncedChip';
 import { state as trainsState } from '@/lib/trains';
@@ -147,6 +147,7 @@ export default function GUI() {
           userSelect: 'none',
           p: 1,
           overflow: 'auto',
+          backgroundColor: '#000b',
         }}>
           {menuComponents[menuState]}
         </Paper>
@@ -167,30 +168,38 @@ export default function GUI() {
         <Stack direction="row" spacing={1} sx={{
           p: 1,
         }}>
-          <Fab size="small" color="primary" onClick={toggleDrawer('featureCollections')} sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none'
-          }}>
-            <PlaceIcon />
-          </Fab>
-          <Fab size="small" color="primary" onClick={toggleDrawer('projectedLines')} sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none'
-          }}>
-            <RouteIcon />
-          </Fab>
-          <Fab size="small" color="primary" onClick={toggleDrawer('trains')} sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none'
-          }}>
-            <TrainIcon />
-          </Fab>
-          <Fab size="small" color="primary" onClick={toggleDrawer('settings')} sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none'
-          }}>
-            <SettingsIcon />
-          </Fab>
+          <Tooltip title="Feature collections" disableInteractive>
+            <Fab size="small" color="primary" onClick={toggleDrawer('featureCollections')} sx={{
+              pointerEvents: 'auto',
+              userSelect: 'none'
+            }}>
+              <PlaceIcon />
+            </Fab>
+          </Tooltip>
+          <Tooltip title="Projected lines" disableInteractive>
+            <Fab size="small" color="primary" onClick={toggleDrawer('projectedLines')} sx={{
+              pointerEvents: 'auto',
+              userSelect: 'none'
+            }}>
+              <RouteIcon />
+            </Fab>
+          </Tooltip>
+          <Tooltip title="Trains" disableInteractive>
+            <Fab size="small" color="primary" onClick={toggleDrawer('trains')} sx={{
+              pointerEvents: 'auto',
+              userSelect: 'none'
+            }}>
+              <TrainIcon />
+            </Fab>
+          </Tooltip>
+          <Tooltip title="Settings">
+            <Fab size="small" color="primary" onClick={toggleDrawer('settings')} sx={{
+              pointerEvents: 'auto',
+              userSelect: 'none'
+            }}>
+              <SettingsIcon />
+            </Fab>
+          </Tooltip>
         </Stack>
       </Stack>
     </>

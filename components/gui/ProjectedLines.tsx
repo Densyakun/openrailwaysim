@@ -1,9 +1,11 @@
 import { gameState } from '@/lib/client';
+import PlaceIcon from '@mui/icons-material/Place';
 import RouteIcon from '@mui/icons-material/Route';
 import * as React from 'react';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
-import { Stack, Typography } from '@mui/material';
+import { IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 
 export default function ProjectedLines() {
   useSnapshot(gameState);
@@ -17,5 +19,17 @@ export default function ProjectedLines() {
     )}
     objectKey="projectedLines"
     objects={gameState.projectedLines}
+    listItemButtons={id =>
+      <Tooltip title="Move camera to object" disableInteractive>
+        <IconButton edge="end" onClick={() => {
+          const projectedLine = gameState.projectedLines[id]
+
+          const targetCoordinate = projectedLine.centerCoordinate
+          setCameraTargetPosition(targetCoordinate)
+        }}>
+          <PlaceIcon />
+        </IconButton>
+      </Tooltip>
+    }
   />
 }

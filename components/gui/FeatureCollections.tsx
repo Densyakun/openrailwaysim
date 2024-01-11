@@ -1,10 +1,12 @@
 import { gameState } from '@/lib/client';
 import PlaceIcon from '@mui/icons-material/Place';
-import { Stack, TextField, Typography } from '@mui/material';
+import { IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import * as React from 'react';
 import { Controller } from 'react-hook-form';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
+import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
+import centroid from '@turf/centroid';
 
 export default function FeatureCollections() {
   useSnapshot(gameState);
@@ -50,6 +52,19 @@ export default function FeatureCollections() {
         }}
         render={({ field }) => <TextField label="Json" variant="outlined" error={errors.value !== undefined} helperText={errors.value && "Incorrect entry."} multiline {...field} />}
       />
+    }
+    listItemButtons={id =>
+      <Tooltip title="Move camera to object">
+        <IconButton edge="end" onClick={() => {
+          const featureCollection = gameState.featureCollections[id].value
+          if (!featureCollection.features.length) return
+
+          const targetCoordinate = centroid(featureCollection).geometry.coordinates
+          setCameraTargetPosition(targetCoordinate)
+        }}>
+          <PlaceIcon />
+        </IconButton>
+      </Tooltip>
     }
   />
 }

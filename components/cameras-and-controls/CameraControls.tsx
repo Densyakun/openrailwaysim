@@ -22,13 +22,14 @@ export const state = proxy<{
   target: new THREE.Vector3()
 })
 
-export function setCameraTargetPosition(targetCoordinate: Position, targetElevation: number) {
+export function setCameraTargetPosition(targetCoordinate: Position, targetElevation?: number) {
   gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(targetCoordinate)))
   const mainControls = state.controlsRefs[state.mainControlsKey]
   if (mainControls) {
     const controlsTargetPosition = ((mainControls as any).target as THREE.Vector3)
     move(gisState.originTransform.quaternion, -controlsTargetPosition.x, -controlsTargetPosition.z)
-    gisState.originTransform.elevation = targetElevation - controlsTargetPosition.y
+    if (targetElevation !== undefined)
+      gisState.originTransform.elevation = targetElevation - controlsTargetPosition.y
   }
 }
 

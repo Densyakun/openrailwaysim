@@ -3,7 +3,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import { Button, IconButton, List, ListItem, ListItemText, Stack, TextField } from '@mui/material';
+import { Button, IconButton, List, ListItem, ListItemText, Stack, TextField, Tooltip } from '@mui/material';
 import * as React from 'react';
 import { Control, Controller, DefaultValues, FieldErrors, useForm } from 'react-hook-form';
 import { socket } from '../Client';
@@ -17,6 +17,7 @@ export default function DataMenu<FormValues extends { id: string }>({
   getSaveValueOnEdit,
   objects,
   valueControllers,
+  listItemButtons,
 }: {
   defaultValues?: DefaultValues<FormValues>;
   getValueOnEdit?: (newEditingId: string) => FormValues;
@@ -25,6 +26,7 @@ export default function DataMenu<FormValues extends { id: string }>({
   getSaveValueOnEdit?: (inputs: FormValues) => any;
   objects: {};
   valueControllers?: (control: Control<FormValues>, errors: FieldErrors<FormValues>) => JSX.Element;
+  listItemButtons?: (id: string) => JSX.Element;
 }) {
   const {
     handleSubmit,
@@ -114,18 +116,23 @@ export default function DataMenu<FormValues extends { id: string }>({
                     key={id}
                     secondaryAction={
                       <>
+                        {listItemButtons && listItemButtons(id)}
                         {valueControllers &&
-                          <IconButton edge="end" onClick={() =>
-                            setEditingId(id)
-                          }>
-                            <EditIcon />
-                          </IconButton>
+                          <Tooltip title="Edit" disableInteractive>
+                            <IconButton edge="end" onClick={() =>
+                              setEditingId(id)
+                            }>
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
                         }
-                        <IconButton edge="end" onClick={() => {
-                          socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, [objectKey, id]]));
-                        }}>
-                          <DeleteIcon />
-                        </IconButton>
+                        <Tooltip title="Delete" disableInteractive>
+                          <IconButton edge="end" onClick={() => {
+                            socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, [objectKey, id]]));
+                          }}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
                       </>
                     }
                   >

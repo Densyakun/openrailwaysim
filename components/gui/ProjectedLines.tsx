@@ -25,7 +25,7 @@ export default function ProjectedLines() {
           const projectedLine = gameState.projectedLines[id]
 
           const targetCoordinate = projectedLine.centerCoordinate
-          setCameraTargetPosition(targetCoordinate)
+          setCameraTargetPosition(targetCoordinate, projectedLine.points.length ? projectedLine.points[0].y : 0)
         }}>
           <PlaceIcon />
         </IconButton>

@@ -60,7 +60,7 @@ export default function FeatureCollections() {
           if (!featureCollection.features.length) return
 
           const targetCoordinate = centroid(featureCollection).geometry.coordinates
-          setCameraTargetPosition(targetCoordinate)
+          setCameraTargetPosition(targetCoordinate, 0)
         }}>
           <PlaceIcon />
         </IconButton>

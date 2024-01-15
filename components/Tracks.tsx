@@ -41,10 +41,23 @@ export default function Tracks() {
 
   return (
     <>
-      {Object.keys(gameState.projectedLines).map(projectedLineId => {
+      {/*Object.keys(gameState.projectedLines).map(projectedLineId => {
         const { centerCoordinate, points } = gameState.projectedLines[projectedLineId]
 
         return <FeatureObject key={projectedLineId} centerCoordinate={centerCoordinate}>
+          {points.map((nextPoint, index, array) => {
+            if (index === 0) return null
+
+            return <LineTrack key={index} from={array[index - 1]} to={nextPoint} object={scene} />
+          })}
+        </FeatureObject>
+      })*/}
+      {Object.keys(gameState.tracks).map(trackId => {
+        const { centerCoordinate, position, rotationY, length, curves, grades } = gameState.tracks[trackId]
+
+        const points = [position, position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, rotationY)).multiplyScalar(length))]
+
+        return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
           {points.map((nextPoint, index, array) => {
             if (index === 0) return null
 

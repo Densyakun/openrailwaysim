@@ -64,13 +64,11 @@ export default function DataMenu<FormValues extends { id: string }>({
               const id = inputs.id;
               socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, adding || editingId === id ? [
                 objectKey,
-                editingId || id,
                 getSaveValueOnEdit!(inputs),
               ] : [
                 objectKey,
-                editingId || id,
                 getSaveValueOnEdit!(inputs),
-                id,
+                editingId,
               ]]));
 
               if (adding)

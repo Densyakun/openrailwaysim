@@ -5,6 +5,7 @@ import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
 import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
+import { SerializableTrack, Track } from './tracks';
 
 export type IdentifiedRecord = { id: string };
 
@@ -12,6 +13,7 @@ export type IdentifiedRecord = { id: string };
 export type GameStateType = { [key: string]: any } & {
   featureCollections: { [key: string]: { value: FeatureCollection } };
   projectedLines: { [key: string]: ProjectedLine };
+  tracks: { [key: string]: Track };
   trains: { [key: string]: Train };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
@@ -21,6 +23,7 @@ export function getNewState() {
   const state = proxy<GameStateType>({
     featureCollections: {},
     projectedLines: {},
+    tracks: {},
     trains: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
@@ -30,7 +33,33 @@ export function getNewState() {
 }
 
 export function toSerializableProp(path: string[], value: any) {
-  if (path[0] === "projectedLines") {
+  if (path[0] === "tracks") {
+    if (path.length === 1) {
+      const prop = value as GameStateType["tracks"]
+
+      return Object.keys(prop).map(id => {
+        const { centerCoordinate, position, rotationY, length } = prop[id]
+
+        return {
+          id,
+          centerCoordinate,
+          position: position.toArray(),
+          rotationY,
+          length,
+        }
+      }) as SerializableTrack[]
+    } else if (path.length === 2) {
+      const { centerCoordinate, position, rotationY, length } = value as Track
+
+      return {
+        id: path[1],
+        centerCoordinate,
+        position: position.toArray(),
+        rotationY,
+        length,
+      } as SerializableTrack
+    }
+  }/* else if (path[0] === "projectedLines") {
     if (path.length === 1) {
       const prop = value as GameStateType["projectedLines"]
 
@@ -44,7 +73,7 @@ export function toSerializableProp(path: string[], value: any) {
         }
       }) as SerializableProjectedLine[]
     }
-  } else if (path[0] === "trains") {
+  }*/ else if (path[0] === "trains") {
     if (path.length === 1) {
       const prop = value as GameStateType["trains"]
 
@@ -98,7 +127,31 @@ export function toSerializableProp(path: string[], value: any) {
 }
 
 export function fromSerializableProp(path: string[], value: any, gameState: GameStateType) {
-  if (path[0] === "projectedLines") {
+  if (path[0] === "tracks") {
+    if (path.length === 1) {
+      const json = value as SerializableTrack[]
+
+      const prop: GameStateType["tracks"] = {}
+      json.forEach(({ id, centerCoordinate, position, rotationY, length }) =>
+        prop[id] = {
+          centerCoordinate,
+          position: new THREE.Vector3(...position),
+          rotationY,
+          length,
+        }
+      )
+      return prop
+    } else if (path.length === 2) {
+      const { centerCoordinate, position, rotationY, length } = value as SerializableTrack
+
+      return {
+        centerCoordinate,
+        position: new THREE.Vector3(...position),
+        rotationY,
+        length,
+      } as Track
+    }
+  }/* else if (path[0] === "projectedLines") {
     if (path.length === 1) {
       const json = value as SerializableProjectedLine[]
 
@@ -111,7 +164,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       )
       return prop
     }
-  } else if (path[0] === "trains") {
+  }*/ else if (path[0] === "trains") {
     if (path.length === 1) {
       const json = value as SerializableTrain[]
 

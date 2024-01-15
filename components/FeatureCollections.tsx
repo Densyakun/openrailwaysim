@@ -10,11 +10,9 @@ export default function FeatureCollections() {
   return (
     <>
       {Object.keys(gameState.featureCollections).map(id => {
-        const { value } = gameState.featureCollections[id]
-
         return (
           <FeatureObject key={id} centerCoordinate={originCoordinate}>
-            <FeatureCollectionComponent featureCollection={value} centerCoordinate={originCoordinate} />
+            <FeatureCollectionComponent featureCollectionId={id} centerCoordinate={originCoordinate} />
           </FeatureObject>
         )
       })}

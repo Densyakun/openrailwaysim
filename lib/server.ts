@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
@@ -46,11 +46,15 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           if (path.length === 2) {
             push()
           }
-        } else if (path[0] === "projectedLines") {
+        } else if (path[0] === "tracks") {
           if (path.length === 2) {
             push()
           }
-        }
+        }/* else if (path[0] === "projectedLines") {
+          if (path.length === 2) {
+            push()
+          }
+        }*/
       })
 
       client.send(JSON.stringify([FROM_SERVER_STATE_OPS, ops_]))
@@ -89,18 +93,12 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
     switch (id) {
       case FROM_CLIENT_SET_OBJECT: {
-        const [objectKey, id, newValue, newId] = value as [string, string, any, string];
+        const [objectKey, newValue, oldId] = value as [string, { id: string } & any, string];
 
-        if (newId) {
-          if (id !== newId) {
-            if (newValue)
-              gameState[objectKey][newId] = newValue;
-            else
-              gameState[objectKey][newId] = gameState[objectKey][id];
-            delete gameState[objectKey][id];
-          }
-        } else if (newValue)
-          gameState[objectKey][id] = newValue;
+        gameState[objectKey][newValue.id] = fromSerializableProp([objectKey, newValue.id], newValue, gameState);
+        if (oldId) {
+          delete gameState[objectKey][oldId];
+        }
 
         messageEmitter.isInvalidMessage = false;
         break;

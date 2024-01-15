@@ -10,9 +10,9 @@ export function createTestScene(gameState: GameStateType, featureCollection: Fea
   );
 
   // Create projected lines
-  getProjectedLines(featureCollection).forEach((projectedLine, index) =>
+  /*getProjectedLines(featureCollection).forEach((projectedLine, index) =>
     gameState.projectedLines[index] = projectedLine
-  );
+  );*/
 
   // Loop line test
   /*const points = [];
@@ -41,7 +41,7 @@ export function createTestScene(gameState: GameStateType, featureCollection: Fea
     //createTestTwoAxlesCarWithBogies(gameState, "1"),
     //createTestTwoBogiesCar(gameState, "1", 0),
     //createTestTwoBogiesTwoCars(gameState, "1"),
-    createJNR103Series(gameState, "1", 0, "0"),
+    //createJNR103Series(gameState, "1", 0, "0"),
     //createTestTwoCarsWithJacobsBogies(gameState, "1"),
     //createTestMalletLocomotive(gameState, "1"),
     //createTestShikiSeries700(gameState, "1"),

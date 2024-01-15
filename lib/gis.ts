@@ -4,9 +4,9 @@ import { default as turfBearing } from '@turf/bearing'
 import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
 import { point as turfPoint } from '@turf/helpers'
-import pointOnFeature from '@turf/point-on-feature'
 import { proxy } from 'valtio'
 import { IdentifiedRecord } from './game'
+import pointOnFeature from '@turf/point-on-feature'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
 
@@ -15,10 +15,20 @@ export type GlobalTransform = {
   elevation: number;
 }
 
+export type FeatureAt = {
+  featureCollectionId: string;
+  featureIndex: number;
+  segmentIndex?: number;
+}
+
 export const state = proxy<{
   originTransform: GlobalTransform;
+  hoveredFeatures: FeatureAt[];
+  selectedFeatures: FeatureAt[];
 }>({
   originTransform: { quaternion: new THREE.Quaternion(), elevation: 0 },
+  hoveredFeatures: [],
+  selectedFeatures: [],
 })
 
 export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.originTransform.elevation) {
@@ -113,19 +123,21 @@ export type SerializableProjectedLine = IdentifiedRecord & {
   points: THREE.Vector3Tuple[];
 }
 
+export function getProjectedLine(lineString: LineString): ProjectedLine {
+  const centerCoordinate = pointOnFeature(lineString).geometry.coordinates
+  const centerCoordinateEuler = coordinateToEuler(centerCoordinate)
+
+  return {
+    centerCoordinate,
+    points: lineString.coordinates.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0))
+  }
+}
+
 export function getProjectedLines(featureCollection: FeatureCollection): ProjectedLine[] {
   return featureCollection.features.map(feature => {
     switch (feature.geometry.type) {
       case "LineString":
-        const lineString = feature.geometry as LineString
-
-        const centerCoordinate = pointOnFeature(lineString).geometry.coordinates
-        const centerCoordinateEuler = coordinateToEuler(centerCoordinate)
-
-        return {
-          centerCoordinate,
-          points: lineString.coordinates.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0))
-        }
+        return getProjectedLine(feature.geometry as LineString)
       default:
         return undefined
     }

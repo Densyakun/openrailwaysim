@@ -16,6 +16,7 @@ import FeatureCollections from './FeatureCollections';
 import ProjectedLines from './ProjectedLines';
 import Settings from './Settings';
 import Trains from './Trains';
+import Feature from './Feature';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -152,7 +153,15 @@ export default function GUI() {
           {menuComponents[menuState]}
         </Paper>
         :
-        <TopInfo />
+        <>
+          <TopInfo />
+          <Box_ sx={{
+            pointerEvents: 'auto',
+            userSelect: 'none',
+          }}>
+            <Feature />
+          </Box_>
+        </>
       }
       <Stack
         direction="row"

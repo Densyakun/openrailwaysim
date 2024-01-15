@@ -1,12 +1,13 @@
 import { setCameraTargetPosition } from '@/components/cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
+import centroid from '@turf/centroid'
 
 export function setCameraToTestLine() {
-  const targetProjectedLine = gameState.projectedLines["1"]
-  if (!targetProjectedLine) return
+  const targetFeatureCollection = gameState.featureCollections["0"]
+  if (!targetFeatureCollection) return
 
   // Setting up the camera
-  const targetCoordinate = gameState.projectedLines["1"].centerCoordinate
-  const targetElevation = 0 < gameState.projectedLines["1"].points.length ? gameState.projectedLines["1"].points[0].y : 0
+  const targetCoordinate = centroid(targetFeatureCollection.value).geometry.coordinates
+  const targetElevation = 0
   setCameraTargetPosition(targetCoordinate, targetElevation)
 }

@@ -4,19 +4,21 @@ import Fab from '@mui/material/Fab';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
+import TableViewIcon from '@mui/icons-material/TableView';
 import TrainIcon from '@mui/icons-material/Train';
 import { SxProps } from '@mui/system';
-import { useSnapshot } from 'valtio';
+import { proxy, useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
-import { Paper, Stack, Tooltip } from '@mui/material';
+import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import ControlStand from '../hud/ControlStand';
 import SyncedChip from '../SyncedChip';
 import { state as trainsState } from '@/lib/trains';
 import FeatureCollections from './FeatureCollections';
-import ProjectedLines from './ProjectedLines';
+//import ProjectedLines from './ProjectedLines';
 import Settings from './Settings';
 import Trains from './Trains';
 import Feature from './Feature';
+import Tracks from './Tracks';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -24,6 +26,12 @@ const Box_ = Box as (props: {
   ref?: React.Ref<unknown>;
   sx?: SxProps;
 }) => JSX.Element
+
+export const guiState = proxy<{
+  menuState: string;
+}>({
+  menuState: "",
+});
 
 function TopInfo() {
   return (
@@ -66,30 +74,69 @@ function TopInfo() {
   )
 }
 
+function SubMenu({ toggleTableOnClick }: { toggleTableOnClick: () => any }) {
+  return <Stack direction="row" spacing={1}>
+    <Paper sx={{
+      p: 1,
+      pointerEvents: 'auto',
+      userSelect: 'none',
+    }}>
+      <Tooltip title="Toggle table" disableInteractive>
+        <Fab size="small" color="primary" onClick={toggleTableOnClick} sx={{
+          pointerEvents: 'auto',
+          userSelect: 'none'
+        }}>
+          <TableViewIcon />
+        </Fab>
+      </Tooltip>
+    </Paper>
+  </Stack>
+}
+
 export default function GUI() {
+  useSnapshot(guiState);
   useSnapshot(trainsState);
 
-  const [menuState, setMenuState] = React.useState("");
+  const [isShowTable, setIsShowTable] = React.useState(false);
 
-  const toggleDrawer =
-    (anchor: string) =>
-      (event: React.KeyboardEvent | React.MouseEvent) => {
-        if (
-          event.type === 'keydown' &&
-          ((event as React.KeyboardEvent).key === 'Tab' ||
-            (event as React.KeyboardEvent).key === 'Shift')
-        ) {
-          return;
-        }
-
-        setMenuState(anchor === menuState ? "" : anchor);
-      };
-
-  const menuComponents: { [key: string]: JSX.Element } = {
-    'featureCollections': <FeatureCollections />,
-    'projectedLines': <ProjectedLines />,
-    'trains': <Trains />,
-    'settings': <Settings />,
+  const menuComponents: {
+    [key: string]: {
+      title: string;
+      icon: JSX.Element;
+      component?: JSX.Element;
+      subMenu?: JSX.Element;
+      table?: JSX.Element;
+    }
+  } = {
+    'featureCollections': {
+      title: 'Feature collections',
+      icon: <PlaceIcon />,
+      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
+      table: <FeatureCollections />,
+    },
+    /*'projectedLines': {
+          title: 'Projected lines',
+        icon: <RouteIcon />,
+        subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
+        table: <ProjectedLines />,
+    },*/
+    'tracks': {
+      title: 'Tracks',
+      icon: <RouteIcon />,
+      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
+      table: <Tracks />,
+    },
+    'trains': {
+      title: 'Trains',
+      icon: <TrainIcon />,
+      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
+      table: <Trains />,
+    },
+    'settings': {
+      title: 'Settings',
+      icon: <SettingsIcon />,
+      component: <Settings />,
+    },
   };
 
   return trainsState.activeTrainId ?
@@ -140,7 +187,9 @@ export default function GUI() {
     </>
     :
     <>
-      {menuState ?
+      {guiState.menuState &&
+        (menuComponents[guiState.menuState].component ||
+          isShowTable && menuComponents[guiState.menuState].table) ?
         <Paper square sx={{
           width: "100%",
           height: "100%",
@@ -150,7 +199,7 @@ export default function GUI() {
           overflow: 'auto',
           backgroundColor: '#000b',
         }}>
-          {menuComponents[menuState]}
+          {isShowTable ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
         </Paper>
         :
         <>
@@ -174,41 +223,34 @@ export default function GUI() {
           alignItems: 'flex-end',
         }}
       >
-        <Stack direction="row" spacing={1} sx={{
+        <Stack direction="column" spacing={1} sx={{
           p: 1,
         }}>
-          <Tooltip title="Feature collections" disableInteractive>
-            <Fab size="small" color="primary" onClick={toggleDrawer('featureCollections')} sx={{
+          {guiState.menuState && menuComponents[guiState.menuState].subMenu}
+          <ToggleButtonGroup
+            value={guiState.menuState}
+            exclusive
+            onChange={(
+              event: React.MouseEvent<HTMLElement>,
+              newValue: string | null,
+            ) => {
+              guiState.menuState = newValue || "";
+            }}
+            sx={{
               pointerEvents: 'auto',
               userSelect: 'none'
-            }}>
-              <PlaceIcon />
-            </Fab>
-          </Tooltip>
-          <Tooltip title="Projected lines" disableInteractive>
-            <Fab size="small" color="primary" onClick={toggleDrawer('projectedLines')} sx={{
-              pointerEvents: 'auto',
-              userSelect: 'none'
-            }}>
-              <RouteIcon />
-            </Fab>
-          </Tooltip>
-          <Tooltip title="Trains" disableInteractive>
-            <Fab size="small" color="primary" onClick={toggleDrawer('trains')} sx={{
-              pointerEvents: 'auto',
-              userSelect: 'none'
-            }}>
-              <TrainIcon />
-            </Fab>
-          </Tooltip>
-          <Tooltip title="Settings">
-            <Fab size="small" color="primary" onClick={toggleDrawer('settings')} sx={{
-              pointerEvents: 'auto',
-              userSelect: 'none'
-            }}>
-              <SettingsIcon />
-            </Fab>
-          </Tooltip>
+            }}
+          >
+            {Object.keys(menuComponents).map(id => {
+              const { title, icon } = menuComponents[id]
+
+              return <Tooltip key={id} title={title} disableInteractive>
+                <ToggleButton value={id} selected={guiState.menuState === id}>
+                  {icon}
+                </ToggleButton>
+              </Tooltip>
+            })}
+          </ToggleButtonGroup>
         </Stack>
       </Stack>
     </>

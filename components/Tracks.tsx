@@ -53,7 +53,7 @@ export default function Tracks() {
         </FeatureObject>
       })*/}
       {Object.keys(gameState.tracks).map(trackId => {
-        const { centerCoordinate, position, rotationY, length, curves, grades } = gameState.tracks[trackId]
+        const { centerCoordinate, position, rotationY, length } = gameState.tracks[trackId]
 
         const points = [position, position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, rotationY)).multiplyScalar(length))]
 

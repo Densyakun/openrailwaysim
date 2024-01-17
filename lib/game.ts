@@ -38,7 +38,7 @@ export function toSerializableProp(path: string[], value: any) {
       const prop = value as GameStateType["tracks"]
 
       return Object.keys(prop).map(id => {
-        const { centerCoordinate, position, rotationY, length } = prop[id]
+        const { centerCoordinate, position, rotationY, length, radius } = prop[id]
 
         return {
           id,
@@ -46,10 +46,11 @@ export function toSerializableProp(path: string[], value: any) {
           position: position.toArray(),
           rotationY,
           length,
+          radius,
         }
       }) as SerializableTrack[]
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length } = value as Track
+      const { centerCoordinate, position, rotationY, length, radius } = value as Track
 
       return {
         id: path[1],
@@ -57,6 +58,7 @@ export function toSerializableProp(path: string[], value: any) {
         position: position.toArray(),
         rotationY,
         length,
+        radius,
       } as SerializableTrack
     }
   }/* else if (path[0] === "projectedLines") {
@@ -132,23 +134,25 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       const json = value as SerializableTrack[]
 
       const prop: GameStateType["tracks"] = {}
-      json.forEach(({ id, centerCoordinate, position, rotationY, length }) =>
+      json.forEach(({ id, centerCoordinate, position, rotationY, length, radius }) =>
         prop[id] = {
           centerCoordinate,
           position: new THREE.Vector3(...position),
           rotationY,
           length,
+          radius,
         }
       )
       return prop
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length } = value as SerializableTrack
+      const { centerCoordinate, position, rotationY, length, radius } = value as SerializableTrack
 
       return {
         centerCoordinate,
         position: new THREE.Vector3(...position),
         rotationY,
         length,
+        radius,
       } as Track
     }
   }/* else if (path[0] === "projectedLines") {

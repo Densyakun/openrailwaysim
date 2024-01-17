@@ -2,7 +2,8 @@ import * as React from 'react';
 import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio';
-import { Button, Paper, Stack } from '@mui/material';
+import { Button, Fab, Paper, Stack, Tooltip } from '@mui/material';
+import TableViewIcon from '@mui/icons-material/TableView';
 import { coordinateToEuler, getRelativePosition, state as gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import { LineString, Position, lineString } from '@turf/helpers';
@@ -10,22 +11,30 @@ import centroid from '@turf/centroid';
 import { SerializableTrack } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT } from '@/lib/game';
+import { guiState } from './GUI';
 
-export default function Feature() {
+export default function FeatureCollectionsSubMenu() {
+  useSnapshot(guiState);
   useSnapshot(gisState);
-
-  if (!gisState.selectedFeatures.length) return null;
 
   return (
     <>
       <Paper sx={{ p: 1 }}>
         <Stack direction={'column'} spacing={1}>
-          <Button variant='contained' onClick={() => {
+          <Tooltip title="Toggle table" disableInteractive>
+            <Fab size="small" color="primary" onClick={() => guiState.isShowTable = !guiState.isShowTable} sx={{
+              pointerEvents: 'auto',
+              userSelect: 'none'
+            }}>
+              <TableViewIcon />
+            </Fab>
+          </Tooltip>
+          <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
             gisState.selectedFeatures.splice(0, gisState.selectedFeatures.length);
           }}>
             Deselect features
           </Button>
-          <Button variant='contained' onClick={() => {
+          <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
             let coordinates: Position[] = []
 
             gisState.selectedFeatures
@@ -70,6 +79,9 @@ export default function Feature() {
               position: vector.clone().setLength(mostNegativeZ).toArray(),
               rotationY,
               length: mostPositiveZ - mostNegativeZ,
+              radius: 0,
+              /*startGrade: 0, // TODO grade
+              endGrade: 0,*/
             }
 
             socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [

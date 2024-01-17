@@ -13,12 +13,13 @@ import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/mat
 import ControlStand from '../hud/ControlStand';
 import SyncedChip from '../SyncedChip';
 import { state as trainsState } from '@/lib/trains';
-import FeatureCollections from './FeatureCollections';
-//import ProjectedLines from './ProjectedLines';
+import FeatureCollectionTable from './FeatureCollectionTable';
+//import ProjectedLineTable from './ProjectedLineTable';
 import Settings from './Settings';
-import Trains from './Trains';
-import Feature from './Feature';
-import Tracks from './Tracks';
+import TrainTable from './TrainTable';
+import FeatureCollectionsSubMenu from './FeatureCollectionsSubMenu';
+//import TrackTable from './TrackTable';
+import TracksSubMenu from './TracksSubMenu';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -29,8 +30,10 @@ const Box_ = Box as (props: {
 
 export const guiState = proxy<{
   menuState: string;
+  isShowTable: boolean;
 }>({
   menuState: "",
+  isShowTable: false,
 });
 
 function TopInfo() {
@@ -74,30 +77,26 @@ function TopInfo() {
   )
 }
 
-function SubMenu({ toggleTableOnClick }: { toggleTableOnClick: () => any }) {
-  return <Stack direction="row" spacing={1}>
-    <Paper sx={{
-      p: 1,
-      pointerEvents: 'auto',
-      userSelect: 'none',
-    }}>
-      <Tooltip title="Toggle table" disableInteractive>
-        <Fab size="small" color="primary" onClick={toggleTableOnClick} sx={{
-          pointerEvents: 'auto',
-          userSelect: 'none'
-        }}>
-          <TableViewIcon />
-        </Fab>
-      </Tooltip>
-    </Paper>
-  </Stack>
+function SubMenu() {
+  return <Paper sx={{
+    p: 1,
+    pointerEvents: 'auto',
+    userSelect: 'none',
+  }}>
+    <Tooltip title="Toggle table" disableInteractive>
+      <Fab size="small" color="primary" onClick={() => guiState.isShowTable = !guiState.isShowTable} sx={{
+        pointerEvents: 'auto',
+        userSelect: 'none'
+      }}>
+        <TableViewIcon />
+      </Fab>
+    </Tooltip>
+  </Paper>
 }
 
 export default function GUI() {
   useSnapshot(guiState);
   useSnapshot(trainsState);
-
-  const [isShowTable, setIsShowTable] = React.useState(false);
 
   const menuComponents: {
     [key: string]: {
@@ -111,26 +110,26 @@ export default function GUI() {
     'featureCollections': {
       title: 'Feature collections',
       icon: <PlaceIcon />,
-      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
-      table: <FeatureCollections />,
+      subMenu: <FeatureCollectionsSubMenu />,
+      table: <FeatureCollectionTable />,
     },
     /*'projectedLines': {
           title: 'Projected lines',
         icon: <RouteIcon />,
-        subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
-        table: <ProjectedLines />,
+        subMenu: <SubMenu />,
+        table: <ProjectedLineTable />,
     },*/
     'tracks': {
       title: 'Tracks',
       icon: <RouteIcon />,
-      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
-      table: <Tracks />,
+      subMenu: <TracksSubMenu />,
+      //table: <TrackTable />,
     },
     'trains': {
       title: 'Trains',
       icon: <TrainIcon />,
-      subMenu: <SubMenu toggleTableOnClick={() => setIsShowTable(!isShowTable)} />,
-      table: <Trains />,
+      subMenu: <SubMenu />,
+      table: <TrainTable />,
     },
     'settings': {
       title: 'Settings',
@@ -189,7 +188,7 @@ export default function GUI() {
     <>
       {guiState.menuState &&
         (menuComponents[guiState.menuState].component ||
-          isShowTable && menuComponents[guiState.menuState].table) ?
+          guiState.isShowTable && menuComponents[guiState.menuState].table) ?
         <Paper square sx={{
           width: "100%",
           height: "100%",
@@ -199,17 +198,11 @@ export default function GUI() {
           overflow: 'auto',
           backgroundColor: '#000b',
         }}>
-          {isShowTable ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
+          {guiState.isShowTable ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
         </Paper>
         :
         <>
           <TopInfo />
-          <Box_ sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none',
-          }}>
-            <Feature />
-          </Box_>
         </>
       }
       <Stack
@@ -223,8 +216,10 @@ export default function GUI() {
           alignItems: 'flex-end',
         }}
       >
-        <Stack direction="column" spacing={1} sx={{
+        <Stack direction="column" spacing={1} alignItems={'center'} sx={{
           p: 1,
+          pointerEvents: 'auto',
+          userSelect: 'none',
         }}>
           {guiState.menuState && menuComponents[guiState.menuState].subMenu}
           <ToggleButtonGroup
@@ -235,10 +230,6 @@ export default function GUI() {
               newValue: string | null,
             ) => {
               guiState.menuState = newValue || "";
-            }}
-            sx={{
-              pointerEvents: 'auto',
-              userSelect: 'none'
             }}
           >
             {Object.keys(menuComponents).map(id => {

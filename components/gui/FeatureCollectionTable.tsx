@@ -8,7 +8,7 @@ import DataMenu from './DataMenu';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import centroid from '@turf/centroid';
 
-export default function FeatureCollections() {
+export default function FeatureCollectionTable() {
   useSnapshot(gameState);
 
   return <DataMenu

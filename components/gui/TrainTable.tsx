@@ -8,7 +8,7 @@ import { IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis';
 
-export default function Trains() {
+export default function TrainTable() {
   useSnapshot(gameState);
 
   return <DataMenu

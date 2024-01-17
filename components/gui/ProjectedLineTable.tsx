@@ -7,7 +7,7 @@ import DataMenu from './DataMenu';
 import { IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 
-export default function ProjectedLines() {
+export default function ProjectedLineTable() {
   useSnapshot(gameState);
 
   return <DataMenu

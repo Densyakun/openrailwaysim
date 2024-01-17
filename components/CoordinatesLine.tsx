@@ -35,68 +35,70 @@ export default function CoordinatesLine({
     />
   })*/
 
-  return points.map((point, nextPointIndex) => nextPointIndex === 0 ? null :
-    <React.Fragment key={nextPointIndex}>
-      <Line
-        points={[points[nextPointIndex - 1], point]}
-        lineWidth={48}
-        transparent
-        opacity={0}
-        onClick={() => {
-          const index = gisState.selectedFeatures.findIndex(value =>
-            value
-            && value.featureCollectionId === featureCollectionId
-            && value.featureIndex === featureIndex
-            && value.segmentIndex === nextPointIndex - 1
-          )
-
-          if (0 <= index)
-            gisState.selectedFeatures.splice(index, 1)
-          else {
-            gisState.selectedFeatures.push({
-              featureCollectionId,
-              featureIndex,
-              segmentIndex: nextPointIndex - 1
-            })
-          }
-        }}
-        onPointerOver={() => {
-          gisState.hoveredFeatures.push({
-            featureCollectionId: featureCollectionId,
-            featureIndex: featureIndex,
-            segmentIndex: nextPointIndex - 1
-          })
-        }}
-        onPointerOut={() => {
-          const index = gisState.hoveredFeatures.findIndex(value =>
-            value
-            && value.featureCollectionId === featureCollectionId
-            && value.featureIndex === featureIndex
-            && value.segmentIndex === nextPointIndex - 1
-          )
-
-          if (0 <= index)
-            delete gisState.hoveredFeatures[index]
-        }}
-      />
-      <Line
-        points={[points[nextPointIndex - 1], point]}
-        color={
-          gisState.hoveredFeatures.find(value =>
-            value
-            && value.featureCollectionId === featureCollectionId
-            && value.featureIndex === featureIndex
-            && value.segmentIndex === nextPointIndex - 1
-          ) ? "#ff0" :
-            gisState.selectedFeatures.find(value =>
+  return <>
+    {points.map((point, nextPointIndex) => nextPointIndex === 0 ? null :
+      <React.Fragment key={nextPointIndex}>
+        <Line
+          points={[points[nextPointIndex - 1], point]}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onClick={() => {
+            const index = gisState.selectedFeatures.findIndex(value =>
               value
               && value.featureCollectionId === featureCollectionId
               && value.featureIndex === featureIndex
               && value.segmentIndex === nextPointIndex - 1
-            ) ? "#f00" :
-              "#000"
-        }
-      />
-    </React.Fragment>
-  )
+            )
+
+            if (0 <= index)
+              gisState.selectedFeatures.splice(index, 1)
+            else {
+              gisState.selectedFeatures.push({
+                featureCollectionId,
+                featureIndex,
+                segmentIndex: nextPointIndex - 1
+              })
+            }
+          }}
+          onPointerOver={() => {
+            gisState.hoveredFeatures.push({
+              featureCollectionId: featureCollectionId,
+              featureIndex: featureIndex,
+              segmentIndex: nextPointIndex - 1
+            })
+          }}
+          onPointerOut={() => {
+            const index = gisState.hoveredFeatures.findIndex(value =>
+              value
+              && value.featureCollectionId === featureCollectionId
+              && value.featureIndex === featureIndex
+              && value.segmentIndex === nextPointIndex - 1
+            )
+
+            if (0 <= index)
+              delete gisState.hoveredFeatures[index]
+          }}
+        />
+        <Line
+          points={[points[nextPointIndex - 1], point]}
+          color={
+            gisState.hoveredFeatures.find(value =>
+              value
+              && value.featureCollectionId === featureCollectionId
+              && value.featureIndex === featureIndex
+              && value.segmentIndex === nextPointIndex - 1
+            ) ? "#ff0" :
+              gisState.selectedFeatures.find(value =>
+                value
+                && value.featureCollectionId === featureCollectionId
+                && value.featureIndex === featureIndex
+                && value.segmentIndex === nextPointIndex - 1
+              ) ? "#f00" :
+                "#000"
+          }
+        />
+      </React.Fragment>
+    )}
+  </>
 }

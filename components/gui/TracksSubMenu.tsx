@@ -1,14 +1,17 @@
 import * as React from 'react';
 import * as THREE from 'three';
+import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
 import { Button, Paper, Stack, TextField } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import centroid from '@turf/centroid';
-import { Track, getPosition, state as tracksState } from '@/lib/tracks';
+import { SerializableTrack, Track, getPosition, state as tracksState } from '@/lib/tracks';
 import { guiState } from './GUI';
 import { lineString } from '@turf/helpers';
+import { socket } from '../Client';
+import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -60,10 +63,10 @@ function updateAddingTracks() {
     / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x));
   const SLR = ((pointOffsetCR.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x))
     / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x));
-  const SRR = ((pointOffsetCR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x))
-    / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x));
   const SRL = ((pointOffsetCL.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x))
     / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x));
+  const SRR = ((pointOffsetCR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x))
+    / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x));
 
   const circleCenterLL = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(SLL));
   const circleCenterLR = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(SLR));
@@ -192,6 +195,164 @@ function updateAddingTracks() {
         radius: -tracksSubMenuState.curveRadius,
       },
     ];
+}
+
+export function onClickAddingTrack(index: number) {
+  let tracks: Track[] = [];
+
+  tracksState.selectedTracks
+    .forEach(trackId => {
+      tracks.push(gameState.tracks[trackId]);
+    });
+
+  const centerCoordinate = centroid(lineString(tracks.map(track => track.centerCoordinate))).geometry.coordinates;
+  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
+
+  const trackCenterCoordinates = tracks.map(track => getRelativePosition(track.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0));
+
+  const pointA = trackCenterCoordinates[0].clone().add(tracks[0].position);
+  const pointB = trackCenterCoordinates[0].clone().add(getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length, 0));
+  const pointC = trackCenterCoordinates[1].clone().add(tracks[1].position);
+  const pointD = trackCenterCoordinates[1].clone().add(getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length, 0));
+
+  const AB = pointB.clone().sub(pointA);
+  const CD = pointD.clone().sub(pointC);
+  const rotationYAB = Math.atan2(-AB.z, AB.x);
+  const rotationYCD = Math.atan2(-CD.z, CD.x);
+  const ABOffsetVector = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYAB));
+  const CDOffsetVector = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYCD));
+
+  const pointOffsetAL = pointA.clone().sub(ABOffsetVector);
+  const pointOffsetBL = pointB.clone().sub(ABOffsetVector);
+  const pointOffsetCL = pointC.clone().sub(CDOffsetVector);
+  const pointOffsetDL = pointD.clone().sub(CDOffsetVector);
+  const pointOffsetAR = pointA.clone().add(ABOffsetVector);
+  const pointOffsetBR = pointB.clone().add(ABOffsetVector);
+  const pointOffsetCR = pointC.clone().add(CDOffsetVector);
+  const pointOffsetDR = pointD.clone().add(CDOffsetVector);
+
+  const SLL = ((pointOffsetCL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x))
+    / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x));
+  const SLR = ((pointOffsetCR.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x))
+    / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x));
+  const SRL = ((pointOffsetCL.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x))
+    / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x));
+  const SRR = ((pointOffsetCR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x))
+    / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x));
+
+  const s = index % 4 === 0 ? SLL :
+    index % 4 === 1 ? SLR :
+      index % 4 === 2 ? SRL :
+        SRR;
+
+  const TLL = ((pointOffsetAL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x))
+    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x));
+  const TLR = ((pointOffsetAL.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x))
+    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x));
+  const TRL = ((pointOffsetAR.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x))
+    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x));
+  const TRR = ((pointOffsetAR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x))
+    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x));
+
+  const t = index % 4 === 0 ? TLL :
+    index % 4 === 1 ? TLR :
+      index % 4 === 2 ? TRL :
+        TRR;
+
+  const track: SerializableTrack = {
+    id: uuidv4(),
+    centerCoordinate,
+    position: tracksSubMenuState.addingTracks[index].position.toArray(),
+    rotationY: tracksSubMenuState.addingTracks[index].rotationY,
+    length: tracksSubMenuState.addingTracks[index].length,
+    radius: tracksSubMenuState.addingTracks[index].radius,
+    /*startGrade: 0, // TODO grade
+    endGrade: 0,*/
+  }
+
+  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+    "tracks",
+    track
+  ]]));
+
+  // TODO 軌道を分割、延伸するときに、分岐器と正しく接続する
+  if (s < 0) {
+    tracks[0].position = getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0);
+    tracks[0].length *= 1 - s;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
+    ]]));
+  } else if (0 < s && s < 1) {
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      {
+        id: uuidv4(),
+        centerCoordinate,
+        position: getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0).toArray(),
+        rotationY: tracks[0].rotationY,
+        length: tracks[0].length * (1 - s),
+        radius: tracks[0].radius,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+      } as SerializableTrack
+    ]]));
+
+    tracks[0].length *= s;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
+    ]]));
+  } else if (1 < s) {
+    tracks[0].length *= s;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
+    ]]));
+  }
+
+  if (t < 0) {
+    tracks[1].position = getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0);
+    tracks[1].length *= 1 - t;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
+    ]]));
+  } else if (0 < t && t < 1) {
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      {
+        id: uuidv4(),
+        centerCoordinate,
+        position: getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0).toArray(),
+        rotationY: tracks[1].rotationY,
+        length: tracks[1].length * (1 - t),
+        radius: tracks[1].radius,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+      } as SerializableTrack
+    ]]));
+
+    tracks[1].length *= t;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
+    ]]));
+  } else if (1 < t) {
+    tracks[1].length *= t;
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+      "tracks",
+      toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
+    ]]));
+  }
+
+  updateAddingTracks();
 }
 
 export default function TracksSubMenu() {

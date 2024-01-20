@@ -222,26 +222,28 @@ export default function GUI() {
           userSelect: 'none',
         }}>
           {guiState.menuState && menuComponents[guiState.menuState].subMenu}
-          <ToggleButtonGroup
-            value={guiState.menuState}
-            exclusive
-            onChange={(
-              event: React.MouseEvent<HTMLElement>,
-              newValue: string | null,
-            ) => {
-              guiState.menuState = newValue || "";
-            }}
-          >
-            {Object.keys(menuComponents).map(id => {
-              const { title, icon } = menuComponents[id]
+          <Paper elevation={0}>
+            <ToggleButtonGroup
+              value={guiState.menuState}
+              exclusive
+              onChange={(
+                event: React.MouseEvent<HTMLElement>,
+                newValue: string | null,
+              ) => {
+                guiState.menuState = newValue || "";
+              }}
+            >
+              {Object.keys(menuComponents).map(id => {
+                const { title, icon } = menuComponents[id]
 
-              return <Tooltip key={id} title={title} disableInteractive>
-                <ToggleButton value={id} selected={guiState.menuState === id}>
-                  {icon}
-                </ToggleButton>
-              </Tooltip>
-            })}
-          </ToggleButtonGroup>
+                return <Tooltip key={id} title={title} disableInteractive>
+                  <ToggleButton value={id} selected={guiState.menuState === id}>
+                    {icon}
+                  </ToggleButton>
+                </Tooltip>
+              })}
+            </ToggleButtonGroup>
+          </Paper>
         </Stack>
       </Stack>
     </>

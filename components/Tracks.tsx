@@ -8,7 +8,7 @@ import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { getPosition, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
-import { tracksSubMenuState } from './gui/TracksSubMenu'
+import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
 
 export function getNumberOfCurvePoints(length: number, radius: number) {
   const radius_ = Math.abs(radius)
@@ -92,90 +92,89 @@ export default function Tracks() {
           {points.map((nextPoint, index, array) => {
             if (index === 0) return null
 
-            return <React.Fragment key={index}>
-              <LineTrack
-                from={array[index - 1]}
-                to={nextPoint}
-                object={scene}
-                isHovered={0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)}
-                isSelected={0 <= tracksState.selectedTracks.findIndex(value => value === trackId)}
-              />
-              {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
-                <Line
-                  points={[array[index - 1], nextPoint]}
-                  lineWidth={48}
-                  transparent
-                  opacity={0}
-                  onClick={() => {
-                    const index = tracksState.selectedTracks.findIndex(value => value === trackId)
-
-                    if (0 <= index)
-                      tracksState.selectedTracks.splice(index, 1)
-                    else
-                      tracksState.selectedTracks.push(trackId)
-                  }}
-                  onPointerOver={() => {
-                    tracksState.hoveredTracks.push(trackId)
-                  }}
-                  onPointerOut={() => {
-                    const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
-
-                    if (0 <= index)
-                      tracksState.hoveredTracks.splice(index, 1)
-                  }}
-                />
-                <Line
-                  points={[array[index - 1], nextPoint]}
-                  color={
-                    tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
-                      tracksState.selectedTracks.find(value => value === trackId) ? "#f00" :
-                        "#000"
-                  }
-                />
-              </>}
-            </React.Fragment>
+            return <LineTrack
+              key={index}
+              from={array[index - 1]}
+              to={nextPoint}
+              object={scene}
+              isHovered={0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)}
+              isSelected={0 <= tracksState.selectedTracks.findIndex(value => value === trackId)}
+            />
           })}
-        </FeatureObject>
-      })}
-      {tracksSubMenuState.addingTracks.map(({ centerCoordinate, position, rotationY, length, radius }, trackIndex) => {
-        let points = []
-        if (radius === 0)
-          points = [position, getPosition(position, rotationY, length, 0)]
-        else {
-          const numberOfPoints = getNumberOfCurvePoints(length, radius)
-          for (let i = 0; i <= numberOfPoints; i++)
-            points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
-        }
+          {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
+            <Line
+              points={points}
+              lineWidth={48}
+              transparent
+              opacity={0}
+              onClick={() => {
+                const index = tracksState.selectedTracks.findIndex(value => value === trackId)
 
-        return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
-          {points.map((nextPoint, index, array) => {
-            if (index === 0) return null
+                if (0 <= index)
+                  tracksState.selectedTracks.splice(index, 1)
+                else
+                  tracksState.selectedTracks.push(trackId)
+              }}
+              onPointerOver={() => {
+                tracksState.hoveredTracks.push(trackId)
+              }}
+              onPointerOut={() => {
+                const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
 
-            return <React.Fragment key={index}>
-              <Line
-                points={[array[index - 1], nextPoint]}
-                lineWidth={48}
-                transparent
-                opacity={0}
-                onPointerOver={() => {
-                  tracksSubMenuState.hoveredAddingTracks = trackIndex
-                }}
-                onPointerOut={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    tracksSubMenuState.hoveredAddingTracks = -1
-                }}
-              />
-              <Line
-                points={[array[index - 1], nextPoint]}
-                color={
-                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+                if (0 <= index)
+                  tracksState.hoveredTracks.splice(index, 1)
+              }}
+            />
+            <Line
+              points={points}
+              color={
+                tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
+                  tracksState.selectedTracks.find(value => value === trackId) ? "#f00" :
                     "#000"
-                }
-              />
-            </React.Fragment>
-          })}
+              }
+            />
+          </>}
         </FeatureObject>
       })}
+      {guiState.menuState === "tracks" &&
+        tracksSubMenuState.isAddingCurve &&
+        tracksSubMenuState.addingTracks.map(({ centerCoordinate, position, rotationY, length, radius }, trackIndex) => {
+          let points = []
+          if (radius === 0)
+            points = [position, getPosition(position, rotationY, length, 0)]
+          else {
+            const numberOfPoints = getNumberOfCurvePoints(length, radius)
+            for (let i = 0; i <= numberOfPoints; i++)
+              points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
+          }
+
+          return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+            <Line
+              points={points}
+              lineWidth={48}
+              transparent
+              opacity={0}
+              onClick={() => {
+                if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                  onClickAddingTrack(trackIndex)
+              }}
+              onPointerOver={() => {
+                tracksSubMenuState.hoveredAddingTracks = trackIndex
+              }}
+              onPointerOut={() => {
+                if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                  tracksSubMenuState.hoveredAddingTracks = -1
+              }}
+            />
+            <Line
+              points={points}
+              color={
+                tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+                  "#000"
+              }
+            />
+          </FeatureObject>
+        })}
     </>
   )
 }

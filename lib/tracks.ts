@@ -29,7 +29,7 @@ export const state = proxy<{
 
 export function getPosition(position: THREE.Vector3, rotationY: number, length: number, radius: number) {
   if (length === 0)
-    return position;
+    return position.clone();
 
   if (radius === 0)
     return position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, rotationY)).multiplyScalar(length));

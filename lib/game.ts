@@ -5,7 +5,7 @@ import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
 import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
-import { SerializableTrack, Track } from './tracks';
+import { SerializableSwitch, SerializableTrack, Switch, Track } from './tracks';
 
 export type IdentifiedRecord = { id: string };
 
@@ -14,6 +14,7 @@ export type GameStateType = { [key: string]: any } & {
   featureCollections: { [key: string]: { value: FeatureCollection } };
   projectedLines: { [key: string]: ProjectedLine };
   tracks: { [key: string]: Track };
+  switches: { [key: string]: Switch };
   trains: { [key: string]: Train };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
@@ -24,6 +25,7 @@ export function getNewState() {
     featureCollections: {},
     projectedLines: {},
     tracks: {},
+    switches: {},
     trains: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
@@ -38,7 +40,7 @@ export function toSerializableProp(path: string[], value: any) {
       const prop = value as GameStateType["tracks"]
 
       return Object.keys(prop).map(id => {
-        const { centerCoordinate, position, rotationY, length, radius } = prop[id]
+        const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = prop[id]
 
         return {
           id,
@@ -47,10 +49,14 @@ export function toSerializableProp(path: string[], value: any) {
           rotationY,
           length,
           radius,
-        }
-      }) as SerializableTrack[]
+          idOfTrackOrSwitchConnectedFromStart,
+          idOfTrackOrSwitchConnectedFromEnd,
+          connectedFromStartIsTrack,
+          connectedFromEndIsTrack,
+        } as SerializableTrack
+      })
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius } = value as Track
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = value as Track
 
       return {
         id: path[1],
@@ -59,7 +65,35 @@ export function toSerializableProp(path: string[], value: any) {
         rotationY,
         length,
         radius,
+        idOfTrackOrSwitchConnectedFromStart,
+        idOfTrackOrSwitchConnectedFromEnd,
+        connectedFromStartIsTrack,
+        connectedFromEndIsTrack,
       } as SerializableTrack
+    }
+  } else if (path[0] === "switches") {
+    if (path.length === 1) {
+      const prop = value as GameStateType["switches"]
+
+      return Object.keys(prop).map(id => {
+        const { connectedTrackIds, isConnectedToEnd, currentConnected } = prop[id]
+
+        return {
+          id,
+          connectedTrackIds,
+          isConnectedToEnd,
+          currentConnected,
+        } as SerializableSwitch
+      })
+    } else if (path.length === 2) {
+      const { connectedTrackIds, isConnectedToEnd, currentConnected } = value as Switch
+
+      return {
+        id: path[1],
+        connectedTrackIds,
+        isConnectedToEnd,
+        currentConnected,
+      } as SerializableSwitch
     }
   }/* else if (path[0] === "projectedLines") {
     if (path.length === 1) {
@@ -134,18 +168,22 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       const json = value as SerializableTrack[]
 
       const prop: GameStateType["tracks"] = {}
-      json.forEach(({ id, centerCoordinate, position, rotationY, length, radius }) =>
+      json.forEach(({ id, centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack }) =>
         prop[id] = {
           centerCoordinate,
           position: new THREE.Vector3(...position),
           rotationY,
           length,
           radius,
+          idOfTrackOrSwitchConnectedFromStart,
+          idOfTrackOrSwitchConnectedFromEnd,
+          connectedFromStartIsTrack,
+          connectedFromEndIsTrack,
         }
       )
       return prop
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius } = value as SerializableTrack
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = value as SerializableTrack
 
       return {
         centerCoordinate,
@@ -153,7 +191,33 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
         rotationY,
         length,
         radius,
+        idOfTrackOrSwitchConnectedFromStart,
+        idOfTrackOrSwitchConnectedFromEnd,
+        connectedFromStartIsTrack,
+        connectedFromEndIsTrack,
       } as Track
+    }
+  } else if (path[0] === "switches") {
+    if (path.length === 1) {
+      const json = value as SerializableSwitch[]
+
+      const prop: GameStateType["switches"] = {}
+      json.forEach(({ id, connectedTrackIds, isConnectedToEnd, currentConnected }) =>
+        prop[id] = {
+          connectedTrackIds,
+          isConnectedToEnd,
+          currentConnected,
+        }
+      )
+      return prop
+    } else if (path.length === 2) {
+      const { connectedTrackIds, isConnectedToEnd, currentConnected } = value as SerializableSwitch
+
+      return {
+        connectedTrackIds,
+        isConnectedToEnd,
+        currentConnected,
+      } as Switch
     }
   }/* else if (path[0] === "projectedLines") {
     if (path.length === 1) {

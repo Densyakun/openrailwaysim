@@ -7,7 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import centroid from '@turf/centroid';
-import { SerializableTrack, Track, getPosition, state as tracksState } from '@/lib/tracks';
+import { SerializableSwitch, SerializableTrack, Track, getPosition, state as tracksState } from '@/lib/tracks';
 import { guiState } from './GUI';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
@@ -86,6 +86,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * rad,
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -93,6 +97,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -100,6 +108,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -107,6 +119,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI * 2 - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -114,6 +130,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI * 2 - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -121,6 +141,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -128,6 +152,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -135,6 +163,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * rad,
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
     ]
     : [
@@ -144,6 +176,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI * 2 + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -151,6 +187,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -158,6 +198,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * (Math.PI - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -165,6 +209,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB,
         length: tracksSubMenuState.curveRadius * -rad,
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -172,6 +220,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * -rad,
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -179,6 +231,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI - rad),
         radius: tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -186,6 +242,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
       {
         centerCoordinate,
@@ -193,6 +253,10 @@ function updateAddingTracks() {
         rotationY: rotationYAB - Math.PI,
         length: tracksSubMenuState.curveRadius * (Math.PI * 2 + rad),
         radius: -tracksSubMenuState.curveRadius,
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
       },
     ];
 }
@@ -259,8 +323,10 @@ export function onClickAddingTrack(index: number) {
       index % 4 === 2 ? TRL :
         TRR;
 
-  const track: SerializableTrack = {
-    id: uuidv4(),
+  const curveId = uuidv4();
+
+  const curveTrack: SerializableTrack = {
+    id: curveId,
     centerCoordinate,
     position: tracksSubMenuState.addingTracks[index].position.toArray(),
     rotationY: tracksSubMenuState.addingTracks[index].rotationY,
@@ -268,36 +334,91 @@ export function onClickAddingTrack(index: number) {
     radius: tracksSubMenuState.addingTracks[index].radius,
     /*startGrade: 0, // TODO grade
     endGrade: 0,*/
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
   }
 
-  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-    "tracks",
-    track
-  ]]));
+  // TODO すでに分岐器が存在する場合、軌道を追加で接続する
+  if (s <= 0) {
+    let track0IsChanged = false;
 
-  // TODO 軌道を分割、延伸するときに、分岐器と正しく接続する
-  if (s < 0) {
-    tracks[0].position = getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0);
-    tracks[0].length *= 1 - s;
+    if (index < 4) {
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "switches",
+        {
+          id: uuidv4(),
+          connectedTrackIds: [tracksState.selectedTracks[0], curveId],
+          isConnectedToEnd: [false, false],
+          currentConnected: 0,
+        } as SerializableSwitch
+      ]]));
+    } else {
+      tracks[0].idOfTrackOrSwitchConnectedFromStart = curveId;
+      tracks[0].connectedFromStartIsTrack = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTracks[0];
+      curveTrack.connectedFromStartIsTrack = true;
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
-    ]]));
+      track0IsChanged = true;
+    }
+
+    if (s < 0) {
+      tracks[0].position = getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0);
+      tracks[0].length *= 1 - s;
+
+      track0IsChanged = true;
+    }
+
+    if (track0IsChanged)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "tracks",
+        toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
+      ]]));
   } else if (0 < s && s < 1) {
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      {
-        id: uuidv4(),
-        centerCoordinate,
-        position: getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0).toArray(),
-        rotationY: tracks[0].rotationY,
-        length: tracks[0].length * (1 - s),
-        radius: tracks[0].radius,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-      } as SerializableTrack
-    ]]));
+    const trackB: SerializableTrack = {
+      id: uuidv4(),
+      centerCoordinate,
+      position: getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0).toArray(),
+      rotationY: tracks[0].rotationY,
+      length: tracks[0].length * (1 - s),
+      radius: tracks[0].radius,
+      /*startGrade: 0, // TODO grade
+      endGrade: 0,*/
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+    }
+
+    const railroadSwitch: SerializableSwitch = {
+      id: uuidv4(),
+      connectedTrackIds: [],
+      isConnectedToEnd: [],
+      currentConnected: -1,
+    };
+
+    if (index < 4) {
+      railroadSwitch.connectedTrackIds = [trackB.id, curveId];
+      railroadSwitch.isConnectedToEnd = [false, false];
+      railroadSwitch.currentConnected = 0;
+
+      tracks[0].idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+      tracks[0].connectedFromEndIsTrack = false;
+      trackB.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTracks[0];
+      trackB.connectedFromStartIsTrack = true;
+    } else {
+      railroadSwitch.connectedTrackIds = [tracksState.selectedTracks[0], curveId];
+      railroadSwitch.isConnectedToEnd = [true, false];
+      railroadSwitch.currentConnected = 0;
+
+      tracks[0].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
+      tracks[0].connectedFromEndIsTrack = true;
+      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+      trackB.connectedFromStartIsTrack = false;
+    }
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
     tracks[0].length *= s;
 
@@ -305,37 +426,121 @@ export function onClickAddingTrack(index: number) {
       "tracks",
       toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
     ]]));
-  } else if (1 < s) {
-    tracks[0].length *= s;
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
-    ]]));
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
+  } else if (1 <= s) {
+    let track0IsChanged = false;
+
+    if (index < 4) {
+      tracks[0].idOfTrackOrSwitchConnectedFromEnd = curveId;
+      tracks[0].connectedFromEndIsTrack = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTracks[0];
+      curveTrack.connectedFromStartIsTrack = true;
+
+      track0IsChanged = true;
+    } else {
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "switches",
+        {
+          id: uuidv4(),
+          connectedTrackIds: [tracksState.selectedTracks[0], curveId],
+          isConnectedToEnd: [true, false],
+          currentConnected: 0,
+        } as SerializableSwitch
+      ]]));
+    }
+
+    if (1 < s) {
+      tracks[0].length *= s;
+
+      track0IsChanged = true;
+    }
+
+    if (track0IsChanged)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "tracks",
+        toSerializableProp(["tracks", tracksState.selectedTracks[0]], tracks[0])
+      ]]));
   }
 
-  if (t < 0) {
-    tracks[1].position = getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0);
-    tracks[1].length *= 1 - t;
+  if (t <= 0) {
+    let track1IsChanged = false;
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
-    ]]));
+    if (index === 0 || index === 3 || index === 4 || index === 7) {
+      tracks[1].idOfTrackOrSwitchConnectedFromStart = curveId;
+      tracks[1].connectedFromStartIsTrack = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
+      curveTrack.connectedFromEndIsTrack = true;
+
+      track1IsChanged = true;
+    } else {
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "switches",
+        {
+          id: uuidv4(),
+          connectedTrackIds: [tracksState.selectedTracks[1], curveId],
+          isConnectedToEnd: [false, true],
+          currentConnected: 0,
+        } as SerializableSwitch
+      ]]));
+    }
+
+    if (t < 0) {
+      tracks[1].position = getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0);
+      tracks[1].length *= 1 - t;
+
+      track1IsChanged = true;
+    }
+
+    if (track1IsChanged)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "tracks",
+        toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
+      ]]));
   } else if (0 < t && t < 1) {
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      {
-        id: uuidv4(),
-        centerCoordinate,
-        position: getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0).toArray(),
-        rotationY: tracks[1].rotationY,
-        length: tracks[1].length * (1 - t),
-        radius: tracks[1].radius,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-      } as SerializableTrack
-    ]]));
+    const trackB: SerializableTrack = {
+      id: uuidv4(),
+      centerCoordinate,
+      position: getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0).toArray(),
+      rotationY: tracks[1].rotationY,
+      length: tracks[1].length * (1 - t),
+      radius: tracks[1].radius,
+      /*startGrade: 0, // TODO grade
+      endGrade: 0,*/
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+    }
+
+    const railroadSwitch: SerializableSwitch = {
+      id: uuidv4(),
+      connectedTrackIds: [],
+      isConnectedToEnd: [],
+      currentConnected: -1,
+    };
+
+    if (index === 0 || index === 3 || index === 4 || index === 7) {
+      railroadSwitch.connectedTrackIds = [tracksState.selectedTracks[1], curveId];
+      railroadSwitch.isConnectedToEnd = [true, true];
+      railroadSwitch.currentConnected = 0;
+
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
+      tracks[1].connectedFromEndIsTrack = true;
+      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+      trackB.connectedFromStartIsTrack = false;
+    } else {
+      railroadSwitch.connectedTrackIds = [trackB.id, curveId];
+      railroadSwitch.isConnectedToEnd = [false, true];
+      railroadSwitch.currentConnected = 0;
+
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+      tracks[1].connectedFromEndIsTrack = false;
+      trackB.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTracks[1];
+      trackB.connectedFromStartIsTrack = true;
+    }
+
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
     tracks[1].length *= t;
 
@@ -343,14 +548,44 @@ export function onClickAddingTrack(index: number) {
       "tracks",
       toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
     ]]));
-  } else if (1 < t) {
-    tracks[1].length *= t;
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
-    ]]));
+    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
+  } else if (1 <= t) {
+    let track1IsChanged = false;
+
+    if (index === 0 || index === 3 || index === 4 || index === 7) {
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "switches",
+        {
+          id: uuidv4(),
+          connectedTrackIds: [tracksState.selectedTracks[1], curveId],
+          isConnectedToEnd: [true, true],
+          currentConnected: 0,
+        } as SerializableSwitch
+      ]]));
+    } else {
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = curveId;
+      tracks[1].connectedFromEndIsTrack = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
+      curveTrack.connectedFromEndIsTrack = true;
+
+      track1IsChanged = true;
+    }
+
+    if (1 < t) {
+      tracks[1].length *= t;
+
+      track1IsChanged = true;
+    }
+
+    if (track1IsChanged)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
+        "tracks",
+        toSerializableProp(["tracks", tracksState.selectedTracks[1]], tracks[1])
+      ]]));
   }
+
+  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", curveTrack]]));
 
   updateAddingTracks();
 }

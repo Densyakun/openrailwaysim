@@ -9,6 +9,10 @@ export type Track = {
   rotationY: number;
   length: number;
   radius: number;
+  idOfTrackOrSwitchConnectedFromStart: string;
+  idOfTrackOrSwitchConnectedFromEnd: string;
+  connectedFromStartIsTrack: boolean;
+  connectedFromEndIsTrack: boolean;
 };
 
 export type SerializableTrack = IdentifiedRecord & {
@@ -17,6 +21,10 @@ export type SerializableTrack = IdentifiedRecord & {
   rotationY: number;
   length: number;
   radius: number;
+  idOfTrackOrSwitchConnectedFromStart: string;
+  idOfTrackOrSwitchConnectedFromEnd: string;
+  connectedFromStartIsTrack: boolean;
+  connectedFromEndIsTrack: boolean;
 };
 
 export const state = proxy<{
@@ -38,3 +46,11 @@ export function getPosition(position: THREE.Vector3, rotationY: number, length: 
       .add(new THREE.Vector3(0, 0, radius).applyEuler(new THREE.Euler(0, rotationY)))
       .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)));
 }
+
+export type Switch = {
+  connectedTrackIds: string[];
+  isConnectedToEnd: boolean[];
+  currentConnected: number;
+};
+
+export type SerializableSwitch = IdentifiedRecord & Switch;

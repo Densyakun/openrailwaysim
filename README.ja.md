@@ -18,6 +18,14 @@ Open Railway Sim (ORS) はオープンソースの鉄道シミュレーターで
 - 浮上式鉄道
 - 索道、ロープウェイ
 
+### データのファイル形式と参照について
+
+ORSでは、インターネット上にあるファイルをURLで参照します。
+
+#### 3Dデータのファイル形式
+
+現在、glTF（glb）のみ対応しています。
+
 ## Quick Start
 
 1. Clone or fork `openrailwaysim`:

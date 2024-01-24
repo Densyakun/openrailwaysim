@@ -20,6 +20,7 @@ import TrainTable from './TrainTable';
 import FeatureCollectionsSubMenu from './FeatureCollectionsSubMenu';
 //import TrackTable from './TrackTable';
 import TracksSubMenu from './TracksSubMenu';
+import TrainsSubMenu from './TrainsSubMenu';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -77,7 +78,7 @@ function TopInfo() {
   )
 }
 
-function SubMenu() {
+/*function SubMenu() {
   return <Paper sx={{
     p: 1,
     pointerEvents: 'auto',
@@ -92,7 +93,7 @@ function SubMenu() {
       </Fab>
     </Tooltip>
   </Paper>
-}
+}*/
 
 export default function GUI() {
   useSnapshot(guiState);
@@ -128,7 +129,7 @@ export default function GUI() {
     'trains': {
       title: 'Trains',
       icon: <TrainIcon />,
-      subMenu: <SubMenu />,
+      subMenu: <TrainsSubMenu />,
       table: <TrainTable />,
     },
     'settings': {

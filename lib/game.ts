@@ -3,7 +3,7 @@ import EventEmitter from "events"
 import { proxy } from "valtio"
 import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
-import { ProjectedLine, SerializableProjectedLine } from "./gis";
+//import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
 import { SerializableSwitch, SerializableTrack, Switch, Track } from './tracks';
 
@@ -12,7 +12,7 @@ export type IdentifiedRecord = { id: string };
 // 参照されるデータの後に参照するデータの順で並べる必要がある
 export type GameStateType = { [key: string]: any } & {
   featureCollections: { [key: string]: { value: FeatureCollection } };
-  projectedLines: { [key: string]: ProjectedLine };
+  //projectedLines: { [key: string]: ProjectedLine };
   tracks: { [key: string]: Track };
   switches: { [key: string]: Switch };
   trains: { [key: string]: Train };
@@ -23,7 +23,7 @@ export type GameStateType = { [key: string]: any } & {
 export function getNewState() {
   const state = proxy<GameStateType>({
     featureCollections: {},
-    projectedLines: {},
+    //projectedLines: {},
     tracks: {},
     switches: {},
     trains: {},
@@ -34,29 +34,12 @@ export function getNewState() {
   return state
 }
 
-export function toSerializableProp(path: string[], value: any) {
+export function toSerializableProp(path: string[], value: any): any {
   if (path[0] === "tracks") {
-    if (path.length === 1) {
-      const prop = value as GameStateType["tracks"]
-
-      return Object.keys(prop).map(id => {
-        const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = prop[id]
-
-        return {
-          id,
-          centerCoordinate,
-          position: position.toArray(),
-          rotationY,
-          length,
-          radius,
-          idOfTrackOrSwitchConnectedFromStart,
-          idOfTrackOrSwitchConnectedFromEnd,
-          connectedFromStartIsTrack,
-          connectedFromEndIsTrack,
-        } as SerializableTrack
-      })
-    } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = value as Track
+    if (path.length === 1)
+      return Object.keys(value).map(id => toSerializableProp([path[0], id], value[id]))
+    else if (path.length === 2) {
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd } = value as Track
 
       return {
         id: path[1],
@@ -69,23 +52,14 @@ export function toSerializableProp(path: string[], value: any) {
         idOfTrackOrSwitchConnectedFromEnd,
         connectedFromStartIsTrack,
         connectedFromEndIsTrack,
+        connectedFromStartIsToEnd,
+        connectedFromEndIsToEnd,
       } as SerializableTrack
     }
   } else if (path[0] === "switches") {
-    if (path.length === 1) {
-      const prop = value as GameStateType["switches"]
-
-      return Object.keys(prop).map(id => {
-        const { connectedTrackIds, isConnectedToEnd, currentConnected } = prop[id]
-
-        return {
-          id,
-          connectedTrackIds,
-          isConnectedToEnd,
-          currentConnected,
-        } as SerializableSwitch
-      })
-    } else if (path.length === 2) {
+    if (path.length === 1)
+      return Object.keys(value).map(id => toSerializableProp([path[0], id], value[id]))
+    else if (path.length === 2) {
       const { connectedTrackIds, isConnectedToEnd, currentConnected } = value as Switch
 
       return {
@@ -110,52 +84,50 @@ export function toSerializableProp(path: string[], value: any) {
       }) as SerializableProjectedLine[]
     }
   }*/ else if (path[0] === "trains") {
-    if (path.length === 1) {
-      const prop = value as GameStateType["trains"]
+    if (path.length === 1)
+      return Object.keys(value).map(id => toSerializableProp([path[0], id], value[id]))
+    else if (path.length === 2) {
+      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = value as Train
 
-      return Object.keys(prop).map(trainId => {
-        const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = prop[trainId]
-
-        return {
-          id: trainId,
-          bogies: bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
+      return {
+        id: path[1],
+        bogies: bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
+          position: position.toArray(),
+          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+          pointOnTrack,
+          weight,
+          masterControllers,
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+            pointOnTrack,
+            z,
             position: position.toArray(),
             rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-            pointOnTrack,
-            weight,
-            masterControllers,
-            axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
-              pointOnTrack,
-              z,
-              position: position.toArray(),
-              rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-              diameter,
-              hasMotor,
-            } as SerializableAxle)),
-          } as SerializableBogie)),
-          otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
-            position: position.toArray(),
-            rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
-            pointOnTrack,
-            weight,
-            masterControllers,
-          } as SerializableCarBody)),
-          bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
-            otherBodyIndex,
-            otherBodyPosition: otherBodyPosition.toArray(),
-            bogieIndex,
-            bogiePosition: bogiePosition.toArray(),
-          })),
-          otherJoints: otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
-            bodyIndexA,
-            positionA: positionA.toArray(),
-            bodyIndexB,
-            positionB: positionB.toArray(),
-          })),
-          speed,
-          motorCars,
-        }
-      }) as SerializableTrain[]
+            diameter,
+            hasMotor,
+          } as SerializableAxle)),
+        } as SerializableBogie)),
+        otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+          position: position.toArray(),
+          rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
+          pointOnTrack,
+          weight,
+          masterControllers,
+        } as SerializableCarBody)),
+        bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+          otherBodyIndex,
+          otherBodyPosition: otherBodyPosition.toArray(),
+          bogieIndex,
+          bogiePosition: bogiePosition.toArray(),
+        })),
+        otherJoints: otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+          bodyIndexA,
+          positionA: positionA.toArray(),
+          bodyIndexB,
+          positionB: positionB.toArray(),
+        })),
+        speed,
+        motorCars,
+      } as SerializableTrain
     }
   }
 
@@ -168,22 +140,12 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       const json = value as SerializableTrack[]
 
       const prop: GameStateType["tracks"] = {}
-      json.forEach(({ id, centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack }) =>
-        prop[id] = {
-          centerCoordinate,
-          position: new THREE.Vector3(...position),
-          rotationY,
-          length,
-          radius,
-          idOfTrackOrSwitchConnectedFromStart,
-          idOfTrackOrSwitchConnectedFromEnd,
-          connectedFromStartIsTrack,
-          connectedFromEndIsTrack,
-        }
+      json.forEach(value_ =>
+        prop[value_.id] = fromSerializableProp([path[0], value_.id], value_, gameState) as Track
       )
       return prop
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack } = value as SerializableTrack
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd } = value as SerializableTrack
 
       return {
         centerCoordinate,
@@ -195,6 +157,8 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
         idOfTrackOrSwitchConnectedFromEnd,
         connectedFromStartIsTrack,
         connectedFromEndIsTrack,
+        connectedFromStartIsToEnd,
+        connectedFromEndIsToEnd,
       } as Track
     }
   } else if (path[0] === "switches") {
@@ -202,12 +166,8 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       const json = value as SerializableSwitch[]
 
       const prop: GameStateType["switches"] = {}
-      json.forEach(({ id, connectedTrackIds, isConnectedToEnd, currentConnected }) =>
-        prop[id] = {
-          connectedTrackIds,
-          isConnectedToEnd,
-          currentConnected,
-        }
+      json.forEach(value_ =>
+        prop[value_.id] = fromSerializableProp([path[0], value_.id], value_, gameState) as Switch
       )
       return prop
     } else if (path.length === 2) {
@@ -237,50 +197,54 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       const json = value as SerializableTrain[]
 
       const prop: GameStateType["trains"] = {}
-      json.forEach(({ id, bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars }) =>
-        prop[id] = createTrain(
-          gameState,
-          bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
-            position: new THREE.Vector3(...position),
-            rotation: new THREE.Euler(...rotation),
-            pointOnTrack,
-            weight,
-            masterControllers,
-            axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
-              pointOnTrack,
-              z,
-              position: new THREE.Vector3(...position),
-              rotation: new THREE.Euler(...rotation),
-              diameter,
-              rotationX: 0,
-              hasMotor,
-            } as Axle)),
-          } as Bogie)),
-          otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
-            position: new THREE.Vector3(...position),
-            rotation: new THREE.Euler(...rotation),
-            pointOnTrack,
-            weight,
-            masterControllers,
-          } as CarBody)),
-          bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
-            otherBodyIndex,
-            otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
-            bogieIndex,
-            bogiePosition: new THREE.Vector3(...bogiePosition),
-          } as BodySupporterJoint)),
-          otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
-            bodyIndexA,
-            positionA: new THREE.Vector3(...positionA),
-            bodyIndexB,
-            positionB: new THREE.Vector3(...positionB),
-          } as Joint)),
-          speed,
-          undefined,
-          motorCars,
-        )
+      json.forEach(value_ =>
+        prop[value_.id] = fromSerializableProp([path[0], value_.id], value_, gameState) as Train
       )
       return prop
+    } else if (path.length === 2) {
+      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = value as SerializableTrain
+
+      return createTrain(
+        gameState,
+        bogies.map(({ position, rotation, pointOnTrack, weight, masterControllers, axles }) => ({
+          position: new THREE.Vector3(...position),
+          rotation: new THREE.Euler(...rotation),
+          pointOnTrack,
+          weight,
+          masterControllers,
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+            pointOnTrack,
+            z,
+            position: new THREE.Vector3(...position),
+            rotation: new THREE.Euler(...rotation),
+            diameter,
+            rotationX: 0,
+            hasMotor,
+          } as Axle)),
+        } as Bogie)),
+        otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
+          position: new THREE.Vector3(...position),
+          rotation: new THREE.Euler(...rotation),
+          pointOnTrack,
+          weight,
+          masterControllers,
+        } as CarBody)),
+        bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
+          otherBodyIndex,
+          otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
+          bogieIndex,
+          bogiePosition: new THREE.Vector3(...bogiePosition),
+        } as BodySupporterJoint)),
+        otherJoints.map(({ bodyIndexA, positionA, bodyIndexB, positionB }) => ({
+          bodyIndexA,
+          positionA: new THREE.Vector3(...positionA),
+          bodyIndexB,
+          positionB: new THREE.Vector3(...positionB),
+        } as Joint)),
+        speed,
+        undefined,
+        motorCars,
+      )
     }
   }
 

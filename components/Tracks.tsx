@@ -1,14 +1,21 @@
 import * as React from 'react'
 import * as THREE from 'three'
+import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio'
 import { getRotationFromTwoPoints } from '@/lib/projectedLine'
 import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { getPosition, state as tracksState } from '@/lib/tracks'
+import { getLength, getPosition, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
+import { trainsSubMenuState } from './gui/TrainsSubMenu'
+import { getRelativePosition } from '@/lib/gis'
+import { createTestOneAxleCar } from '@/lib/trainSamples'
+import { SerializableTrain } from '@/lib/trains'
+import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game'
+import { socket } from './Client'
 
 export function getNumberOfCurvePoints(length: number, radius: number) {
   const radius_ = Math.abs(radius)
@@ -77,7 +84,8 @@ export default function Tracks() {
         </FeatureObject>
       })*/}
       {Object.keys(gameState.tracks).map(trackId => {
-        const { centerCoordinate, position, rotationY, length, radius } = gameState.tracks[trackId]
+        const track = gameState.tracks[trackId]
+        const { centerCoordinate, position, rotationY, length, radius } = track
 
         let points = []
         if (radius === 0)
@@ -134,6 +142,44 @@ export default function Tracks() {
               }
             />
           </>}
+          {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
+            <Line
+              points={points}
+              lineWidth={48}
+              transparent
+              opacity={0}
+              onPointerMove={e => {
+                const point = e.intersections[0].point
+
+                tracksState.pointingOnTrack = {
+                  trackId,
+                  length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+                }
+              }}
+              onClick={() => {
+                if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
+                  const train: SerializableTrain = toSerializableProp(
+                    ["trains", uuidv4()],
+                    createTestOneAxleCar({
+                      gameState,
+                      trackId,
+                      length: tracksState.pointingOnTrack.length,
+                      uiMasterControllerOptionId: "0",
+                    })
+                  );
+
+                  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
+                }
+              }}
+            />
+            <Line
+              points={points}
+              color={
+                tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                  "#000"
+              }
+            />
+          </>}
         </FeatureObject>
       })}
       {guiState.menuState === "tracks" &&
@@ -175,6 +221,15 @@ export default function Tracks() {
             />
           </FeatureObject>
         })}
+      {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
+        tracksState.pointingOnTrack &&
+        <FeatureObject centerCoordinate={gameState.tracks[tracksState.pointingOnTrack.trackId].centerCoordinate}>
+          <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId].position, gameState.tracks[tracksState.pointingOnTrack.trackId].rotationY, tracksState.pointingOnTrack.length, gameState.tracks[tracksState.pointingOnTrack.trackId].radius)}>
+            <sphereGeometry />
+            <meshBasicMaterial color={"#f00"} />
+          </mesh>
+        </FeatureObject>
+      }
     </>
   )
 }

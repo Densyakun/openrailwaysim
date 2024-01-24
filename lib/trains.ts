@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { proxy } from "valtio";
-import { ProjectedLineAndLength, getRelativePosition, eulerToCoordinate, coordinateToEuler } from './gis';
-import { getPositionFromLength, getSegment, Segment } from "./projectedLine";
+import { getRelativePosition, eulerToCoordinate, coordinateToEuler } from './gis';
 import { GameStateType, IdentifiedRecord } from "./game";
+import { PointOnTrack, getLength, getPosition, getRotation } from "./tracks";
 
 // Resistances
 
@@ -12,9 +12,9 @@ export const runningResistanceB = 0.001; // 走行抵抗の定数B。輪軸あ�
 export const runningResistanceC = 0.0001381; // 走行抵抗の定数C。空気抵抗に依存する値
 
 export type Axle = {
-  pointOnTrack: ProjectedLineAndLength;
+  pointOnTrack: PointOnTrack;
   z: number;
-  segment?: Segment;
+  //segment?: Segment;
   position: THREE.Vector3;
   rotation: THREE.Euler;
   diameter: number;
@@ -23,7 +23,7 @@ export type Axle = {
 };
 
 export type SerializableAxle = {
-  pointOnTrack: ProjectedLineAndLength;
+  pointOnTrack: PointOnTrack;
   z: number;
   position: THREE.Vector3Tuple;
   rotation: [number, number, number, THREE.EulerOrder];
@@ -34,7 +34,7 @@ export type SerializableAxle = {
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
-  pointOnTrack: ProjectedLineAndLength;
+  pointOnTrack: PointOnTrack;
   weight: number; // ton
   masterControllers: OneHandleMasterController[];
 }
@@ -42,7 +42,7 @@ export type CarBody = {
 export type SerializableCarBody = {
   position: THREE.Vector3Tuple;
   rotation: [number, number, number, THREE.EulerOrder];
-  pointOnTrack: ProjectedLineAndLength;
+  pointOnTrack: PointOnTrack;
   weight: number;
   masterControllers: OneHandleMasterController[];
 }
@@ -122,16 +122,19 @@ export const state = proxy<{
 });
 
 export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) {
-  return coordinateToEuler(gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate || [0, 0])
+  return coordinateToEuler(gameState.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
 }
 
-export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motorCars = 0): Train {
+export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motorCars?: number): Train {
   let weight_ = weight
 
   if (weight_ === undefined) {
     weight_ = 0
     bogies.forEach(bogie => weight_! += bogie.weight)
     otherBodies.forEach(body => weight_! += body.weight)
+
+    if (weight_ === 0)
+      weight_ = 30
   }
 
   // 重心を計算
@@ -146,6 +149,16 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
   centroidZ /= axleCount
   centroidZ -= bogies[0].axles[0].pointOnTrack.length
 
+  let motorCars_ = motorCars
+  if (motorCars_ === undefined) {
+    motorCars_ = 0
+    bogies.forEach(bogie => {
+      bogie.axles.forEach(axle => {
+        if (axle.hasMotor) motorCars_!++
+      })
+    })
+  }
+
   const train: Train = {
     bogies,
     otherBodies,
@@ -157,7 +170,7 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
     speed,
     weight: weight_,
     centroidZ,
-    motorCars,
+    motorCars: motorCars_,
   }
 
   calcJointsToRotateBody(train)
@@ -190,21 +203,14 @@ export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler
   train.globalPosition = newPosition;
 }
 
-export function updateSegmentCacheToAxle(gameState: GameStateType, axle: Axle) {
-  return axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length);
-}
-
-export function getSegmentCacheFromAxle(gameState: GameStateType, axle: Axle) {
-  return axle.segment || updateSegmentCacheToAxle(gameState, axle);
-}
-
 export function getAxlePosition(gameState: GameStateType, train: Train, axle: Axle) {
   const { pointOnTrack: { length } } = axle;
 
-  const axleRelativePosition = getPositionFromLength(getSegmentCacheFromAxle(gameState, axle), length);
+  const track = gameState.tracks[axle.pointOnTrack.trackId];
+  const axleRelativePosition = getPosition(track.position, track.rotationY, length, track.radius);
 
   const globalTrackRelativePosition = getRelativePosition(
-    gameState.projectedLines[axle.pointOnTrack.projectedLineId].centerCoordinate,
+    track.centerCoordinate,
     train.globalPosition,
     undefined,
     0
@@ -226,17 +232,7 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
       )
     );
 
-    const { point, nextPoint } = getSegmentCacheFromAxle(gameState, bogie.axles[index]);
-    const forward = nextPoint.clone().sub(point).normalize();
-    const angleY = Math.atan2(forward.x, forward.z);
-    const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
-    const angleX = Math.atan2(aVector.y, aVector.z);
-    up.add(new THREE.Vector3(0, 1).applyEuler(new THREE.Euler(
-      -angleX,
-      angleY,
-      0,
-      'YXZ'
-    )));
+    up.add(new THREE.Vector3(0, 1));
 
     if (index === 0)
       firstAxlePosition.copy(lastAxlePosition);
@@ -248,8 +244,8 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
   if (2 <= bogie.axles.length) {
     forward = firstAxlePosition.sub(lastAxlePosition).normalize();
   } else {
-    const { point, nextPoint } = getSegmentCacheFromAxle(gameState, bogie.axles[0]);
-    forward = nextPoint.clone().sub(point).normalize();
+    const track = gameState.tracks[bogie.axles[0].pointOnTrack.trackId];
+    forward = new THREE.Vector3(1).applyEuler(getRotation(track.position, track.rotationY, bogie.axles[0].pointOnTrack.length, track.radius));
   }
 
   const angleY = Math.atan2(forward.x, forward.z);
@@ -268,20 +264,18 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
   );
 }
 
-export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: ProjectedLineAndLength, { point, nextPoint, distance, lengthFromStartingPointToNextPoint }: Segment, globalPosition: THREE.Euler, position: THREE.Vector3) {
+export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: PointOnTrack, globalPosition: THREE.Euler, position: THREE.Vector3) {
+  const track = gameState.tracks[pointOnTrack.trackId];
+
   // axle.pointOnTrack to track
   const globalTrackRelativePosition = getRelativePosition(
-    gameState.projectedLines[pointOnTrack.projectedLineId].centerCoordinate,
+    track.centerCoordinate,
     globalPosition,
     undefined,
     0
   );
 
-  pointOnTrack.length = lengthFromStartingPointToNextPoint
-    + position.clone().sub(globalTrackRelativePosition).sub(point)
-      .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), nextPoint.clone().sub(point).normalize()).invert())
-      .x
-    - distance;
+  pointOnTrack.length = getLength(position.clone().sub(globalTrackRelativePosition), track);
 }
 
 export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogie) {
@@ -296,7 +290,6 @@ export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogi
     pointOnTrackToTrack(
       gameState,
       axle.pointOnTrack,
-      axle.segment || (axle.segment = getSegment(gameState.projectedLines[axle.pointOnTrack.projectedLineId].points, axle.pointOnTrack.length)),
       train.globalPosition,
       axle.position,
     )
@@ -406,11 +399,11 @@ export function calcJointsToRotateBody(train: Train) {
 
 export function placeOtherBodies(gameState: GameStateType, train: Train) {
   train.otherBodies.forEach(otherBody => {
-    const segment = getSegment(gameState.projectedLines[otherBody.pointOnTrack.projectedLineId].points, otherBody.pointOnTrack.length);
-    const axleRelativePosition = getPositionFromLength(segment, otherBody.pointOnTrack.length);
+    const track = gameState.tracks[otherBody.pointOnTrack.trackId];
+    const axleRelativePosition = getPosition(track.position, track.rotationY, otherBody.pointOnTrack.length, track.radius);
 
     const globalTrackRelativePosition = getRelativePosition(
-      gameState.projectedLines[otherBody.pointOnTrack.projectedLineId].centerCoordinate,
+      track.centerCoordinate,
       train.globalPosition,
       undefined,
       0
@@ -418,27 +411,7 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
 
     otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
 
-    const { point, nextPoint } = segment;
-    const forward = nextPoint.clone().sub(point).normalize();
-    const angleY = Math.atan2(forward.x, forward.z);
-    const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
-    const angleX = Math.atan2(aVector.y, aVector.z);
-    const up = new THREE.Vector3(0, 1).applyEuler(new THREE.Euler(
-      -angleX,
-      angleY,
-      0,
-      'YXZ'
-    ));
-    const bVector = up.applyEuler(new THREE.Euler(
-      angleX,
-      -angleY
-    ));
-    otherBody.rotation.set(
-      -angleX,
-      angleY,
-      Math.atan2(-bVector.x, bVector.y),
-      'YXZ'
-    );
+    otherBody.rotation.copy(getRotation(track.position, track.rotationY, otherBody.pointOnTrack.length, track.radius));
   });
 }
 
@@ -494,7 +467,6 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
     pointOnTrackToTrack(
       gameState,
       fromBody.pointOnTrack,
-      getSegment(gameState.projectedLines[fromBody.pointOnTrack.projectedLineId].points, fromBody.pointOnTrack.length),
       train.globalPosition,
       fromBody.position,
     );
@@ -639,10 +611,11 @@ export function updateTime(gameState: GameStateType, train: Train, delta: number
   )
 
   // 勾配抵抗を計算する。計算を単純化するため、重心に近い地点の勾配から抵抗を計算する
-  const projectedLine = gameState.projectedLines[train.bogies[0].axles[0].pointOnTrack.projectedLineId]
+  // TODO grade
+  /*const track = gameState.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
   const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
   const distance = point.distanceTo(nextPoint)
-  acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight
+  acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight*/
 
   deceleration += resistances / train.weight
 
@@ -668,7 +641,91 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
     // 輪軸を転がす
     bogie.axles.forEach(axle => {
       axle.pointOnTrack.length += distance;
-      updateSegmentCacheToAxle(gameState, axle);
+
+      if (axle.pointOnTrack.length < 0) {
+        const track = gameState.tracks[axle.pointOnTrack.trackId];
+        if (track.idOfTrackOrSwitchConnectedFromStart) {
+          if (track.connectedFromStartIsTrack) {
+            const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromStart];
+            if (connectedTo.connectedFromStartIsToEnd) {
+              axle.pointOnTrack = {
+                trackId: track.idOfTrackOrSwitchConnectedFromStart,
+                length: connectedTo.length + axle.pointOnTrack.length,
+              };
+            } else {
+              axle.pointOnTrack = {
+                trackId: track.idOfTrackOrSwitchConnectedFromStart,
+                length: -axle.pointOnTrack.length,
+              };
+              // TODO この輪軸の回転方向を反転
+            }
+          } else {
+            const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromStart];
+            if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
+              // TODO 接続先がない場合
+            } else {
+              const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+              if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+                axle.pointOnTrack = {
+                  trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                  length: connectedTo.length + axle.pointOnTrack.length,
+                };
+              } else {
+                axle.pointOnTrack = {
+                  trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                  length: -axle.pointOnTrack.length,
+                };
+                // TODO この輪軸の回転方向を反転
+              }
+            }
+          }
+        } else {
+          // TODO 接続先がない場合
+        }
+      } else {
+        const track = gameState.tracks[axle.pointOnTrack.trackId];
+        if (track.length < axle.pointOnTrack.length) {
+          if (track.idOfTrackOrSwitchConnectedFromEnd) {
+            if (track.connectedFromEndIsTrack) {
+              const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
+              if (connectedTo.connectedFromEndIsToEnd) {
+                axle.pointOnTrack = {
+                  trackId: track.idOfTrackOrSwitchConnectedFromEnd,
+                  length: connectedTo.length + track.length - axle.pointOnTrack.length,
+                };
+                // TODO この輪軸の回転方向を反転
+              } else {
+                axle.pointOnTrack = {
+                  trackId: track.idOfTrackOrSwitchConnectedFromEnd,
+                  length: axle.pointOnTrack.length - track.length,
+                };
+              }
+            } else {
+              const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+              if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
+                // TODO 接続先がない場合
+              } else {
+                const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+                if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+                  axle.pointOnTrack = {
+                    trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                    length: connectedTo.length + track.length - axle.pointOnTrack.length,
+                  };
+                  // TODO この輪軸の回転方向を反転
+                } else {
+                  axle.pointOnTrack = {
+                    trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                    length: axle.pointOnTrack.length - track.length,
+                  };
+                }
+              }
+            }
+          } else {
+            // TODO 接続先がない場合
+          }
+        }
+      }
+
       axle.rotationX += distance * axle.diameter;
     });
 

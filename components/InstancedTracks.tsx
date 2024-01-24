@@ -45,7 +45,7 @@ export default function InstancedTracks() {
         receiveShadow
         castShadow
       >
-        {Object.keys(gameState.projectedLines).map(projectedLineId => {
+        {/*Object.keys(gameState.projectedLines).map(projectedLineId => {
           const { centerCoordinate, points } = gameState.projectedLines[projectedLineId]
 
           return <FeatureObject key={projectedLineId} centerCoordinate={centerCoordinate}>
@@ -55,7 +55,7 @@ export default function InstancedTracks() {
               return <LineTrack key={index} from={array[index - 1]} to={nextPoint} meshChild={child as THREE.Mesh} />
             })}
           </FeatureObject>
-        })}
+        })*/}
       </Instances>)}
     </>
   )

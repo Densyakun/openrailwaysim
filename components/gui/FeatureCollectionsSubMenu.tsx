@@ -82,6 +82,12 @@ export default function FeatureCollectionsSubMenu() {
               radius: 0,
               /*startGrade: 0, // TODO grade
               endGrade: 0,*/
+              idOfTrackOrSwitchConnectedFromStart: "",
+              idOfTrackOrSwitchConnectedFromEnd: "",
+              connectedFromStartIsTrack: true,
+              connectedFromEndIsTrack: true,
+              connectedFromStartIsToEnd: false,
+              connectedFromEndIsToEnd: false,
             }
 
             socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [

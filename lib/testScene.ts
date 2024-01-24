@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { GameStateType } from './game.js';
 import { FeatureCollection } from '@turf/helpers';
-import { getProjectedLines } from "./gis.js";
-import { createJNR103Series, createTestMalletLocomotive, createTestShikiSeries700, createTestTwoAxlesCar, createTestTwoAxlesCarWithBogies, createTestTwoBogiesCar, createTestTwoBogiesTwoCars, createTestTwoCarsWithJacobsBogies, createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '../lib/trainSamples.js';
+//import { getProjectedLines } from "./gis.js";
+import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '../lib/trainSamples.js';
 
 export function createTestScene(gameState: GameStateType, featureCollection: FeatureCollection) {
   [featureCollection].forEach((value, index) =>
@@ -34,18 +34,5 @@ export function createTestScene(gameState: GameStateType, featureCollection: Fea
     createUISotetsu20000SeriesMasterControllerConfig(),
   ].forEach((uiOneHandleMasterControllerConfig, index) =>
     gameState.uiOneHandleMasterControllerConfigs[index] = uiOneHandleMasterControllerConfig
-  );
-
-  [
-    //createTestTwoAxlesCar(gameState, "1", 0, "0"),
-    //createTestTwoAxlesCarWithBogies(gameState, "1"),
-    //createTestTwoBogiesCar(gameState, "1", 0),
-    //createTestTwoBogiesTwoCars(gameState, "1"),
-    //createJNR103Series(gameState, "1", 0, "0"),
-    //createTestTwoCarsWithJacobsBogies(gameState, "1"),
-    //createTestMalletLocomotive(gameState, "1"),
-    //createTestShikiSeries700(gameState, "1"),
-  ].forEach((train, index) =>
-    gameState.trains[index] = train
   );
 }

@@ -24,8 +24,12 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
             } else if (path[2] === "bogies") {
               if (6 <= path.length) {
                 if (path[4] === "axles") {
-                  if (path.length === 8 && path[6] === "pointOnTrack" && path[7] === "length")
-                    push()
+                  if (path.length === 8 && path[6] === "pointOnTrack") {
+                    if (path[7] === "trackId")
+                      push()
+                    else if (path[7] === "length")
+                      push()
+                  }
                 } else if (path[4] === "masterControllers") {
                   if (path.length === 7 && path[6] === "value")
                     push()
@@ -54,7 +58,11 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           if (path.length === 2) {
             push()
           }
-        }*/
+        }*/ else if (path[0] === "switches") {
+          if (path.length === 2) {
+            push()
+          }
+        }
       })
 
       client.send(JSON.stringify([FROM_SERVER_STATE_OPS, ops_]))

@@ -56,11 +56,16 @@ export default function FeatureCollectionsSubMenu() {
 
             const points = coordinates.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0))
 
-            const vector = new THREE.Vector3()
-            points.forEach((point, index) => {
-              if (index !== 0)
-                vector.add(point).sub(points[0])
-            })
+            const vector = points[1].clone().sub(points[0])
+            const rotationYA = Math.atan2(-vector.z, vector.x)
+            for (let i = 3; i < points.length; i += 2) {
+              const vector_ = points[i].clone().sub(points[i - 1])
+              const rotationYB = Math.atan2(-vector_.z, vector_.x)
+              if (Math.round((rotationYB - rotationYA) / Math.PI / 2) === 0)
+                vector.add(vector_)
+              else
+                vector.sub(vector_)
+            }
             vector.divideScalar(points.length - 1)
 
             const rotationY = Math.atan2(-vector.z, vector.x)

@@ -7,7 +7,7 @@ import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { getLength, getPosition, state as tracksState } from '@/lib/tracks'
+import { Switch, getLength, getPosition, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
 import { trainsSubMenuState } from './gui/TrainsSubMenu'
@@ -102,7 +102,7 @@ export default function Tracks() {
               if (tracksState.hoveredSwitch) {
                 const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
                 const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
-                if (0 <= currentConnected && connectedTrackIds[currentConnected] === trackId)
+                if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
                   color = "#f00";
                 else if (0 <= connectedIndex)
                   color = "#ff0";
@@ -230,7 +230,20 @@ export default function Tracks() {
               }}
               onClick={() => {
                 if (tracksState.hoveredSwitch) {
-                  // TODO 分岐器を切り替える
+                  const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+
+                  let currentConnected_ = railroadSwitch.currentConnected + 1;
+                  if (railroadSwitch.connectedTrackIds.length <= currentConnected_) currentConnected_ = -1;
+
+                  const newSwitch: Switch = {
+                    ...railroadSwitch,
+                    currentConnected: currentConnected_,
+                  };
+
+                  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", toSerializableProp(
+                    ["switches", tracksState.hoveredSwitch],
+                    newSwitch
+                  )]]));
                 }
               }}
             />

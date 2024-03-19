@@ -40,9 +40,11 @@ export const state = proxy<{
   hoveredTracks: string[];
   selectedTracks: string[];
   pointingOnTrack?: PointOnTrack;
+  hoveredSwitch: string;
 }>({
   hoveredTracks: [],
   selectedTracks: [],
+  hoveredSwitch: "",
 });
 
 export function getPosition(position: THREE.Vector3, rotationY: number, length: number, radius: number) {

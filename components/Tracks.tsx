@@ -27,14 +27,12 @@ function LineTrack({
   from,
   to,
   object,
-  isHovered,
-  isSelected,
+  color,
 }: {
   from: THREE.Vector3;
   to: THREE.Vector3;
   object: THREE.Group;
-  isHovered: boolean;
-  isSelected: boolean;
+  color?: string;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
 
@@ -56,9 +54,8 @@ function LineTrack({
         rotation={(child as THREE.Mesh).rotation}
         scale={(child as THREE.Mesh).scale}
         geometry={(child as THREE.Mesh).geometry}
-        material={isHovered ? new THREE.MeshBasicMaterial({ color: "#ff0" }) :
-          isSelected ? new THREE.MeshBasicMaterial({ color: "#f00" }) :
-            (child as THREE.Mesh).material}
+        material={color ? new THREE.MeshBasicMaterial({ color }) :
+          (child as THREE.Mesh).material}
       />
     ))}
   </group>
@@ -100,13 +97,26 @@ export default function Tracks() {
           {points.map((nextPoint, index, array) => {
             if (index === 0) return null
 
+            let color: string | undefined;
+            if (guiState.menuState === "switches") {
+              if (tracksState.hoveredSwitch) {
+                const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
+                const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
+                if (0 <= currentConnected && connectedTrackIds[currentConnected] === trackId)
+                  color = "#f00";
+                else if (0 <= connectedIndex)
+                  color = "#ff0";
+              }
+            }
+            else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
+            else if (0 <= tracksState.selectedTracks.findIndex(value => value === trackId)) color = "#f00";
+
             return <LineTrack
               key={index}
               from={array[index - 1]}
               to={nextPoint}
               object={scene}
-              isHovered={0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)}
-              isSelected={0 <= tracksState.selectedTracks.findIndex(value => value === trackId)}
+              color={color}
             />
           })}
           {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
@@ -169,6 +179,58 @@ export default function Tracks() {
                   );
 
                   socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
+                }
+              }}
+            />
+            <Line
+              points={points}
+              color={
+                tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                  "#000"
+              }
+            />
+          </>}
+          {guiState.menuState === "switches" && <>
+            <Line
+              points={points}
+              lineWidth={48}
+              transparent
+              opacity={0}
+              onPointerMove={e => {
+                const point = e.intersections[0].point
+
+                const pointingOnTrack = {
+                  trackId,
+                  length: Math.min(length, Math.max(0, getLength(point.clone().sub(getRelativePosition(centerCoordinate)), track))),
+                }
+
+                // 始点か終点のカーソルに近い側の分岐器を求める
+                if (Math.round(pointingOnTrack.length / length) === 0) {
+                  Object.keys(gameState.switches).forEach(switchId => {
+                    const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                    for (let i = 0; i < connectedTrackIds.length; i++) {
+                      if (connectedTrackIds[i] === trackId && !isConnectedToEnd[i]) {
+                        // 分岐器が見つかったとき
+                        tracksState.hoveredSwitch = switchId;
+                        break;
+                      }
+                    }
+                  })
+                } else {
+                  Object.keys(gameState.switches).forEach(switchId => {
+                    const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                    for (let i = 0; i < connectedTrackIds.length; i++) {
+                      if (connectedTrackIds[i] === trackId && isConnectedToEnd[i]) {
+                        tracksState.hoveredSwitch = switchId;
+                        break;
+                      }
+                    }
+                  })
+                }
+              }}
+              onClick={() => {
+                if (tracksState.hoveredSwitch) {
+                  // TODO 分岐器を切り替える
                 }
               }}
             />

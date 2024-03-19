@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -125,6 +126,10 @@ export default function GUI() {
       icon: <RouteIcon />,
       subMenu: <TracksSubMenu />,
       //table: <TrackTable />,
+    },
+    'switches': {
+      title: 'Switches',
+      icon: <AltRouteIcon />,
     },
     'trains': {
       title: 'Trains',

@@ -510,16 +510,7 @@ export function onClickAddingTrack(index: number) {
   if (t_ <= TOLERANCE_FOR_TRACK_CONNECTIONS) {
     let track1IsChanged = false;
 
-    if (index === 0 || index === 3 || index === 4 || index === 7) {
-      tracks[1].idOfTrackOrSwitchConnectedFromStart = curveId;
-      tracks[1].connectedFromStartIsTrack = true;
-      tracks[1].connectedFromStartIsToEnd = true;
-      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
-      curveTrack.connectedFromEndIsTrack = true;
-      curveTrack.connectedFromEndIsToEnd = false;
-
-      track1IsChanged = true;
-    } else {
+    if (index === 1 || index === 2 || index === 4 || index === 7) {
       socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
         "switches",
         {
@@ -529,6 +520,15 @@ export function onClickAddingTrack(index: number) {
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
+    } else {
+      tracks[1].idOfTrackOrSwitchConnectedFromStart = curveId;
+      tracks[1].connectedFromStartIsTrack = true;
+      tracks[1].connectedFromStartIsToEnd = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
+      curveTrack.connectedFromEndIsTrack = true;
+      curveTrack.connectedFromEndIsToEnd = false;
+
+      track1IsChanged = true;
     }
 
     if (t < 0) {
@@ -546,7 +546,16 @@ export function onClickAddingTrack(index: number) {
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= t_ - CD.length()) {
     let track1IsChanged = false;
 
-    if (index === 0 || index === 3 || index === 4 || index === 7) {
+    if (index === 1 || index === 2 || index === 4 || index === 7) {
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = curveId;
+      tracks[1].connectedFromEndIsTrack = true;
+      tracks[1].connectedFromEndIsToEnd = true;
+      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
+      curveTrack.connectedFromEndIsTrack = true;
+      curveTrack.connectedFromEndIsToEnd = true;
+
+      track1IsChanged = true;
+    } else {
       socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
         "switches",
         {
@@ -556,15 +565,6 @@ export function onClickAddingTrack(index: number) {
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
-    } else {
-      tracks[1].idOfTrackOrSwitchConnectedFromEnd = curveId;
-      tracks[1].connectedFromEndIsTrack = true;
-      tracks[1].connectedFromEndIsToEnd = true;
-      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTracks[1];
-      curveTrack.connectedFromEndIsTrack = true;
-      curveTrack.connectedFromEndIsToEnd = true;
-
-      track1IsChanged = true;
     }
 
     if (1 < t) {
@@ -603,17 +603,7 @@ export function onClickAddingTrack(index: number) {
       currentConnected: -1,
     };
 
-    if (index === 0 || index === 3 || index === 4 || index === 7) {
-      railroadSwitch.connectedTrackIds = [tracksState.selectedTracks[1], curveId];
-      railroadSwitch.isConnectedToEnd = [true, true];
-      railroadSwitch.currentConnected = 0;
-
-      tracks[1].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
-      tracks[1].connectedFromEndIsTrack = true;
-      tracks[1].connectedFromEndIsToEnd = false;
-      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
-      trackB.connectedFromStartIsTrack = false;
-    } else {
+    if (index === 1 || index === 2 || index === 4 || index === 7) {
       railroadSwitch.connectedTrackIds = [trackB.id, curveId];
       railroadSwitch.isConnectedToEnd = [false, true];
       railroadSwitch.currentConnected = 0;
@@ -623,6 +613,16 @@ export function onClickAddingTrack(index: number) {
       trackB.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTracks[1];
       trackB.connectedFromStartIsTrack = true;
       trackB.connectedFromStartIsToEnd = true;
+    } else {
+      railroadSwitch.connectedTrackIds = [tracksState.selectedTracks[1], curveId];
+      railroadSwitch.isConnectedToEnd = [true, true];
+      railroadSwitch.currentConnected = 0;
+
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
+      tracks[1].connectedFromEndIsTrack = true;
+      tracks[1].connectedFromEndIsToEnd = false;
+      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+      trackB.connectedFromStartIsTrack = false;
     }
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));

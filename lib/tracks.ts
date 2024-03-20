@@ -92,3 +92,5 @@ export type Switch = {
 };
 
 export type SerializableSwitch = IdentifiedRecord & Switch;
+
+export const TOLERANCE_FOR_TRACK_CONNECTIONS = 0.1;

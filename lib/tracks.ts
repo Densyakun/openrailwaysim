@@ -1,6 +1,6 @@
 import { Position } from '@turf/helpers';
 import * as THREE from 'three'
-import { IdentifiedRecord } from './game';
+import { GameStateType, IdentifiedRecord } from './game';
 import { proxy } from 'valtio';
 
 export type Track = {
@@ -38,14 +38,25 @@ export type PointOnTrack = {
 
 export const state = proxy<{
   hoveredTracks: string[];
-  selectedTracks: string[];
+  selectedTrackIds: string[];
   pointingOnTrack?: PointOnTrack;
   hoveredSwitch: string;
 }>({
   hoveredTracks: [],
-  selectedTracks: [],
+  selectedTrackIds: [],
   hoveredSwitch: "",
 });
+
+export function getSelectedTracks(gameState: GameStateType) {
+  let tracks: Track[] = [];
+
+  state.selectedTrackIds
+    .forEach(trackId => {
+      tracks.push(gameState.tracks[trackId]);
+    });
+
+  return tracks;
+}
 
 export function getPosition(position: THREE.Vector3, rotationY: number, length: number, radius: number) {
   if (length === 0)

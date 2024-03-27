@@ -109,7 +109,7 @@ export default function Tracks() {
               }
             }
             else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
-            else if (0 <= tracksState.selectedTracks.findIndex(value => value === trackId)) color = "#f00";
+            else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
 
             return <LineTrack
               key={index}
@@ -126,12 +126,12 @@ export default function Tracks() {
               transparent
               opacity={0}
               onClick={() => {
-                const index = tracksState.selectedTracks.findIndex(value => value === trackId)
+                const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
 
                 if (0 <= index)
-                  tracksState.selectedTracks.splice(index, 1)
+                  tracksState.selectedTrackIds.splice(index, 1)
                 else
-                  tracksState.selectedTracks.push(trackId)
+                  tracksState.selectedTrackIds.push(trackId)
               }}
               onPointerOver={() => {
                 tracksState.hoveredTracks.push(trackId)
@@ -147,7 +147,7 @@ export default function Tracks() {
               points={points}
               color={
                 tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
-                  tracksState.selectedTracks.find(value => value === trackId) ? "#f00" :
+                  tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
                     "#000"
               }
             />

@@ -7,7 +7,7 @@ import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { Switch, getLength, getPosition, state as tracksState } from '@/lib/tracks'
+import { Switch, TransitionCurve, getLength, getPosition, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
 import { trainsSubMenuState } from './gui/TrainsSubMenu'
@@ -82,184 +82,10 @@ export default function Tracks() {
       })*/}
       {Object.keys(gameState.tracks).map(trackId => {
         const track = gameState.tracks[trackId]
-        const { centerCoordinate, position, rotationY, length, radius } = track
 
-        let points = []
-        if (radius === 0)
-          points = [position, getPosition(position, rotationY, length, 0)]
-        else {
-          const numberOfPoints = getNumberOfCurvePoints(length, radius)
-          for (let i = 0; i <= numberOfPoints; i++)
-            points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
-        }
+        if ((track as TransitionCurve).endPosition === undefined) {
+          const { centerCoordinate, position, rotationY, length, radius } = track
 
-        return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
-          {points.map((nextPoint, index, array) => {
-            if (index === 0) return null
-
-            let color: string | undefined;
-            if (guiState.menuState === "switches") {
-              if (tracksState.hoveredSwitch) {
-                const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
-                const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
-                if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
-                  color = "#f00";
-                else if (0 <= connectedIndex)
-                  color = "#ff0";
-              }
-            }
-            else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
-            else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
-
-            return <LineTrack
-              key={index}
-              from={array[index - 1]}
-              to={nextPoint}
-              object={scene}
-              color={color}
-            />
-          })}
-          {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
-            <Line
-              points={points}
-              lineWidth={48}
-              transparent
-              opacity={0}
-              onClick={() => {
-                const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
-
-                if (0 <= index)
-                  tracksState.selectedTrackIds.splice(index, 1)
-                else
-                  tracksState.selectedTrackIds.push(trackId)
-              }}
-              onPointerOver={() => {
-                tracksState.hoveredTracks.push(trackId)
-              }}
-              onPointerOut={() => {
-                const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
-
-                if (0 <= index)
-                  tracksState.hoveredTracks.splice(index, 1)
-              }}
-            />
-            <Line
-              points={points}
-              color={
-                tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
-                  tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
-                    "#000"
-              }
-            />
-          </>}
-          {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
-            <Line
-              points={points}
-              lineWidth={48}
-              transparent
-              opacity={0}
-              onPointerMove={e => {
-                const point = e.intersections[0].point
-
-                tracksState.pointingOnTrack = {
-                  trackId,
-                  length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
-                }
-              }}
-              onClick={() => {
-                if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
-                  const train: SerializableTrain = toSerializableProp(
-                    ["trains", uuidv4()],
-                    createTestOneAxleCar({
-                      gameState,
-                      trackId,
-                      length: tracksState.pointingOnTrack.length,
-                      uiMasterControllerOptionId: "0",
-                    })
-                  );
-
-                  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
-                }
-              }}
-            />
-            <Line
-              points={points}
-              color={
-                tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-                  "#000"
-              }
-            />
-          </>}
-          {guiState.menuState === "switches" && <>
-            <Line
-              points={points}
-              lineWidth={48}
-              transparent
-              opacity={0}
-              onPointerMove={e => {
-                const point = e.intersections[0].point
-
-                const pointingOnTrack = {
-                  trackId,
-                  length: Math.min(length, Math.max(0, getLength(point.clone().sub(getRelativePosition(centerCoordinate)), track))),
-                }
-
-                // 始点か終点のカーソルに近い側の分岐器を求める
-                if (Math.round(pointingOnTrack.length / length) === 0) {
-                  Object.keys(gameState.switches).forEach(switchId => {
-                    const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
-                    for (let i = 0; i < connectedTrackIds.length; i++) {
-                      if (connectedTrackIds[i] === trackId && !isConnectedToEnd[i]) {
-                        // 分岐器が見つかったとき
-                        tracksState.hoveredSwitch = switchId;
-                        break;
-                      }
-                    }
-                  })
-                } else {
-                  Object.keys(gameState.switches).forEach(switchId => {
-                    const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
-                    for (let i = 0; i < connectedTrackIds.length; i++) {
-                      if (connectedTrackIds[i] === trackId && isConnectedToEnd[i]) {
-                        tracksState.hoveredSwitch = switchId;
-                        break;
-                      }
-                    }
-                  })
-                }
-              }}
-              onClick={() => {
-                if (tracksState.hoveredSwitch) {
-                  const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
-
-                  let currentConnected_ = railroadSwitch.currentConnected + 1;
-                  if (railroadSwitch.connectedTrackIds.length <= currentConnected_) currentConnected_ = -1;
-
-                  const newSwitch: Switch = {
-                    ...railroadSwitch,
-                    currentConnected: currentConnected_,
-                  };
-
-                  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", toSerializableProp(
-                    ["switches", tracksState.hoveredSwitch],
-                    newSwitch
-                  )]]));
-                }
-              }}
-            />
-            <Line
-              points={points}
-              color={
-                tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-                  "#000"
-              }
-            />
-          </>}
-        </FeatureObject>
-      })}
-      {guiState.menuState === "tracks" &&
-        tracksSubMenuState.isAddingCurve &&
-        tracksSubMenuState.addingTracks.map(({ centerCoordinate, position, rotationY, length, radius }, trackIndex) => {
           let points = []
           if (radius === 0)
             points = [position, getPosition(position, rotationY, length, 0)]
@@ -269,34 +95,463 @@ export default function Tracks() {
               points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
           }
 
-          return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
-            <Line
-              points={points}
-              lineWidth={48}
-              transparent
-              opacity={0}
-              onClick={() => {
-                if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                  onClickAddingTrack(trackIndex)
-              }}
-              onPointerOver={() => {
-                tracksSubMenuState.hoveredAddingTracks = trackIndex
-              }}
-              onPointerOut={() => {
-                if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                  tracksSubMenuState.hoveredAddingTracks = -1
-              }}
-            />
-            <Line
-              points={points}
-              color={
-                tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-                  "#000"
+          return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
+            {points.map((nextPoint, index, array) => {
+              if (index === 0) return null
+
+              let color: string | undefined;
+              if (guiState.menuState === "switches") {
+                if (tracksState.hoveredSwitch) {
+                  const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
+                  const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
+                  if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
+                    color = "#f00";
+                  else if (0 <= connectedIndex)
+                    color = "#ff0";
+                }
               }
-            />
+              else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
+              else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
+
+              return <LineTrack
+                key={index}
+                from={array[index - 1]}
+                to={nextPoint}
+                object={scene}
+                color={color}
+              />
+            })}
+            {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onClick={() => {
+                  const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
+
+                  if (0 <= index)
+                    tracksState.selectedTrackIds.splice(index, 1)
+                  else
+                    tracksState.selectedTrackIds.push(trackId)
+                }}
+                onPointerOver={() => {
+                  tracksState.hoveredTracks.push(trackId)
+                }}
+                onPointerOut={() => {
+                  const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
+
+                  if (0 <= index)
+                    tracksState.hoveredTracks.splice(index, 1)
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
+                    tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
+                      "#000"
+                }
+              />
+            </>}
+            {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onPointerMove={e => {
+                  const point = e.intersections[0].point
+
+                  tracksState.pointingOnTrack = {
+                    trackId,
+                    length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+                  }
+                }}
+                onClick={() => {
+                  if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
+                    const train: SerializableTrain = toSerializableProp(
+                      ["trains", uuidv4()],
+                      createTestOneAxleCar({
+                        gameState,
+                        trackId,
+                        length: tracksState.pointingOnTrack.length,
+                        uiMasterControllerOptionId: "0",
+                      })
+                    );
+
+                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
+                  }
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                    "#000"
+                }
+              />
+            </>}
+            {guiState.menuState === "switches" && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onPointerMove={e => {
+                  const point = e.intersections[0].point
+
+                  const pointingOnTrack = {
+                    trackId,
+                    length: Math.min(length, Math.max(0, getLength(point.clone().sub(getRelativePosition(centerCoordinate)), track))),
+                  }
+
+                  // 始点か終点のカーソルに近い側の分岐器を求める
+                  if (Math.round(pointingOnTrack.length / length) === 0) {
+                    Object.keys(gameState.switches).forEach(switchId => {
+                      const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                      for (let i = 0; i < connectedTrackIds.length; i++) {
+                        if (connectedTrackIds[i] === trackId && !isConnectedToEnd[i]) {
+                          // 分岐器が見つかったとき
+                          tracksState.hoveredSwitch = switchId;
+                          break;
+                        }
+                      }
+                    })
+                  } else {
+                    Object.keys(gameState.switches).forEach(switchId => {
+                      const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                      for (let i = 0; i < connectedTrackIds.length; i++) {
+                        if (connectedTrackIds[i] === trackId && isConnectedToEnd[i]) {
+                          tracksState.hoveredSwitch = switchId;
+                          break;
+                        }
+                      }
+                    })
+                  }
+                }}
+                onClick={() => {
+                  if (tracksState.hoveredSwitch) {
+                    const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+
+                    let currentConnected_ = railroadSwitch.currentConnected + 1;
+                    if (railroadSwitch.connectedTrackIds.length <= currentConnected_) currentConnected_ = -1;
+
+                    const newSwitch: Switch = {
+                      ...railroadSwitch,
+                      currentConnected: currentConnected_,
+                    };
+
+                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", toSerializableProp(
+                      ["switches", tracksState.hoveredSwitch],
+                      newSwitch
+                    )]]));
+                  }
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                    "#000"
+                }
+              />
+            </>}
           </FeatureObject>
-        })}
-      {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
+        } else {
+          const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = track as TransitionCurve;
+
+          let points = [];
+          for (let i = 0; i < transitionCurves.length; i++)
+            points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+          points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+
+          return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
+            {points.map((nextPoint, index, array) => {
+              if (index === 0) return null
+
+              let color: string | undefined;
+              if (guiState.menuState === "switches") {
+                if (tracksState.hoveredSwitch) {
+                  const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
+                  const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
+                  if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
+                    color = "#f00";
+                  else if (0 <= connectedIndex)
+                    color = "#ff0";
+                }
+              }
+              else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
+              else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
+
+              return <LineTrack
+                key={index}
+                from={array[index - 1]}
+                to={nextPoint}
+                object={scene}
+                color={color}
+              />
+            })}
+            {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onClick={() => {
+                  const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
+
+                  if (0 <= index)
+                    tracksState.selectedTrackIds.splice(index, 1)
+                  else
+                    tracksState.selectedTrackIds.push(trackId)
+                }}
+                onPointerOver={() => {
+                  tracksState.hoveredTracks.push(trackId)
+                }}
+                onPointerOut={() => {
+                  const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
+
+                  if (0 <= index)
+                    tracksState.hoveredTracks.splice(index, 1)
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
+                    tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
+                      "#000"
+                }
+              />
+            </>}
+            {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onPointerMove={e => {
+                  const point = e.intersections[0].point
+
+                  tracksState.pointingOnTrack = {
+                    trackId,
+                    length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+                  }
+                }}
+                onClick={() => {
+                  if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
+                    const train: SerializableTrain = toSerializableProp(
+                      ["trains", uuidv4()],
+                      createTestOneAxleCar({
+                        gameState,
+                        trackId,
+                        length: tracksState.pointingOnTrack.length,
+                        uiMasterControllerOptionId: "0",
+                      })
+                    );
+
+                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
+                  }
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                    "#000"
+                }
+              />
+            </>}
+            {guiState.menuState === "switches" && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onPointerMove={e => {
+                  const point = e.intersections[0].point
+
+                  const pointingOnTrack = {
+                    trackId,
+                    length: Math.min(length, Math.max(0, getLength(point.clone().sub(getRelativePosition(centerCoordinate)), track))),
+                  }
+
+                  // 始点か終点のカーソルに近い側の分岐器を求める
+                  if (Math.round(pointingOnTrack.length / length) === 0) {
+                    Object.keys(gameState.switches).forEach(switchId => {
+                      const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                      for (let i = 0; i < connectedTrackIds.length; i++) {
+                        if (connectedTrackIds[i] === trackId && !isConnectedToEnd[i]) {
+                          // 分岐器が見つかったとき
+                          tracksState.hoveredSwitch = switchId;
+                          break;
+                        }
+                      }
+                    })
+                  } else {
+                    Object.keys(gameState.switches).forEach(switchId => {
+                      const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+                      for (let i = 0; i < connectedTrackIds.length; i++) {
+                        if (connectedTrackIds[i] === trackId && isConnectedToEnd[i]) {
+                          tracksState.hoveredSwitch = switchId;
+                          break;
+                        }
+                      }
+                    })
+                  }
+                }}
+                onClick={() => {
+                  if (tracksState.hoveredSwitch) {
+                    const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+
+                    let currentConnected_ = railroadSwitch.currentConnected + 1;
+                    if (railroadSwitch.connectedTrackIds.length <= currentConnected_) currentConnected_ = -1;
+
+                    const newSwitch: Switch = {
+                      ...railroadSwitch,
+                      currentConnected: currentConnected_,
+                    };
+
+                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", toSerializableProp(
+                      ["switches", tracksState.hoveredSwitch],
+                      newSwitch
+                    )]]));
+                  }
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                    "#000"
+                }
+              />
+            </>}
+          </FeatureObject>
+        }
+      })}
+      {guiState.menuState === "tracks" && tracksSubMenuState.isAddingCurve &&
+        <>
+          {tracksSubMenuState.addingCurves.map((curve, trackIndex) => {
+            if (!curve) return;
+
+            const { centerCoordinate, position, rotationY, length, radius } = curve;
+
+            let points = []
+            if (radius === 0)
+              points = [position, getPosition(position, rotationY, length, 0)]
+            else {
+              const numberOfPoints = getNumberOfCurvePoints(length, radius)
+              for (let i = 0; i <= numberOfPoints; i++)
+                points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
+            }
+
+            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onClick={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    onClickAddingTrack(trackIndex)
+                }}
+                onPointerOver={() => {
+                  tracksSubMenuState.hoveredAddingTracks = trackIndex
+                }}
+                onPointerOut={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    tracksSubMenuState.hoveredAddingTracks = -1
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+                    "#000"
+                }
+              />
+            </FeatureObject>
+          })}
+          {tracksSubMenuState.addingTransitions.map((curve, trackIndex) => {
+            if (!curve) return;
+
+            const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+
+            let points = [];
+            for (let i = 0; i < transitionCurves.length; i++)
+              points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+            points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+
+            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onClick={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    onClickAddingTrack(trackIndex)
+                }}
+                onPointerOver={() => {
+                  tracksSubMenuState.hoveredAddingTracks = trackIndex
+                }}
+                onPointerOut={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    tracksSubMenuState.hoveredAddingTracks = -1
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+                    "#f0f"
+                }
+              />
+            </FeatureObject>
+          })}
+          {tracksSubMenuState.addingTransitions1.map((curve, trackIndex) => {
+            if (!curve) return;
+
+            const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+
+            let points = [];
+            for (let i = 0; i < transitionCurves.length; i++)
+              points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+            points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+
+            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onClick={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    onClickAddingTrack(trackIndex)
+                }}
+                onPointerOver={() => {
+                  tracksSubMenuState.hoveredAddingTracks = trackIndex
+                }}
+                onPointerOut={() => {
+                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+                    tracksSubMenuState.hoveredAddingTracks = -1
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+                    "#f0f"
+                }
+              />
+            </FeatureObject>
+          })}
+        </>
+      }
+      {
+        guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
         tracksState.pointingOnTrack &&
         <FeatureObject centerCoordinate={gameState.tracks[tracksState.pointingOnTrack.trackId].centerCoordinate}>
           <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId].position, gameState.tracks[tracksState.pointingOnTrack.trackId].rotationY, tracksState.pointingOnTrack.length, gameState.tracks[tracksState.pointingOnTrack.trackId].radius)}>

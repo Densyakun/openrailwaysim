@@ -5,7 +5,7 @@ import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
 //import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
-import { SerializableSwitch, SerializableTrack, Switch, Track } from './tracks';
+import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
 
 export type IdentifiedRecord = { id: string };
 
@@ -13,7 +13,7 @@ export type IdentifiedRecord = { id: string };
 export type GameStateType = { [key: string]: any } & {
   featureCollections: { [key: string]: { value: FeatureCollection } };
   //projectedLines: { [key: string]: ProjectedLine };
-  tracks: { [key: string]: Track };
+  tracks: { [key: string]: Track | TransitionCurve };
   switches: { [key: string]: Switch };
   trains: { [key: string]: Train };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
@@ -41,7 +41,7 @@ export function toSerializableProp(path: string[], value: any): any {
     else if (path.length === 2) {
       const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd } = value as Track
 
-      return {
+      const serializableTrack: SerializableTrack = {
         id: path[1],
         centerCoordinate,
         position: position.toArray(),
@@ -54,7 +54,27 @@ export function toSerializableProp(path: string[], value: any): any {
         connectedFromEndIsTrack,
         connectedFromStartIsToEnd,
         connectedFromEndIsToEnd,
-      } as SerializableTrack
+      }
+
+      if ((value as TransitionCurve).endPosition === undefined)
+        return serializableTrack
+      else {
+        const { beginCurvature, endCurvature, endPosition, endRotationY, transitionCurves, curveDirection } = value as TransitionCurve
+
+        return {
+          ...serializableTrack,
+          beginCurvature,
+          endCurvature,
+          endPosition: endPosition.toArray(),
+          endRotationY,
+          transitionCurves: transitionCurves.map(value => ({
+            position: value.position.toArray(),
+            rotationY: value.rotationY,
+            curvature: value.curvature,
+          })),
+          curveDirection,
+        } as SerializableTransitionCurve
+      }
     }
   } else if (path[0] === "switches") {
     if (path.length === 1)
@@ -147,7 +167,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
     } else if (path.length === 2) {
       const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd } = value as SerializableTrack
 
-      return {
+      const track: Track = {
         centerCoordinate,
         position: new THREE.Vector3(...position),
         rotationY,
@@ -159,7 +179,27 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
         connectedFromEndIsTrack,
         connectedFromStartIsToEnd,
         connectedFromEndIsToEnd,
-      } as Track
+      }
+
+      if ((value as SerializableTransitionCurve).endPosition === undefined)
+        return track
+      else {
+        const { beginCurvature, endCurvature, endPosition, endRotationY, transitionCurves, curveDirection } = value as SerializableTransitionCurve
+
+        return {
+          ...track,
+          beginCurvature,
+          endCurvature,
+          endPosition: new THREE.Vector3(...endPosition),
+          endRotationY,
+          transitionCurves: transitionCurves.map(value => ({
+            position: new THREE.Vector3(...value.position),
+            rotationY: value.rotationY,
+            curvature: value.curvature,
+          })),
+          curveDirection,
+        } as TransitionCurve
+      }
     }
   } else if (path[0] === "switches") {
     if (path.length === 1) {

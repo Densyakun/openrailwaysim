@@ -7,7 +7,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import centroid from '@turf/centroid';
-import { SerializableSwitch, SerializableTrack, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, getPosition, getSelectedTracks, state as tracksState } from '@/lib/tracks';
+import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, getPosition, getSelectedTracks, getTransitionCurveData, state as tracksState } from '@/lib/tracks';
 import { guiState } from './GUI';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
@@ -15,33 +15,29 @@ import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
-  addingTracks: Track[];
-  SLL: number;
-  SLR: number;
-  SRL: number;
-  SRR: number;
-  TLL: number;
-  TLR: number;
-  TRL: number;
-  TRR: number;
+  addingCurves: (Track | undefined)[]; // 単曲線
+  addingTransitions: (TransitionCurve | undefined)[]; // AB側の緩和曲線
+  addingTransitions1: (TransitionCurve | undefined)[]; // CD側の緩和曲線
+  S: number[]; // ベクトルABの係数
+  T: number[]; // ベクトルCDの係数
   ABLength: number;
   CDLength: number;
   curveRadius: number;
+  transitionLength: number;
+  transitionLength1: number;
   hoveredAddingTracks: number;
 }>({
   isAddingCurve: false,
-  addingTracks: [],
-  SLL: 0,
-  SLR: 0,
-  SRL: 0,
-  SRR: 0,
-  TLL: 0,
-  TLR: 0,
-  TRL: 0,
-  TRR: 0,
+  addingCurves: [],
+  addingTransitions: [],
+  addingTransitions1: [],
+  S: [],
+  T: [],
   ABLength: 0,
   CDLength: 0,
   curveRadius: 400,
+  transitionLength: 60,
+  transitionLength1: 60,
   hoveredAddingTracks: -1,
 });
 
@@ -63,8 +59,37 @@ function updateAddingTracks() {
   const rotationYAB = Math.atan2(-AB.z, AB.x);
   const rotationYCD = Math.atan2(-CD.z, CD.x);
 
-  const ABOffsetVector = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYAB));
-  const CDOffsetVector = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYCD));
+  // 単曲線を作成する
+  let ABOffset = tracksSubMenuState.curveRadius;
+  let CDOffset = tracksSubMenuState.curveRadius;
+
+  let curveRad = rotationYCD - rotationYAB;
+  curveRad -= Math.floor((curveRad + Math.PI) / (Math.PI * 2)) * Math.PI * 2; // 値の範囲を -Math.PI <= rad < Math.PI にする
+
+  let transitionRad = 0;
+  let transitionRadAB = 0;
+
+  let transitionCurve: TransitionCurveData = undefined!;
+  if (tracksSubMenuState.transitionLength !== 0) {
+    transitionCurve = getTransitionCurveData(0, 1 / tracksSubMenuState.curveRadius, tracksSubMenuState.transitionLength);
+
+    ABOffset = tracksSubMenuState.curveRadius * Math.cos(transitionCurve.endRotationY) - transitionCurve.endPosition.z;
+
+    transitionRad += transitionCurve.endRotationY;
+    transitionRadAB += transitionCurve.endRotationY;
+  }
+
+  let transitionCurve1: TransitionCurveData;
+  if (tracksSubMenuState.transitionLength1 !== 0) {
+    transitionCurve1 = getTransitionCurveData(0, 1 / tracksSubMenuState.curveRadius, tracksSubMenuState.transitionLength1);
+
+    CDOffset = tracksSubMenuState.curveRadius * Math.cos(transitionCurve1.endRotationY) - transitionCurve1.endPosition.z;
+
+    transitionRad += transitionCurve1.endRotationY;
+  }
+
+  const ABOffsetVector = new THREE.Vector3(0, 0, ABOffset).applyEuler(new THREE.Euler(0, rotationYAB));
+  const CDOffsetVector = new THREE.Vector3(0, 0, CDOffset).applyEuler(new THREE.Euler(0, rotationYCD));
 
   const pointOffsetAL = pointA.clone().sub(ABOffsetVector);
   const pointOffsetBL = pointB.clone().sub(ABOffsetVector);
@@ -75,277 +100,241 @@ function updateAddingTracks() {
   const pointOffsetCR = pointC.clone().add(CDOffsetVector);
   const pointOffsetDR = pointD.clone().add(CDOffsetVector);
 
-  tracksSubMenuState.SLL = ((pointOffsetCL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x))
+  const curveSLL = ((pointOffsetCL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x))
     / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDL.x - pointOffsetCL.x));
-  tracksSubMenuState.SLR = ((pointOffsetCR.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x))
+  const curveSLR = ((pointOffsetCR.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x))
     / ((pointOffsetBL.x - pointOffsetAL.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBL.z - pointOffsetAL.z) * (pointOffsetDR.x - pointOffsetCR.x));
-  tracksSubMenuState.SRL = ((pointOffsetCL.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x))
+  const curveSRL = ((pointOffsetCL.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetCL.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x))
     / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDL.z - pointOffsetCL.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDL.x - pointOffsetCL.x));
-  tracksSubMenuState.SRR = ((pointOffsetCR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x))
+  const curveSRR = ((pointOffsetCR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetCR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x))
     / ((pointOffsetBR.x - pointOffsetAR.x) * (pointOffsetDR.z - pointOffsetCR.z) - (pointOffsetBR.z - pointOffsetAR.z) * (pointOffsetDR.x - pointOffsetCR.x));
 
-  const circleCenterLL = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(tracksSubMenuState.SLL));
-  const circleCenterLR = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(tracksSubMenuState.SLR));
-  const circleCenterRL = pointOffsetAR.clone().add(pointOffsetBR.clone().sub(pointOffsetAR).multiplyScalar(tracksSubMenuState.SRL));
-  const circleCenterRR = pointOffsetAR.clone().add(pointOffsetBR.clone().sub(pointOffsetAR).multiplyScalar(tracksSubMenuState.SRR));
-
-  let rad = rotationYCD - rotationYAB;
-  rad -= Math.floor((rad + Math.PI) / (Math.PI * 2)) * Math.PI * 2;
+  const circleCenterLL = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(curveSLL));
+  const circleCenterLR = pointOffsetAL.clone().add(pointOffsetBL.clone().sub(pointOffsetAL).multiplyScalar(curveSLR));
+  const circleCenterRL = pointOffsetAR.clone().add(pointOffsetBR.clone().sub(pointOffsetAR).multiplyScalar(curveSRL));
+  const circleCenterRR = pointOffsetAR.clone().add(pointOffsetBR.clone().sub(pointOffsetAR).multiplyScalar(curveSRR));
 
   // TODO grade
 
-  tracksSubMenuState.addingTracks = 0 <= rad
+  const ABOffsetVector1 = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYAB + transitionRadAB));
+  const ABOffsetVector2 = new THREE.Vector3(0, 0, tracksSubMenuState.curveRadius).applyEuler(new THREE.Euler(0, rotationYAB - transitionRadAB));
+
+  const curves = 0 <= curveRad
     ? [
       {
-        centerCoordinate,
-        position: circleCenterLL.clone().add(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * rad,
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLL.clone().add(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterLR.clone().add(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLR.clone().add(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterRL.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRL.clone().sub(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterRR.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI * 2 - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRR.clone().sub(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI * 2 - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterLL.clone().add(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI * 2 - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLL.clone().add(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI * 2 - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterLR.clone().add(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLR.clone().add(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterRL.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRL.clone().sub(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterRR.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * rad,
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRR.clone().sub(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB - Math.PI,
       },
     ]
     : [
       {
-        centerCoordinate,
-        position: circleCenterLL.clone().add(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI * 2 + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLL.clone().add(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI * 2 + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterLR.clone().add(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLR.clone().add(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterRL.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * (Math.PI - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRL.clone().sub(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterRR.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB,
-        length: tracksSubMenuState.curveRadius * -rad,
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRR.clone().sub(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (-curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB,
       },
       {
-        centerCoordinate,
-        position: circleCenterLL.clone().add(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * -rad,
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLL.clone().add(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (-curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterLR.clone().add(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI - rad),
-        radius: tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterLR.clone().add(ABOffsetVector2),
+        length: tracksSubMenuState.curveRadius * (Math.PI - curveRad - transitionRad),
+        rotationY: rotationYAB - transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterRL.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRL.clone().sub(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB - Math.PI,
       },
       {
-        centerCoordinate,
-        position: circleCenterRR.clone().sub(ABOffsetVector),
-        rotationY: rotationYAB - Math.PI,
-        length: tracksSubMenuState.curveRadius * (Math.PI * 2 + rad),
-        radius: -tracksSubMenuState.curveRadius,
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
+        position: circleCenterRR.clone().sub(ABOffsetVector1),
+        length: tracksSubMenuState.curveRadius * (Math.PI * 2 + curveRad - transitionRad),
+        rotationY: rotationYAB + transitionRadAB - Math.PI,
       },
     ];
 
-  // 曲線を完成させるときに使う値をキャッシュする
-  tracksSubMenuState.TLL = ((pointOffsetAL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x))
-    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x));
-  tracksSubMenuState.TLR = ((pointOffsetAL.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x))
-    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x));
-  tracksSubMenuState.TRL = ((pointOffsetAR.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x))
-    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x));
-  tracksSubMenuState.TRR = ((pointOffsetAR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x))
-    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x));
+  tracksSubMenuState.addingCurves = curves.map((curve, index) => {
+    if (curve.length <= 0) return;
+
+    return {
+      ...curve,
+      centerCoordinate,
+      radius: 2 <= index && index < 6 ? tracksSubMenuState.curveRadius : -tracksSubMenuState.curveRadius,
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+      connectedFromStartIsToEnd: false,
+      connectedFromEndIsToEnd: false,
+    };
+  });
 
   tracksSubMenuState.ABLength = AB.length();
+
+  // 緩和曲線を作成する
+  if (tracksSubMenuState.transitionLength === 0) {
+    // AB側に緩和曲線がない場合、直線の接合点を曲線の始点にする
+    tracksSubMenuState.S = [
+      curveSLL,
+      curveSLR,
+      curveSRL,
+      curveSRR,
+      curveSLL,
+      curveSLR,
+      curveSRL,
+      curveSRR,
+    ];
+
+    tracksSubMenuState.addingTransitions = tracksSubMenuState.addingCurves.map(() => undefined);
+  } else {
+    // AB側に緩和曲線がある場合、直線の接合点を緩和曲線の始点にする
+    tracksSubMenuState.S = tracksSubMenuState.addingCurves.map((curve, index) =>
+      curve ?
+        index < 4 ? curve.position.clone()
+          .sub(pointA).applyEuler(new THREE.Euler(0, -rotationYAB))
+          .sub(transitionCurve.endPosition).x / tracksSubMenuState.ABLength
+          : curve.position.clone()
+            .sub(pointA).applyEuler(new THREE.Euler(0, -rotationYAB))
+            .add(transitionCurve.endPosition).x / tracksSubMenuState.ABLength
+        : 0
+    );
+
+    tracksSubMenuState.addingTransitions = tracksSubMenuState.addingCurves.map((curve, index) => {
+      if (!curve) return;
+
+      return {
+        ...curve,
+        ...transitionCurve,
+        position: pointA.clone().add(AB.clone().multiplyScalar(tracksSubMenuState.S[index])),
+        rotationY: 0 <= index && index < 4 ? rotationYAB : rotationYAB - Math.PI,
+        length: tracksSubMenuState.transitionLength,
+        curveDirection: index === 0 || index === 1 || index === 6 || index === 7 ? true : false,
+      };
+    });
+  }
+
+  const curveTLL = ((pointOffsetAL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x))
+    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBL.x - pointOffsetAL.x));
+  const curveTLR = ((pointOffsetAL.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetAL.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x))
+    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBL.z - pointOffsetAL.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBL.x - pointOffsetAL.x));
+  const curveTRL = ((pointOffsetAR.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x))
+    / ((pointOffsetDL.x - pointOffsetCL.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDL.z - pointOffsetCL.z) * (pointOffsetBR.x - pointOffsetAR.x));
+  const curveTRR = ((pointOffsetAR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetAR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x))
+    / ((pointOffsetDR.x - pointOffsetCR.x) * (pointOffsetBR.z - pointOffsetAR.z) - (pointOffsetDR.z - pointOffsetCR.z) * (pointOffsetBR.x - pointOffsetAR.x));
+
   tracksSubMenuState.CDLength = CD.length();
+
+  if (tracksSubMenuState.transitionLength1 === 0) {
+    // CD側に緩和曲線がない場合、直線の接合点を曲線の終点にする
+    tracksSubMenuState.T = [
+      curveTLL,
+      curveTLR,
+      curveTRL,
+      curveTRR,
+      curveTLL,
+      curveTLR,
+      curveTRL,
+      curveTRR,
+    ];
+
+    tracksSubMenuState.addingTransitions1 = tracksSubMenuState.addingCurves.map(() => undefined);
+  } else {
+    // CD側に緩和曲線がある場合、直線の接合点を緩和曲線の始点にする
+    tracksSubMenuState.T = tracksSubMenuState.addingCurves.map((curve, index) => {
+      if (!curve) return 0;
+      const curveEndPos = getPosition(curve.position, curve.rotationY, curve.length, curve.radius);
+      return index === 1 || index === 2 || index === 4 || index === 7 ? curveEndPos
+        .sub(pointC).applyEuler(new THREE.Euler(0, -rotationYCD))
+        .sub(transitionCurve1.endPosition)
+        .x / tracksSubMenuState.CDLength
+        : curveEndPos
+          .sub(pointC).applyEuler(new THREE.Euler(0, -rotationYCD))
+          .add(transitionCurve1.endPosition).x / tracksSubMenuState.CDLength;
+    });
+
+    tracksSubMenuState.addingTransitions1 = tracksSubMenuState.addingCurves.map((curve, index) => {
+      if (!curve) return;
+
+      return {
+        ...curve,
+        ...transitionCurve1,
+        position: pointC.clone().add(CD.clone().multiplyScalar(tracksSubMenuState.T[index])),
+        rotationY: index === 1 || index === 2 || index === 4 || index === 7 ? rotationYCD : rotationYCD - Math.PI,
+        length: tracksSubMenuState.transitionLength1,
+        curveDirection: 2 <= index && index < 6 ? true : false,
+      };
+    });
+  }
 }
 
 export function onClickAddingTrack(index: number) {
+  if (!tracksSubMenuState.addingCurves[index]) return;
+
   const tracks = getSelectedTracks(gameState);
-
-  const s = index % 4 === 0 ? tracksSubMenuState.SLL :
-    index % 4 === 1 ? tracksSubMenuState.SLR :
-      index % 4 === 2 ? tracksSubMenuState.SRL :
-        tracksSubMenuState.SRR;
-
-  const t = index % 4 === 0 ? tracksSubMenuState.TLL :
-    index % 4 === 1 ? tracksSubMenuState.TLR :
-      index % 4 === 2 ? tracksSubMenuState.TRL :
-        tracksSubMenuState.TRR;
-
-
 
   const curveId = uuidv4();
 
-  const curveTrack: SerializableTrack = {
+  const curve = tracksSubMenuState.addingCurves[index] as Track;
+
+  const serializableCurve: SerializableTrack = {
     id: curveId,
-    centerCoordinate: tracksSubMenuState.addingTracks[index].centerCoordinate,
-    position: tracksSubMenuState.addingTracks[index].position.toArray(),
-    rotationY: tracksSubMenuState.addingTracks[index].rotationY,
-    length: tracksSubMenuState.addingTracks[index].length,
-    radius: tracksSubMenuState.addingTracks[index].radius,
+    centerCoordinate: curve.centerCoordinate,
+    position: curve.position.toArray(),
+    rotationY: curve.rotationY,
+    length: curve.length,
+    radius: curve.radius,
     /*startGrade: 0, // TODO grade
     endGrade: 0,*/
     idOfTrackOrSwitchConnectedFromStart: "",
@@ -356,7 +345,71 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsToEnd: false,
   }
 
+  const transitionCurveId = uuidv4();
+
+  const transitionCurve = tracksSubMenuState.addingTransitions[index] as TransitionCurve;
+
+  const serializableTransitionCurve: SerializableTransitionCurve = transitionCurve && {
+    id: transitionCurveId,
+    centerCoordinate: transitionCurve.centerCoordinate,
+    position: transitionCurve.position.toArray(),
+    rotationY: transitionCurve.rotationY,
+    length: transitionCurve.length,
+    radius: transitionCurve.radius,
+    /*startGrade: 0, // TODO grade
+    endGrade: 0,*/
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCurvature: transitionCurve.beginCurvature,
+    endCurvature: transitionCurve.endCurvature,
+    endPosition: transitionCurve.endPosition.toArray(),
+    endRotationY: transitionCurve.endRotationY,
+    transitionCurves: transitionCurve.transitionCurves.map(value => ({
+      position: value.position.toArray(),
+      rotationY: value.rotationY,
+      curvature: value.curvature,
+    })),
+    curveDirection: transitionCurve.curveDirection,
+  };
+
+  const transitionCurve1Id = uuidv4();
+
+  const transitionCurve1 = tracksSubMenuState.addingTransitions1[index] as TransitionCurve;
+
+  const serializableTransitionCurve1: SerializableTransitionCurve = transitionCurve1 && {
+    id: transitionCurve1Id,
+    centerCoordinate: transitionCurve1.centerCoordinate,
+    position: transitionCurve1.position.toArray(),
+    rotationY: transitionCurve1.rotationY,
+    length: transitionCurve1.length,
+    radius: transitionCurve1.radius,
+    /*startGrade: 0, // TODO grade
+    endGrade: 0,*/
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCurvature: transitionCurve1.beginCurvature,
+    endCurvature: transitionCurve1.endCurvature,
+    endPosition: transitionCurve1.endPosition.toArray(),
+    endRotationY: transitionCurve1.endRotationY,
+    transitionCurves: transitionCurve1.transitionCurves.map(value => ({
+      position: value.position.toArray(),
+      rotationY: value.rotationY,
+      curvature: value.curvature,
+    })),
+    curveDirection: transitionCurve1.curveDirection,
+  };
+
   // TODO すでに分岐器が存在する場合、軌道を追加で接続する
+  const s = tracksSubMenuState.S[index];
+  const t = tracksSubMenuState.T[index];
   const s_ = s * tracksSubMenuState.ABLength;
   const t_ = t * tracksSubMenuState.CDLength;
   if (s_ <= TOLERANCE_FOR_TRACK_CONNECTIONS) {
@@ -367,18 +420,19 @@ export function onClickAddingTrack(index: number) {
         "switches",
         {
           id: uuidv4(),
-          connectedTrackIds: [tracksState.selectedTrackIds[0], curveId],
+          connectedTrackIds: [tracksState.selectedTrackIds[0], serializableTransitionCurve ? transitionCurveId : curveId],
           isConnectedToEnd: [false, false],
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
     } else {
-      tracks[0].idOfTrackOrSwitchConnectedFromStart = curveId;
+      tracks[0].idOfTrackOrSwitchConnectedFromStart = serializableTransitionCurve ? transitionCurveId : curveId;
       tracks[0].connectedFromStartIsTrack = true;
       tracks[0].connectedFromStartIsToEnd = false;
-      curveTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[0];
-      curveTrack.connectedFromStartIsTrack = true;
-      curveTrack.connectedFromStartIsToEnd = false;
+      const connectedTrack = serializableTransitionCurve || serializableCurve;
+      connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[0];
+      connectedTrack.connectedFromStartIsTrack = true;
+      connectedTrack.connectedFromStartIsToEnd = false;
 
       track0IsChanged = true;
     }
@@ -399,12 +453,13 @@ export function onClickAddingTrack(index: number) {
     let track0IsChanged = false;
 
     if (index < 4) {
-      tracks[0].idOfTrackOrSwitchConnectedFromEnd = curveId;
+      tracks[0].idOfTrackOrSwitchConnectedFromEnd = serializableTransitionCurve ? transitionCurveId : curveId;
       tracks[0].connectedFromEndIsTrack = true;
       tracks[0].connectedFromEndIsToEnd = false;
-      curveTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[0];
-      curveTrack.connectedFromStartIsTrack = true;
-      curveTrack.connectedFromStartIsToEnd = true;
+      const connectedTrack = serializableTransitionCurve || serializableCurve;
+      connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[0];
+      connectedTrack.connectedFromStartIsTrack = true;
+      connectedTrack.connectedFromStartIsToEnd = true;
 
       track0IsChanged = true;
     } else {
@@ -412,7 +467,7 @@ export function onClickAddingTrack(index: number) {
         "switches",
         {
           id: uuidv4(),
-          connectedTrackIds: [tracksState.selectedTrackIds[0], curveId],
+          connectedTrackIds: [tracksState.selectedTrackIds[0], serializableTransitionCurve ? transitionCurveId : curveId],
           isConnectedToEnd: [true, false],
           currentConnected: 0,
         } as SerializableSwitch
@@ -456,7 +511,7 @@ export function onClickAddingTrack(index: number) {
     };
 
     if (index < 4) {
-      railroadSwitch.connectedTrackIds = [trackB.id, curveId];
+      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve ? transitionCurveId : curveId];
       railroadSwitch.isConnectedToEnd = [false, false];
       railroadSwitch.currentConnected = 0;
 
@@ -466,7 +521,7 @@ export function onClickAddingTrack(index: number) {
       trackB.connectedFromStartIsTrack = true;
       trackB.connectedFromStartIsToEnd = true;
     } else {
-      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[0], curveId];
+      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[0], serializableTransitionCurve ? transitionCurveId : curveId];
       railroadSwitch.isConnectedToEnd = [true, false];
       railroadSwitch.currentConnected = 0;
 
@@ -497,18 +552,25 @@ export function onClickAddingTrack(index: number) {
         "switches",
         {
           id: uuidv4(),
-          connectedTrackIds: [tracksState.selectedTrackIds[1], curveId],
-          isConnectedToEnd: [false, true],
+          connectedTrackIds: [tracksState.selectedTrackIds[1], serializableTransitionCurve1 ? transitionCurve1Id : curveId],
+          isConnectedToEnd: [false, serializableTransitionCurve1 ? false : true],
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
     } else {
-      tracks[1].idOfTrackOrSwitchConnectedFromStart = curveId;
+      tracks[1].idOfTrackOrSwitchConnectedFromStart = serializableTransitionCurve1 ? transitionCurve1Id : curveId;
       tracks[1].connectedFromStartIsTrack = true;
-      tracks[1].connectedFromStartIsToEnd = true;
-      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
-      curveTrack.connectedFromEndIsTrack = true;
-      curveTrack.connectedFromEndIsToEnd = false;
+      tracks[1].connectedFromStartIsToEnd = serializableTransitionCurve1 ? false : true;
+      const connectedTrack = serializableTransitionCurve1 || serializableCurve;
+      if (serializableTransitionCurve1) {
+        connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
+        connectedTrack.connectedFromStartIsTrack = true;
+        connectedTrack.connectedFromStartIsToEnd = false;
+      } else {
+        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
+        connectedTrack.connectedFromEndIsTrack = true;
+        connectedTrack.connectedFromEndIsToEnd = false;
+      }
 
       track1IsChanged = true;
     }
@@ -529,12 +591,19 @@ export function onClickAddingTrack(index: number) {
     let track1IsChanged = false;
 
     if (index === 1 || index === 2 || index === 4 || index === 7) {
-      tracks[1].idOfTrackOrSwitchConnectedFromEnd = curveId;
+      tracks[1].idOfTrackOrSwitchConnectedFromEnd = serializableTransitionCurve1 ? transitionCurve1Id : curveId;
       tracks[1].connectedFromEndIsTrack = true;
-      tracks[1].connectedFromEndIsToEnd = true;
-      curveTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
-      curveTrack.connectedFromEndIsTrack = true;
-      curveTrack.connectedFromEndIsToEnd = true;
+      tracks[1].connectedFromEndIsToEnd = serializableTransitionCurve1 ? false : true;
+      const connectedTrack = serializableTransitionCurve1 || serializableCurve;
+      if (serializableTransitionCurve1) {
+        connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
+        connectedTrack.connectedFromStartIsTrack = true;
+        connectedTrack.connectedFromStartIsToEnd = true;
+      } else {
+        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
+        connectedTrack.connectedFromEndIsTrack = true;
+        connectedTrack.connectedFromEndIsToEnd = true;
+      }
 
       track1IsChanged = true;
     } else {
@@ -542,8 +611,8 @@ export function onClickAddingTrack(index: number) {
         "switches",
         {
           id: uuidv4(),
-          connectedTrackIds: [tracksState.selectedTrackIds[1], curveId],
-          isConnectedToEnd: [true, true],
+          connectedTrackIds: [tracksState.selectedTrackIds[1], serializableTransitionCurve1 ? transitionCurve1Id : curveId],
+          isConnectedToEnd: [true, serializableTransitionCurve1 ? false : true],
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
@@ -586,8 +655,8 @@ export function onClickAddingTrack(index: number) {
     };
 
     if (index === 1 || index === 2 || index === 4 || index === 7) {
-      railroadSwitch.connectedTrackIds = [trackB.id, curveId];
-      railroadSwitch.isConnectedToEnd = [false, true];
+      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve1 ? transitionCurve1Id : curveId];
+      railroadSwitch.isConnectedToEnd = [false, serializableTransitionCurve1 ? false : true];
       railroadSwitch.currentConnected = 0;
 
       tracks[1].idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
@@ -596,8 +665,8 @@ export function onClickAddingTrack(index: number) {
       trackB.connectedFromStartIsTrack = true;
       trackB.connectedFromStartIsToEnd = true;
     } else {
-      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[1], curveId];
-      railroadSwitch.isConnectedToEnd = [true, true];
+      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[1], serializableTransitionCurve1 ? transitionCurve1Id : curveId];
+      railroadSwitch.isConnectedToEnd = [true, serializableTransitionCurve1 ? false : true];
       railroadSwitch.currentConnected = 0;
 
       tracks[1].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
@@ -619,7 +688,26 @@ export function onClickAddingTrack(index: number) {
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
   }
 
-  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", curveTrack]]));
+  if (serializableTransitionCurve) {
+    serializableTransitionCurve.idOfTrackOrSwitchConnectedFromEnd = curveId;
+    serializableTransitionCurve.connectedFromEndIsTrack = true;
+    serializableTransitionCurve.connectedFromEndIsToEnd = false;
+    serializableCurve.idOfTrackOrSwitchConnectedFromStart = transitionCurveId;
+    serializableCurve.connectedFromStartIsTrack = true;
+    serializableCurve.connectedFromStartIsToEnd = true;
+  }
+  if (serializableTransitionCurve1) {
+    serializableTransitionCurve1.idOfTrackOrSwitchConnectedFromEnd = curveId;
+    serializableTransitionCurve1.connectedFromEndIsTrack = true;
+    serializableTransitionCurve1.connectedFromEndIsToEnd = true;
+    serializableCurve.idOfTrackOrSwitchConnectedFromEnd = transitionCurve1Id;
+    serializableCurve.connectedFromEndIsTrack = true;
+    serializableCurve.connectedFromEndIsToEnd = true;
+  }
+
+  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", serializableCurve]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", serializableTransitionCurve]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", serializableTransitionCurve1]]));
 
   updateAddingTracks();
 }
@@ -636,18 +724,40 @@ export default function TracksSubMenu() {
           {tracksSubMenuState.isAddingCurve ? <>
             <Button variant='outlined' onClick={() => {
               tracksSubMenuState.isAddingCurve = false;
-              tracksSubMenuState.addingTracks.splice(0, tracksSubMenuState.addingTracks.length);
+              tracksSubMenuState.addingCurves.splice(0);
             }}>
               <ArrowBackIcon />
             </Button>
             <TextField
-              label="Controlled"
+              label="Radius"
               defaultValue={tracksSubMenuState.curveRadius}
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                 const radius = parseFloat(event.target.value);
                 if (Number.isNaN(radius) || radius === 0) return;
 
                 tracksSubMenuState.curveRadius = Math.max(-radius, radius);
+                updateAddingTracks();
+              }}
+            />
+            <TextField
+              label="Transition length 1"
+              defaultValue={tracksSubMenuState.transitionLength}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                const length = parseFloat(event.target.value);
+                if (Number.isNaN(length)) return;
+
+                tracksSubMenuState.transitionLength = Math.max(0, length);
+                updateAddingTracks();
+              }}
+            />
+            <TextField
+              label="Transition length 2"
+              defaultValue={tracksSubMenuState.transitionLength1}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                const length = parseFloat(event.target.value);
+                if (Number.isNaN(length)) return;
+
+                tracksSubMenuState.transitionLength1 = Math.max(0, length);
                 updateAddingTracks();
               }}
             />
@@ -684,7 +794,7 @@ export default function TracksSubMenu() {
               </Button>
             </>}
         </Stack>
-      </Paper >
+      </Paper>
     </>
   );
 }

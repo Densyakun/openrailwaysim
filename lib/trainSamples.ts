@@ -43,6 +43,7 @@ export function createBogie(
       diameter,
       rotationX: 0,
       hasMotor,
+      rotationIsReversed: false,
     })),
   }
 }

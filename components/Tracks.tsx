@@ -2,7 +2,6 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio'
-import { getRotationFromTwoPoints } from '@/lib/projectedLine'
 import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
@@ -21,6 +20,18 @@ export function getNumberOfCurvePoints(length: number, radius: number) {
   const radius_ = Math.abs(radius)
   const l = Math.acos((radius_ - 0.1) / radius_) * 2 * radius_
   return Math.max(3, Math.ceil(length / l))
+}
+
+export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3) {
+  const euler = new THREE.Euler(0, 0, 0, 'XZY').setFromQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, -1),
+      nextPoint.clone().sub(point).normalize()
+    ), 'YXZ'
+  )
+  const cant = 0
+  euler.z = -cant
+  return euler
 }
 
 function LineTrack({
@@ -322,44 +333,6 @@ export default function Tracks() {
                   tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
                     tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
                       "#000"
-                }
-              />
-            </>}
-            {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
-              <Line
-                points={points}
-                lineWidth={48}
-                transparent
-                opacity={0}
-                onPointerMove={e => {
-                  const point = e.intersections[0].point
-
-                  tracksState.pointingOnTrack = {
-                    trackId,
-                    length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
-                  }
-                }}
-                onClick={() => {
-                  if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
-                    const train: SerializableTrain = toSerializableProp(
-                      ["trains", uuidv4()],
-                      createTestOneAxleCar({
-                        gameState,
-                        trackId,
-                        length: tracksState.pointingOnTrack.length,
-                        uiMasterControllerOptionId: "0",
-                      })
-                    );
-
-                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
-                  }
-                }}
-              />
-              <Line
-                points={points}
-                color={
-                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-                    "#000"
                 }
               />
             </>}

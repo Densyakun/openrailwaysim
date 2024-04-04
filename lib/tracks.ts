@@ -151,10 +151,11 @@ export function getPosition(position: THREE.Vector3, rotationY: number, length: 
 }
 
 export function getRotation(position: THREE.Vector3, rotationY: number, length: number, radius: number) {
+  const cant = 0;
   if (radius === 0)
-    return new THREE.Euler(0, rotationY);
+    return new THREE.Euler(cant, rotationY, 0, 'YZX');
   else
-    return new THREE.Euler(0, length / -radius + rotationY);
+    return new THREE.Euler(cant, length / -radius + rotationY, 0, 'YZX');
 }
 
 export function getLength(point: THREE.Vector3, track: Track) {

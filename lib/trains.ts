@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { proxy } from "valtio";
-import { getRelativePosition, eulerToCoordinate, coordinateToEuler } from './gis';
+import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { GameStateType, IdentifiedRecord } from "./game";
 import { PointOnTrack, getLength, getPosition, getRotation } from "./tracks";
 
@@ -221,11 +221,26 @@ export function getAxlePosition(gameState: GameStateType, train: Train, axle: Ax
   return globalTrackRelativePosition.add(axleRelativePosition);
 }
 
+export function getAxleRotation(gameState: GameStateType, train: Train, pointOnTrack: PointOnTrack) {
+  const track = gameState.tracks[pointOnTrack.trackId];
+  const axleRelativeRotation = getRotation(track.position, track.rotationY, pointOnTrack.length, track.radius);
+
+  // 軌道の進行方向がX軸、列車の進行方向がZ軸になっている
+  return new THREE.Euler(
+    -axleRelativeRotation.z,
+    axleRelativeRotation.y + Math.PI / 2 + getMeridianAngle(track.centerCoordinate, train.globalPosition),
+    axleRelativeRotation.x,
+    'YXZ'
+  );
+}
+
 export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
-  const up = new THREE.Vector3();
+  let rotationX = 0;
+  const rotationY = new THREE.Vector2();
+  let rotationZ = 0;
 
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
@@ -234,7 +249,10 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
       )
     );
 
-    up.add(new THREE.Vector3(0, 1));
+    const axleRotation = getAxleRotation(gameState, train, bogie.axles[index].pointOnTrack);
+    rotationX += axleRotation.x;
+    rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
+    rotationZ += axleRotation.z;
 
     if (index === 0)
       firstAxlePosition.copy(lastAxlePosition);
@@ -242,26 +260,12 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
 
   bogie.position = axlesCenterPosition.divideScalar(bogie.axles.length);
 
-  let forward: THREE.Vector3;
-  if (2 <= bogie.axles.length) {
-    forward = firstAxlePosition.sub(lastAxlePosition).normalize();
-  } else {
-    const track = gameState.tracks[bogie.axles[0].pointOnTrack.trackId];
-    forward = new THREE.Vector3(bogie.axles[0].rotationIsReversed ? -1 : 1).applyEuler(getRotation(track.position, track.rotationY, bogie.axles[0].pointOnTrack.length, track.radius));
-  }
-
-  const angleY = Math.atan2(forward.x, forward.z);
-  const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
-  const angleX = Math.atan2(aVector.y, aVector.z);
-  up.divideScalar(bogie.axles.length);
-  const bVector = up.applyEuler(new THREE.Euler(
-    angleX,
-    -angleY
-  ));
+  rotationX /= bogie.axles.length;
+  rotationZ /= bogie.axles.length;
   bogie.rotation.set(
-    -angleX,
-    angleY,
-    Math.atan2(-bVector.x, bVector.y),
+    rotationX,
+    Math.atan2(-rotationY.y, rotationY.x),
+    rotationZ,
     'YXZ'
   );
 }
@@ -413,7 +417,7 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
 
     otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
 
-    otherBody.rotation.copy(getRotation(track.position, track.rotationY, otherBody.pointOnTrack.length, track.radius));
+    otherBody.rotation.copy(getAxleRotation(gameState, train, otherBody.pointOnTrack));
   });
 }
 
@@ -531,24 +535,10 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
       if (fromJointPosition!.equals(toJointPosition!))
         fromBody.rotation.copy(fromJointEuler!);
       else {
-        const up = new THREE.Vector3(0, 1).applyEuler(fromJointEuler!)
-          .add(new THREE.Vector3(0, 1).applyEuler(toJointEuler!))
-          .normalize();
-        const forward = toJointPosition!.clone()
-          .sub(fromJointPosition!)
-          .normalize();
-
-        const angleY = Math.atan2(forward.x, forward.z);
-        const aVector = forward.clone().applyEuler(new THREE.Euler(0, -angleY));
-        const angleX = Math.atan2(aVector.y, aVector.z);
-        const bVector = up.applyEuler(new THREE.Euler(
-          angleX,
-          -angleY
-        ));
         fromBody.rotation.set(
-          -angleX,
-          angleY,
-          Math.atan2(-bVector.x, bVector.y),
+          (fromJointEuler.x + toJointEuler!.x) / 2,
+          (fromJointEuler.y + toJointEuler!.y) / 2,
+          (fromJointEuler.z + toJointEuler!.z) / 2,
           'YXZ'
         );
       }

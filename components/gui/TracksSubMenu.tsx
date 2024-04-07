@@ -50,9 +50,9 @@ function updateAddingTracks() {
   const trackCenterCoordinates = tracks.map(track => getRelativePosition(track.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0));
 
   const pointA = trackCenterCoordinates[0].clone().add(tracks[0].position);
-  const pointB = trackCenterCoordinates[0].clone().add(getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length, 0));
+  const pointB = trackCenterCoordinates[0].clone().add(getPosition(tracks[0], tracks[0].length));
   const pointC = trackCenterCoordinates[1].clone().add(tracks[1].position);
-  const pointD = trackCenterCoordinates[1].clone().add(getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length, 0));
+  const pointD = trackCenterCoordinates[1].clone().add(getPosition(tracks[1], tracks[1].length));
 
   const AB = pointB.clone().sub(pointA);
   const CD = pointD.clone().sub(pointC);
@@ -294,7 +294,7 @@ function updateAddingTracks() {
     // CD側に緩和曲線がある場合、直線の接合点を緩和曲線の始点にする
     tracksSubMenuState.T = tracksSubMenuState.addingCurves.map((curve, index) => {
       if (!curve) return 0;
-      const curveEndPos = getPosition(curve.position, curve.rotationY, curve.length, curve.radius);
+      const curveEndPos = getPosition(curve, curve.length);
       return index === 1 || index === 2 || index === 4 || index === 7 ? curveEndPos
         .sub(pointC).applyEuler(new THREE.Euler(0, -rotationYCD))
         .sub(transitionCurve1.endPosition)
@@ -438,7 +438,7 @@ export function onClickAddingTrack(index: number) {
     }
 
     if (s < 0) {
-      tracks[0].position = getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0);
+      tracks[0].position = getPosition(tracks[0], tracks[0].length * s);
       tracks[0].length *= 1 - s;
 
       track0IsChanged = true;
@@ -489,7 +489,7 @@ export function onClickAddingTrack(index: number) {
     const trackB: SerializableTrack = {
       id: uuidv4(),
       centerCoordinate: tracks[0].centerCoordinate,
-      position: getPosition(tracks[0].position, tracks[0].rotationY, tracks[0].length * s, 0).toArray(),
+      position: getPosition(tracks[0], tracks[0].length * s).toArray(),
       rotationY: tracks[0].rotationY,
       length: tracks[0].length * (1 - s),
       radius: 0,
@@ -576,7 +576,7 @@ export function onClickAddingTrack(index: number) {
     }
 
     if (t < 0) {
-      tracks[1].position = getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0);
+      tracks[1].position = getPosition(tracks[1], tracks[1].length * t);
       tracks[1].length *= 1 - t;
 
       track1IsChanged = true;
@@ -633,7 +633,7 @@ export function onClickAddingTrack(index: number) {
     const trackB: SerializableTrack = {
       id: uuidv4(),
       centerCoordinate: tracks[1].centerCoordinate,
-      position: getPosition(tracks[1].position, tracks[1].rotationY, tracks[1].length * t, 0).toArray(),
+      position: getPosition(tracks[1], tracks[1].length * t).toArray(),
       rotationY: tracks[1].rotationY,
       length: tracks[1].length * (1 - t),
       radius: 0,

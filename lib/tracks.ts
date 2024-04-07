@@ -138,7 +138,9 @@ export function getSelectedTracks(gameState: GameStateType) {
   return tracks;
 }
 
-export function getPosition(position: THREE.Vector3, rotationY: number, length: number, radius: number) {
+export function getPosition(track: Track, length: number): THREE.Vector3 {
+  const { position, rotationY, radius } = track;
+
   if (length === 0)
     return position.clone();
 
@@ -150,7 +152,9 @@ export function getPosition(position: THREE.Vector3, rotationY: number, length: 
       .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)));
 }
 
-export function getRotation(position: THREE.Vector3, rotationY: number, length: number, radius: number) {
+export function getRotation(track: Track, length: number) {
+  const { rotationY, radius } = track;
+
   const cant = 0;
   if (radius === 0)
     return new THREE.Euler(cant, rotationY, 0, 'YZX');
@@ -161,7 +165,7 @@ export function getRotation(position: THREE.Vector3, rotationY: number, length: 
 export function getLength(point: THREE.Vector3, track: Track) {
   if (track.radius === 0) {
     return point.clone().sub(track.position)
-      .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), getPosition(track.position, track.rotationY, track.length, 0).clone().sub(track.position).normalize()).invert())
+      .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), getPosition(track, track.length).clone().sub(track.position).normalize()).invert())
       .x;
   } else {
     const position_ = point.clone().sub(track.position)

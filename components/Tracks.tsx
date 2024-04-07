@@ -95,15 +95,15 @@ export default function Tracks() {
         const track = gameState.tracks[trackId]
 
         if ((track as TransitionCurve).endPosition === undefined) {
-          const { centerCoordinate, position, rotationY, length, radius } = track
+          const { centerCoordinate, position, length, radius } = track
 
           let points = []
           if (radius === 0)
-            points = [position, getPosition(position, rotationY, length, 0)]
+            points = [position, getPosition(track, length)]
           else {
             const numberOfPoints = getNumberOfCurvePoints(length, radius)
             for (let i = 0; i <= numberOfPoints; i++)
-              points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
+              points.push(getPosition(track, length * i / numberOfPoints))
           }
 
           return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
@@ -409,15 +409,15 @@ export default function Tracks() {
           {tracksSubMenuState.addingCurves.map((curve, trackIndex) => {
             if (!curve) return;
 
-            const { centerCoordinate, position, rotationY, length, radius } = curve;
+            const { centerCoordinate, position, length, radius } = curve;
 
             let points = []
             if (radius === 0)
-              points = [position, getPosition(position, rotationY, length, 0)]
+              points = [position, getPosition(curve, length)]
             else {
               const numberOfPoints = getNumberOfCurvePoints(length, radius)
               for (let i = 0; i <= numberOfPoints; i++)
-                points.push(getPosition(position, rotationY, length * i / numberOfPoints, radius))
+                points.push(getPosition(curve, length * i / numberOfPoints))
             }
 
             return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
@@ -527,7 +527,7 @@ export default function Tracks() {
         guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
         tracksState.pointingOnTrack &&
         <FeatureObject centerCoordinate={gameState.tracks[tracksState.pointingOnTrack.trackId].centerCoordinate}>
-          <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId].position, gameState.tracks[tracksState.pointingOnTrack.trackId].rotationY, tracksState.pointingOnTrack.length, gameState.tracks[tracksState.pointingOnTrack.trackId].radius)}>
+          <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId], tracksState.pointingOnTrack.length)}>
             <sphereGeometry />
             <meshBasicMaterial color={"#f00"} />
           </mesh>

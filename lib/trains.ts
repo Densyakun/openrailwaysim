@@ -209,7 +209,7 @@ export function getAxlePosition(gameState: GameStateType, train: Train, axle: Ax
   const { pointOnTrack: { length } } = axle;
 
   const track = gameState.tracks[axle.pointOnTrack.trackId];
-  const axleRelativePosition = getPosition(track.position, track.rotationY, length, track.radius);
+  const axleRelativePosition = getPosition(track, length);
 
   const globalTrackRelativePosition = getRelativePosition(
     track.centerCoordinate,
@@ -223,7 +223,7 @@ export function getAxlePosition(gameState: GameStateType, train: Train, axle: Ax
 
 export function getAxleRotation(gameState: GameStateType, train: Train, pointOnTrack: PointOnTrack) {
   const track = gameState.tracks[pointOnTrack.trackId];
-  const axleRelativeRotation = getRotation(track.position, track.rotationY, pointOnTrack.length, track.radius);
+  const axleRelativeRotation = getRotation(track, pointOnTrack.length);
 
   // 軌道の進行方向がX軸、列車の進行方向がZ軸になっている
   return new THREE.Euler(
@@ -406,7 +406,7 @@ export function calcJointsToRotateBody(train: Train) {
 export function placeOtherBodies(gameState: GameStateType, train: Train) {
   train.otherBodies.forEach(otherBody => {
     const track = gameState.tracks[otherBody.pointOnTrack.trackId];
-    const axleRelativePosition = getPosition(track.position, track.rotationY, otherBody.pointOnTrack.length, track.radius);
+    const axleRelativePosition = getPosition(track, otherBody.pointOnTrack.length);
 
     const globalTrackRelativePosition = getRelativePosition(
       track.centerCoordinate,

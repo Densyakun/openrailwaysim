@@ -336,6 +336,44 @@ export default function Tracks() {
                 }
               />
             </>}
+            {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
+              <Line
+                points={points}
+                lineWidth={48}
+                transparent
+                opacity={0}
+                onPointerMove={e => {
+                  const point = e.intersections[0].point
+
+                  tracksState.pointingOnTrack = {
+                    trackId,
+                    length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+                  }
+                }}
+                onClick={() => {
+                  if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
+                    const train: SerializableTrain = toSerializableProp(
+                      ["trains", uuidv4()],
+                      createTestOneAxleCar({
+                        gameState,
+                        trackId,
+                        length: tracksState.pointingOnTrack.length,
+                        uiMasterControllerOptionId: "0",
+                      })
+                    );
+
+                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
+                  }
+                }}
+              />
+              <Line
+                points={points}
+                color={
+                  tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+                    "#000"
+                }
+              />
+            </>}
             {guiState.menuState === "switches" && <>
               <Line
                 points={points}

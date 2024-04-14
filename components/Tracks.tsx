@@ -6,7 +6,7 @@ import FeatureObject from './FeatureObject'
 import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { Switch, TransitionCurve, getLength, getPosition, state as tracksState } from '@/lib/tracks'
+import { TransitionCurve, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
 import { trainsSubMenuState } from './gui/TrainsSubMenu'
@@ -22,33 +22,34 @@ export function getNumberOfCurvePoints(length: number, radius: number) {
   return Math.max(3, Math.ceil(length / l))
 }
 
-export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3) {
+export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3, rotationX: number) {
   const euler = new THREE.Euler(0, 0, 0, 'XZY').setFromQuaternion(
     new THREE.Quaternion().setFromUnitVectors(
       new THREE.Vector3(0, 0, -1),
       nextPoint.clone().sub(point).normalize()
     ), 'YXZ'
   )
-  const cant = 0
-  euler.z = -cant
+  euler.z = -rotationX
   return euler
 }
 
 function LineTrack({
   from,
   to,
+  rotationX,
   object,
   color,
 }: {
   from: THREE.Vector3;
   to: THREE.Vector3;
+  rotationX: number;
   object: THREE.Group;
   color?: string;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
 
   useFrame(() => {
-    const rotation = getRotationFromTwoPoints(from, to)
+    const rotation = getRotationFromTwoPoints(from, to, rotationX)
 
     groupRef.current!.position.copy(from)
     groupRef.current!.rotation.copy(rotation)
@@ -94,11 +95,19 @@ export default function Tracks() {
       {Object.keys(gameState.tracks).map(trackId => {
         const track = gameState.tracks[trackId]
 
-        const { centerCoordinate, position, rotationY, length, radius } = track
+        const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX } = track
         let points: THREE.Vector3[] = []
+        let rotationXList: number[] = []
         if ((track as TransitionCurve).endPosition === undefined) {
           if (radius === 0) {
-            points = [position, getPosition(track, length)]
+            if (beginRotationX === endRotationX)
+              points = [position, getPosition(track, length)]
+            else {
+              // 直線でカントが変化する場合
+              const numberOfPoints = 2 // TODO
+              for (let i = 0; i <= numberOfPoints; i++)
+                points.push(getPosition(track, length * i / numberOfPoints))
+            }
           } else {
             const numberOfPoints = getNumberOfCurvePoints(length, radius)
             for (let i = 0; i <= numberOfPoints; i++)
@@ -111,6 +120,10 @@ export default function Tracks() {
             points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
           points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
         }
+
+        for (let i = 1; i < points.length; i++)
+          //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1))
+          rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x)
 
         return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
           {points.map((nextPoint, index, array) => {
@@ -134,6 +147,7 @@ export default function Tracks() {
               key={index}
               from={array[index - 1]}
               to={nextPoint}
+              rotationX={rotationXList[index - 1]}
               object={scene}
               color={color}
             />

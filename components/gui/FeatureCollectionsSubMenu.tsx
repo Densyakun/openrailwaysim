@@ -93,6 +93,8 @@ export default function FeatureCollectionsSubMenu() {
               connectedFromEndIsTrack: true,
               connectedFromStartIsToEnd: false,
               connectedFromEndIsToEnd: false,
+              beginRotationX: 0,
+              endRotationX: 0,
             }
 
             socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [

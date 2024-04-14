@@ -25,6 +25,7 @@ export const tracksSubMenuState = proxy<{
   curveRadius: number;
   transitionLength: number;
   transitionLength1: number;
+  rotationX: number;
   hoveredAddingTracks: number;
 }>({
   isAddingCurve: false,
@@ -38,6 +39,7 @@ export const tracksSubMenuState = proxy<{
   curveRadius: 400,
   transitionLength: 60,
   transitionLength1: 60,
+  rotationX: 0.0963,
   hoveredAddingTracks: -1,
 });
 
@@ -218,7 +220,9 @@ function updateAddingTracks() {
       connectedFromEndIsTrack: true,
       connectedFromStartIsToEnd: false,
       connectedFromEndIsToEnd: false,
-    };
+      beginRotationX: 2 <= index && index < 6 ? tracksSubMenuState.rotationX : -tracksSubMenuState.rotationX,
+      endRotationX: 2 <= index && index < 6 ? tracksSubMenuState.rotationX : -tracksSubMenuState.rotationX,
+    } as Track;
   });
 
   tracksSubMenuState.ABLength = AB.length();
@@ -343,6 +347,8 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsTrack: true,
     connectedFromStartIsToEnd: false,
     connectedFromEndIsToEnd: false,
+    beginRotationX: curve.beginRotationX,
+    endRotationX: curve.endRotationX,
   }
 
   const transitionCurveId = uuidv4();
@@ -364,6 +370,8 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsTrack: true,
     connectedFromStartIsToEnd: false,
     connectedFromEndIsToEnd: false,
+    beginRotationX: tracks[0].beginRotationX,
+    endRotationX: curve.beginRotationX,
     beginCurvature: transitionCurve.beginCurvature,
     endCurvature: transitionCurve.endCurvature,
     endPosition: transitionCurve.endPosition.toArray(),
@@ -395,6 +403,8 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsTrack: true,
     connectedFromStartIsToEnd: false,
     connectedFromEndIsToEnd: false,
+    beginRotationX: index === 1 || index === 2 || index === 4 || index === 7 ? tracks[1].beginRotationX : -tracks[1].beginRotationX,
+    endRotationX: -curve.endRotationX,
     beginCurvature: transitionCurve1.beginCurvature,
     endCurvature: transitionCurve1.endCurvature,
     endPosition: transitionCurve1.endPosition.toArray(),
@@ -515,6 +525,8 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsTrack: true,
         connectedFromStartIsToEnd: false,
         connectedFromEndIsToEnd: false,
+        beginRotationX: tracks[0].beginRotationX,
+        endRotationX: tracks[0].beginRotationX,
       }
 
       tracks[0].length *= s;
@@ -549,6 +561,8 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsTrack: true,
         connectedFromStartIsToEnd: false,
         connectedFromEndIsToEnd: false,
+        beginRotationX: tracks[0].beginRotationX,
+        endRotationX: tracks[0].beginRotationX,
       }
 
       tracks[0].position = getPosition(tracks[0], tracks[0].length * s);
@@ -689,6 +703,8 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsTrack: true,
         connectedFromStartIsToEnd: false,
         connectedFromEndIsToEnd: false,
+        beginRotationX: tracks[1].beginRotationX,
+        endRotationX: tracks[1].beginRotationX,
       }
 
       tracks[1].length *= t;
@@ -722,6 +738,8 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsTrack: true,
         connectedFromStartIsToEnd: false,
         connectedFromEndIsToEnd: false,
+        beginRotationX: tracks[1].beginRotationX,
+        endRotationX: tracks[1].beginRotationX,
       }
 
       tracks[1].position = getPosition(tracks[1], tracks[1].length * t);
@@ -823,6 +841,17 @@ export default function TracksSubMenu() {
                 if (Number.isNaN(length)) return;
 
                 tracksSubMenuState.transitionLength1 = Math.max(0, length);
+                updateAddingTracks();
+              }}
+            />
+            <TextField
+              label="Rotation X"
+              defaultValue={tracksSubMenuState.rotationX}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                const rotationX = parseFloat(event.target.value);
+                if (Number.isNaN(rotationX)) return;
+
+                tracksSubMenuState.rotationX = rotationX;
                 updateAddingTracks();
               }}
             />

@@ -15,6 +15,8 @@ export type Track = {
   connectedFromEndIsTrack: boolean;
   connectedFromStartIsToEnd: boolean;
   connectedFromEndIsToEnd: boolean;
+  beginRotationX: number;
+  endRotationX: number;
 };
 
 export type SerializableTrack = IdentifiedRecord & {
@@ -29,6 +31,8 @@ export type SerializableTrack = IdentifiedRecord & {
   connectedFromEndIsTrack: boolean;
   connectedFromStartIsToEnd: boolean;
   connectedFromEndIsToEnd: boolean;
+  beginRotationX: number;
+  endRotationX: number;
 };
 
 export type PointOnTrack = {
@@ -173,9 +177,9 @@ export function getPosition(track: Track, length: number): THREE.Vector3 {
 }
 
 export function getRotation(track: Track, length: number) {
-  const { rotationY, radius, length: curveLength } = track;
+  const { rotationY, radius, length: curveLength, beginRotationX, endRotationX } = track;
 
-  const cant = 0;
+  const cant = beginRotationX + (endRotationX - beginRotationX) * length / curveLength;
 
   if ((track as TransitionCurve).endPosition !== undefined) {
     const i = Math.max(0, Math.min((track as TransitionCurve).transitionCurves.length - 1, Math.ceil(length * (track as TransitionCurve).transitionCurves.length / curveLength)));

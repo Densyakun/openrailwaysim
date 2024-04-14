@@ -649,7 +649,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
                 length: connectedTo.length + axle.pointOnTrack.length,
               };
             } else {
-              // 軌道の終点側に進入する場合
+              // 軌道の始点側に進入する場合
               axle.pointOnTrack = {
                 trackId: track.idOfTrackOrSwitchConnectedFromStart,
                 length: -axle.pointOnTrack.length,
@@ -682,9 +682,9 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
           // TODO 接続先がない場合
         }
       } else {
-        // 輪軸が軌道の終点より外に進入した場合
         const track = gameState.tracks[axle.pointOnTrack.trackId];
         if (track.length < axle.pointOnTrack.length) {
+          // 輪軸が軌道の終点より外に進入した場合
           if (track.idOfTrackOrSwitchConnectedFromEnd) {
             if (track.connectedFromEndIsTrack) {
               const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];

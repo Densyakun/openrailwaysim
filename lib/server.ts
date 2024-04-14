@@ -54,6 +54,15 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
         } else if (path[0] === "tracks") {
           if (path.length === 2) {
             push()
+          } else if (path.length === 3 && (
+            path[2] === "idOfTrackOrSwitchConnectedFromStart"
+            || path[2] === "idOfTrackOrSwitchConnectedFromEnd"
+            || path[2] === "connectedFromStartIsTrack"
+            || path[2] === "connectedFromEndIsTrack"
+            || path[2] === "connectedFromStartIsToEnd"
+            || path[2] === "connectedFromEndIsToEnd"
+          )) {
+            push()
           }
         }/* else if (path[0] === "projectedLines") {
           if (path.length === 2) {
@@ -61,6 +70,8 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           }
         }*/ else if (path[0] === "switches") {
           if (path.length === 2) {
+            push()
+          } else if (path.length === 3 && path[2] === "currentConnected") {
             push()
           }
         }

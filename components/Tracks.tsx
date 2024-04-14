@@ -13,7 +13,7 @@ import { trainsSubMenuState } from './gui/TrainsSubMenu'
 import { getRelativePosition } from '@/lib/gis'
 import { createTestOneAxleCar } from '@/lib/trainSamples'
 import { SerializableTrain } from '@/lib/trains'
-import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game'
+import { FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, toSerializableProp } from '@/lib/game'
 import { socket } from './Client'
 
 export function getNumberOfCurvePoints(length: number, radius: number) {
@@ -245,18 +245,10 @@ export default function Tracks() {
                   if (tracksState.hoveredSwitch) {
                     const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
 
-                    let currentConnected_ = railroadSwitch.currentConnected + 1;
-                    if (railroadSwitch.connectedTrackIds.length <= currentConnected_) currentConnected_ = -1;
+                    let newCurrentConnected = railroadSwitch.currentConnected + 1;
+                    if (railroadSwitch.connectedTrackIds.length <= newCurrentConnected) newCurrentConnected = -1;
 
-                    const newSwitch: Switch = {
-                      ...railroadSwitch,
-                      currentConnected: currentConnected_,
-                    };
-
-                    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", toSerializableProp(
-                      ["switches", tracksState.hoveredSwitch],
-                      newSwitch
-                    )]]));
+                    socket.send(JSON.stringify([FROM_CLIENT_SWITCH_TRACK, [tracksState.hoveredSwitch, newCurrentConnected]]));
                   }
                 }}
               />

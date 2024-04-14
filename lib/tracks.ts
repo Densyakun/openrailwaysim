@@ -8,7 +8,7 @@ export type Track = {
   position: THREE.Vector3;
   rotationY: number;
   length: number;
-  radius: number;
+  radius: number; // 正の値が右曲がり
   idOfTrackOrSwitchConnectedFromStart: string;
   idOfTrackOrSwitchConnectedFromEnd: string;
   connectedFromStartIsTrack: boolean;
@@ -68,7 +68,7 @@ export type SerializableTransitionCurveData = {
 
 export type TransitionCurve = Track & TransitionCurveData & {
   // 計算した緩和曲線の値を再利用するためのプロパティ
-  curveDirection: boolean;
+  curveDirection: boolean; // 左曲がりかどうか
 };
 
 export type SerializableTransitionCurve = SerializableTrack & SerializableTransitionCurveData & {
@@ -158,7 +158,7 @@ export function getPosition(track: Track, length: number): THREE.Vector3 {
         position: transition.position.clone().multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
         rotationY: (track as TransitionCurve).curveDirection ? transition.rotationY : -transition.rotationY,
         radius: transition.curvature === 0 ? 0 :
-          ((track as TransitionCurve).curveDirection ? 1 : -1) / transition.curvature
+          ((track as TransitionCurve).curveDirection ? -1 : 1) / transition.curvature
       } as Track,
       length - i * curveLength / (track as TransitionCurve).transitionCurves.length
     ).applyEuler(rotation).add(position);
@@ -194,7 +194,7 @@ function transitionCurveA(point: THREE.Vector3, transitionCurves: TransitionCurv
   const length = getLength(point.clone().sub(position).applyEuler(new THREE.Euler(0, -rotationY)), {
     position: new THREE.Vector3(),
     rotationY: 0,
-    radius: curvature === 0 ? 0 : (curveDirection ? 1 : -1) / curvature,
+    radius: curvature === 0 ? 0 : (curveDirection ? -1 : 1) / curvature,
   } as Track);
 
   if (lengthT < length) {
@@ -229,6 +229,46 @@ export function getLength(point: THREE.Vector3, track: Track): number {
     // TODO 角度が範囲外の場合、近い方に合わせる
 
     return eulerY * Math.abs(track.radius);
+  }
+}
+
+export function switchTrack(gameState: GameStateType, switchId: number, newCurrentConnected: number) {
+  const railroadSwitch = gameState.switches[switchId];
+
+  let connectedTo = "";
+  let isConnectedToTrack = true;
+  let connectedIsToEnd = false;
+
+  if (railroadSwitch.currentConnected !== -1) {
+    const track = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+
+    if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+      connectedTo = track.idOfTrackOrSwitchConnectedFromEnd;
+      isConnectedToTrack = track.connectedFromEndIsTrack;
+      connectedIsToEnd = track.connectedFromEndIsToEnd;
+      track.idOfTrackOrSwitchConnectedFromEnd = "";
+    } else {
+      connectedTo = track.idOfTrackOrSwitchConnectedFromStart;
+      isConnectedToTrack = track.connectedFromStartIsTrack;
+      connectedIsToEnd = track.connectedFromStartIsToEnd;
+      track.idOfTrackOrSwitchConnectedFromStart = "";
+    }
+  }
+
+  railroadSwitch.currentConnected = newCurrentConnected;
+
+  if (railroadSwitch.currentConnected !== -1) {
+    const track = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+
+    if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+      track.idOfTrackOrSwitchConnectedFromEnd = connectedTo;
+      track.connectedFromEndIsTrack = isConnectedToTrack;
+      track.connectedFromEndIsToEnd = connectedIsToEnd;
+    } else {
+      track.idOfTrackOrSwitchConnectedFromStart = connectedTo;
+      track.connectedFromStartIsTrack = isConnectedToTrack;
+      track.connectedFromStartIsToEnd = connectedIsToEnd;
+    }
   }
 }
 

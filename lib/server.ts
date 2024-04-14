@@ -1,6 +1,7 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
+import { switchTrack } from "./tracks";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   let messageEmitter = new MessageEmitter();
@@ -99,39 +100,51 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   const onMessage: OnMessageInServer = (id, value, ws) => {
     onUpdateTime();
 
-    switch (id) {
-      case FROM_CLIENT_SET_OBJECT: {
-        const [objectKey, newValue, oldId] = value as [string, { id: string } & any, string];
+    try {
+      switch (id) {
+        case FROM_CLIENT_SET_OBJECT: {
+          const [objectKey, newValue, oldId] = value as [string, { id: string } & any, string];
 
-        gameState[objectKey][newValue.id] = fromSerializableProp([objectKey, newValue.id], newValue, gameState);
-        if (oldId) {
-          delete gameState[objectKey][oldId];
+          gameState[objectKey][newValue.id] = fromSerializableProp([objectKey, newValue.id], newValue, gameState);
+          if (oldId) {
+            delete gameState[objectKey][oldId];
+          }
+
+          messageEmitter.isInvalidMessage = false;
+          break;
         }
+        case FROM_CLIENT_DELETE_OBJECT: {
+          const [objectKey, id] = value as [string, number];
 
-        messageEmitter.isInvalidMessage = false;
-        break;
+          delete gameState[objectKey][id];
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_SWITCH_TRACK: {
+          const [switchId, newCurrentConnected] = value;
+
+          switchTrack(gameState, switchId, newCurrentConnected);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE: {
+          const [trainId, bodyIndex, masterControllerIndex, newValue] = value;
+
+          const train = gameState.trains[trainId];
+          const carBody = bodyIndex < train.bogies.length ? train.bogies[bodyIndex] : train.otherBodies[bodyIndex - train.bogies.length];
+          const masterController = carBody.masterControllers[masterControllerIndex];
+
+          masterController.value = newValue;
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        default:
       }
-      case FROM_CLIENT_DELETE_OBJECT: {
-        const [objectKey, id] = value as [string, number];
-
-        delete gameState[objectKey][id];
-
-        messageEmitter.isInvalidMessage = false;
-        break;
-      }
-      case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE: {
-        const [trainId, bodyIndex, masterControllerIndex, newValue] = value;
-
-        const train = gameState.trains[trainId];
-        const carBody = bodyIndex < train.bogies.length ? train.bogies[bodyIndex] : train.otherBodies[bodyIndex - train.bogies.length];
-        const masterController = carBody.masterControllers[masterControllerIndex];
-
-        masterController.value = newValue;
-
-        messageEmitter.isInvalidMessage = false;
-        break;
-      }
-      default:
+    } catch (e) {
+      console.error(e);
     }
   };
 

@@ -643,7 +643,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
         if (track.idOfTrackOrSwitchConnectedFromStart) {
           if (track.connectedFromStartIsTrack) {
             const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromStart];
-            if (connectedTo.connectedFromStartIsToEnd) {
+            if (track.connectedFromStartIsToEnd) {
               axle.pointOnTrack = {
                 trackId: track.idOfTrackOrSwitchConnectedFromStart,
                 length: connectedTo.length + axle.pointOnTrack.length,
@@ -688,7 +688,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
           if (track.idOfTrackOrSwitchConnectedFromEnd) {
             if (track.connectedFromEndIsTrack) {
               const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
-              if (connectedTo.connectedFromEndIsToEnd) {
+              if (track.connectedFromEndIsToEnd) {
                 axle.pointOnTrack = {
                   trackId: track.idOfTrackOrSwitchConnectedFromEnd,
                   length: connectedTo.length + track.length - axle.pointOnTrack.length,

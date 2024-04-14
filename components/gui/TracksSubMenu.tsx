@@ -407,12 +407,14 @@ export function onClickAddingTrack(index: number) {
     curveDirection: transitionCurve1.curveDirection,
   };
 
-  // TODO すでに分岐器が存在する場合、軌道を追加で接続する
   const s = tracksSubMenuState.S[index];
   const t = tracksSubMenuState.T[index];
   const s_ = s * tracksSubMenuState.ABLength;
   const t_ = t * tracksSubMenuState.CDLength;
+
+  // ABと接続する
   if (s_ <= TOLERANCE_FOR_TRACK_CONNECTIONS) {
+    // ABの始点と接続する場合
     let track0IsChanged = false;
 
     if (index < 4) {
@@ -450,6 +452,7 @@ export function onClickAddingTrack(index: number) {
         toSerializableProp(["tracks", tracksState.selectedTrackIds[0]], tracks[0])
       ]]));
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= s_ - tracksSubMenuState.ABLength) {
+    // ABの終点と接続する場合
     let track0IsChanged = false;
 
     if (index < 4) {
@@ -486,22 +489,8 @@ export function onClickAddingTrack(index: number) {
         toSerializableProp(["tracks", tracksState.selectedTrackIds[0]], tracks[0])
       ]]));
   } else {
-    const trackB: SerializableTrack = {
-      id: uuidv4(),
-      centerCoordinate: tracks[0].centerCoordinate,
-      position: getPosition(tracks[0], tracks[0].length * s).toArray(),
-      rotationY: tracks[0].rotationY,
-      length: tracks[0].length * (1 - s),
-      radius: 0,
-      /*startGrade: 0, // TODO grade
-      endGrade: 0,*/
-      idOfTrackOrSwitchConnectedFromStart: "",
-      idOfTrackOrSwitchConnectedFromEnd: "",
-      connectedFromStartIsTrack: true,
-      connectedFromEndIsTrack: true,
-      connectedFromStartIsToEnd: false,
-      connectedFromEndIsToEnd: false,
-    }
+    // ABの途中に分岐器を追加する場合
+    let trackB: SerializableTrack; // 分岐器の直進側
 
     const railroadSwitch: SerializableSwitch = {
       id: uuidv4(),
@@ -511,9 +500,33 @@ export function onClickAddingTrack(index: number) {
     };
 
     if (index < 4) {
+      trackB = {
+        id: uuidv4(),
+        centerCoordinate: tracks[0].centerCoordinate,
+        position: getPosition(tracks[0], tracks[0].length * s).toArray(),
+        rotationY: tracks[0].rotationY,
+        length: tracks[0].length * (1 - s),
+        radius: 0,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      }
+
+      tracks[0].length *= s;
+
+      // 直進側を開通する
       railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve ? transitionCurveId : curveId];
       railroadSwitch.isConnectedToEnd = [false, false];
       railroadSwitch.currentConnected = 0;
+
+      trackB.idOfTrackOrSwitchConnectedFromEnd = tracks[0].idOfTrackOrSwitchConnectedFromEnd;
+      trackB.connectedFromEndIsTrack = tracks[0].connectedFromEndIsTrack;
+      trackB.connectedFromEndIsToEnd = tracks[0].connectedFromEndIsToEnd;
 
       tracks[0].idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
       tracks[0].connectedFromEndIsTrack = false;
@@ -521,20 +534,42 @@ export function onClickAddingTrack(index: number) {
       trackB.connectedFromStartIsTrack = true;
       trackB.connectedFromStartIsToEnd = true;
     } else {
-      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[0], serializableTransitionCurve ? transitionCurveId : curveId];
+      trackB = {
+        id: uuidv4(),
+        centerCoordinate: tracks[0].centerCoordinate,
+        position: getPosition(tracks[0], 0).toArray(),
+        rotationY: tracks[0].rotationY,
+        length: tracks[0].length * s,
+        radius: 0,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      }
+
+      tracks[0].position = getPosition(tracks[0], tracks[0].length * s);
+      tracks[0].length *= (1 - s);
+
+      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve ? transitionCurveId : curveId];
       railroadSwitch.isConnectedToEnd = [true, false];
       railroadSwitch.currentConnected = 0;
 
-      tracks[0].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
-      tracks[0].connectedFromEndIsTrack = true;
-      tracks[0].connectedFromEndIsToEnd = false;
-      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
-      trackB.connectedFromStartIsTrack = false;
+      trackB.idOfTrackOrSwitchConnectedFromStart = tracks[0].idOfTrackOrSwitchConnectedFromStart;
+      trackB.connectedFromStartIsTrack = tracks[0].connectedFromStartIsTrack;
+      trackB.connectedFromStartIsToEnd = tracks[0].connectedFromStartIsToEnd;
+
+      trackB.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[0];
+      trackB.connectedFromEndIsTrack = true;
+      trackB.connectedFromEndIsToEnd = false;
+      tracks[0].idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+      tracks[0].connectedFromStartIsTrack = false;
     }
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
-
-    tracks[0].length *= s;
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
       "tracks",
@@ -544,6 +579,7 @@ export function onClickAddingTrack(index: number) {
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
   }
 
+  // CDと接続する
   if (t_ <= TOLERANCE_FOR_TRACK_CONNECTIONS) {
     let track1IsChanged = false;
 
@@ -553,7 +589,7 @@ export function onClickAddingTrack(index: number) {
         {
           id: uuidv4(),
           connectedTrackIds: [tracksState.selectedTrackIds[1], serializableTransitionCurve1 ? transitionCurve1Id : curveId],
-          isConnectedToEnd: [false, serializableTransitionCurve1 ? false : true],
+          isConnectedToEnd: [false, false],
           currentConnected: 0,
         } as SerializableSwitch
       ]]));
@@ -561,15 +597,14 @@ export function onClickAddingTrack(index: number) {
       tracks[1].idOfTrackOrSwitchConnectedFromStart = serializableTransitionCurve1 ? transitionCurve1Id : curveId;
       tracks[1].connectedFromStartIsTrack = true;
       tracks[1].connectedFromStartIsToEnd = serializableTransitionCurve1 ? false : true;
-      const connectedTrack = serializableTransitionCurve1 || serializableCurve;
       if (serializableTransitionCurve1) {
-        connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
-        connectedTrack.connectedFromStartIsTrack = true;
-        connectedTrack.connectedFromStartIsToEnd = false;
+        serializableTransitionCurve1.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
+        serializableTransitionCurve1.connectedFromStartIsTrack = true;
+        serializableTransitionCurve1.connectedFromStartIsToEnd = false;
       } else {
-        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
-        connectedTrack.connectedFromEndIsTrack = true;
-        connectedTrack.connectedFromEndIsToEnd = false;
+        serializableCurve.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
+        serializableCurve.connectedFromEndIsTrack = true;
+        serializableCurve.connectedFromEndIsToEnd = false;
       }
 
       track1IsChanged = true;
@@ -594,15 +629,14 @@ export function onClickAddingTrack(index: number) {
       tracks[1].idOfTrackOrSwitchConnectedFromEnd = serializableTransitionCurve1 ? transitionCurve1Id : curveId;
       tracks[1].connectedFromEndIsTrack = true;
       tracks[1].connectedFromEndIsToEnd = serializableTransitionCurve1 ? false : true;
-      const connectedTrack = serializableTransitionCurve1 || serializableCurve;
       if (serializableTransitionCurve1) {
-        connectedTrack.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
-        connectedTrack.connectedFromStartIsTrack = true;
-        connectedTrack.connectedFromStartIsToEnd = true;
+        serializableTransitionCurve1.idOfTrackOrSwitchConnectedFromStart = tracksState.selectedTrackIds[1];
+        serializableTransitionCurve1.connectedFromStartIsTrack = true;
+        serializableTransitionCurve1.connectedFromStartIsToEnd = true;
       } else {
-        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
-        connectedTrack.connectedFromEndIsTrack = true;
-        connectedTrack.connectedFromEndIsToEnd = true;
+        serializableCurve.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
+        serializableCurve.connectedFromEndIsTrack = true;
+        serializableCurve.connectedFromEndIsToEnd = true;
       }
 
       track1IsChanged = true;
@@ -630,22 +664,7 @@ export function onClickAddingTrack(index: number) {
         toSerializableProp(["tracks", tracksState.selectedTrackIds[1]], tracks[1])
       ]]));
   } else {
-    const trackB: SerializableTrack = {
-      id: uuidv4(),
-      centerCoordinate: tracks[1].centerCoordinate,
-      position: getPosition(tracks[1], tracks[1].length * t).toArray(),
-      rotationY: tracks[1].rotationY,
-      length: tracks[1].length * (1 - t),
-      radius: 0,
-      /*startGrade: 0, // TODO grade
-      endGrade: 0,*/
-      idOfTrackOrSwitchConnectedFromStart: "",
-      idOfTrackOrSwitchConnectedFromEnd: "",
-      connectedFromStartIsTrack: true,
-      connectedFromEndIsTrack: true,
-      connectedFromStartIsToEnd: false,
-      connectedFromEndIsToEnd: false,
-    }
+    let trackB: SerializableTrack;
 
     const railroadSwitch: SerializableSwitch = {
       id: uuidv4(),
@@ -655,9 +674,32 @@ export function onClickAddingTrack(index: number) {
     };
 
     if (index === 1 || index === 2 || index === 4 || index === 7) {
+      trackB = {
+        id: uuidv4(),
+        centerCoordinate: tracks[1].centerCoordinate,
+        position: getPosition(tracks[1], tracks[1].length * t).toArray(),
+        rotationY: tracks[1].rotationY,
+        length: tracks[1].length * (1 - t),
+        radius: 0,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      }
+
+      tracks[1].length *= t;
+
       railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve1 ? transitionCurve1Id : curveId];
       railroadSwitch.isConnectedToEnd = [false, serializableTransitionCurve1 ? false : true];
       railroadSwitch.currentConnected = 0;
+
+      trackB.idOfTrackOrSwitchConnectedFromEnd = tracks[1].idOfTrackOrSwitchConnectedFromEnd;
+      trackB.connectedFromEndIsTrack = tracks[1].connectedFromEndIsTrack;
+      trackB.connectedFromEndIsToEnd = tracks[1].connectedFromEndIsToEnd;
 
       tracks[1].idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
       tracks[1].connectedFromEndIsTrack = false;
@@ -665,20 +707,42 @@ export function onClickAddingTrack(index: number) {
       trackB.connectedFromStartIsTrack = true;
       trackB.connectedFromStartIsToEnd = true;
     } else {
-      railroadSwitch.connectedTrackIds = [tracksState.selectedTrackIds[1], serializableTransitionCurve1 ? transitionCurve1Id : curveId];
+      trackB = {
+        id: uuidv4(),
+        centerCoordinate: tracks[1].centerCoordinate,
+        position: getPosition(tracks[1], 0).toArray(),
+        rotationY: tracks[1].rotationY,
+        length: tracks[1].length * t,
+        radius: 0,
+        /*startGrade: 0, // TODO grade
+        endGrade: 0,*/
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      }
+
+      tracks[1].position = getPosition(tracks[1], tracks[1].length * t);
+      tracks[1].length *= (1 - t);
+
+      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurve1 ? transitionCurve1Id : curveId];
       railroadSwitch.isConnectedToEnd = [true, serializableTransitionCurve1 ? false : true];
       railroadSwitch.currentConnected = 0;
 
-      tracks[1].idOfTrackOrSwitchConnectedFromEnd = trackB.id;
-      tracks[1].connectedFromEndIsTrack = true;
-      tracks[1].connectedFromEndIsToEnd = false;
-      trackB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
-      trackB.connectedFromStartIsTrack = false;
+      trackB.idOfTrackOrSwitchConnectedFromStart = tracks[1].idOfTrackOrSwitchConnectedFromStart;
+      trackB.connectedFromStartIsTrack = tracks[1].connectedFromStartIsTrack;
+      trackB.connectedFromStartIsToEnd = tracks[1].connectedFromStartIsToEnd;
+
+      tracks[1].idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+      tracks[1].connectedFromStartIsTrack = false;
+      trackB.idOfTrackOrSwitchConnectedFromEnd = tracksState.selectedTrackIds[1];
+      trackB.connectedFromEndIsTrack = true;
+      trackB.connectedFromEndIsToEnd = false;
     }
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
-
-    tracks[1].length *= t;
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
       "tracks",
@@ -688,6 +752,7 @@ export function onClickAddingTrack(index: number) {
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
   }
 
+  // 緩和曲線と単曲線を接続する
   if (serializableTransitionCurve) {
     serializableTransitionCurve.idOfTrackOrSwitchConnectedFromEnd = curveId;
     serializableTransitionCurve.connectedFromEndIsTrack = true;

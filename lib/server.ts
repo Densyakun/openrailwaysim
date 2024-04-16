@@ -1,7 +1,8 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
+import { fetchHeightmap } from "./terrain";
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   let messageEmitter = new MessageEmitter();
@@ -16,7 +17,11 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           )
         }
 
-        if (path[0] === "nowDate") {
+        if (path[0] === "terrains") {
+          if (path.length === 2) {
+            push()
+          }
+        } else if (path[0] === "nowDate") {
           push()
         } else if (path[0] === "trains") {
           if (3 <= path.length) {
@@ -136,6 +141,18 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           const [switchId, newCurrentConnected] = value;
 
           switchTrack(gameState, switchId, newCurrentConnected);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_GET_HEIGHTMAP: {
+          const [tileX, tileY] = value;
+
+          fetchHeightmap(tileX, tileY)
+            .then(heightmap =>
+              (gameState.terrains[tileY] || (gameState.terrains[tileY] = {}))
+              [tileX] = heightmap
+            );
 
           messageEmitter.isInvalidMessage = false;
           break;

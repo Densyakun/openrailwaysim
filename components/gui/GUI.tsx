@@ -6,6 +6,7 @@ import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TableViewIcon from '@mui/icons-material/TableView';
+import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
 import { SxProps } from '@mui/system';
 import { proxy, useSnapshot } from 'valtio';
@@ -109,6 +110,10 @@ export default function GUI() {
       table?: JSX.Element;
     }
   } = {
+    'terrains': {
+      title: 'Terrains',
+      icon: <TerrainIcon />,
+    },
     'featureCollections': {
       title: 'Feature collections',
       icon: <PlaceIcon />,

@@ -7,6 +7,8 @@ import SunAndSky from './SunAndSky'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
 import Trains from './Trains'
+import Terrains from './Terrains'
+import TerrainGenerator from './TerrainGenerator'
 import Client from './Client'
 
 export default function App() {
@@ -19,6 +21,8 @@ export default function App() {
       <FeatureCollections />
       <Tracks />
       <Trains />
+      <Terrains />
+      <TerrainGenerator />
       <Client />
     </Canvas>
   )

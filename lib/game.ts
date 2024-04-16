@@ -6,11 +6,13 @@ import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, Seri
 //import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "@turf/helpers";
 import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
+import { HeightmapType } from './terrain';
 
 export type IdentifiedRecord = { id: string };
 
 // 参照されるデータの後に参照するデータの順で並べる必要がある
 export type GameStateType = { [key: string]: any } & {
+  terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   //projectedLines: { [key: string]: ProjectedLine };
   tracks: { [key: string]: Track | TransitionCurve };
@@ -22,6 +24,7 @@ export type GameStateType = { [key: string]: any } & {
 
 export function getNewState() {
   const state = proxy<GameStateType>({
+    terrains: {},
     featureCollections: {},
     //projectedLines: {},
     tracks: {},
@@ -345,4 +348,5 @@ export const FROM_SERVER_CANCEL = 2
 export const FROM_CLIENT_SET_OBJECT = 3
 export const FROM_CLIENT_DELETE_OBJECT = 4
 export const FROM_CLIENT_SWITCH_TRACK = 5
-export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 6
+export const FROM_CLIENT_GET_HEIGHTMAP = 6
+export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 7

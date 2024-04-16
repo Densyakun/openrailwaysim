@@ -26,6 +26,12 @@ ORSでは、インターネット上にあるファイルをURLで参照しま�
 
 現在、glTF（glb）のみ対応しています。
 
+### ワールド生成について
+
+地形の生成には、次の地図タイルを使用しています:
+
+- [国土地理院 標高タイル（基盤地図情報数値標高モデル）](https://maps.gsi.go.jp/development/ichiran.html#dem)
+
 ## Quick Start
 
 1. Clone or fork `openrailwaysim`:

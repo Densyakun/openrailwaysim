@@ -228,7 +228,7 @@ export function getLength(point: THREE.Vector3, track: Track): number {
     point1.sub(new THREE.Vector3(0, 0, track.radius));
 
     const eulerY = point1.x === 0 && point1.z === 0 ? 0 :
-      Math.atan2(0 < track.radius ? point1.z : -point1.z, point1.x) + Math.PI / 2;
+      Math.atan2(-point1.x, 0 < track.radius ? point1.z : -point1.z) + Math.PI;
 
     // TODO 角度が範囲外の場合、近い方に合わせる
 

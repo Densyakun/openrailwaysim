@@ -16,10 +16,10 @@ import { SerializableTrain } from '@/lib/trains'
 import { FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, toSerializableProp } from '@/lib/game'
 import { socket } from './Client'
 
+export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
+
 export function getNumberOfCurvePoints(length: number, radius: number) {
-  const radius_ = Math.abs(radius)
-  const l = Math.acos((radius_ - 0.1) / radius_) * 2 * radius_
-  return Math.max(3, Math.ceil(length / l))
+  return Math.max(1, Math.ceil(length * railModelFactor / Math.abs(radius)))
 }
 
 export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3, rotationX: number) {

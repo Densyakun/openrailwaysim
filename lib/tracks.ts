@@ -17,6 +17,7 @@ export type Track = {
   connectedFromEndIsToEnd: boolean;
   beginRotationX: number;
   endRotationX: number;
+  modelPaths: string[];
 };
 
 export type SerializableTrack = IdentifiedRecord & {
@@ -33,6 +34,7 @@ export type SerializableTrack = IdentifiedRecord & {
   connectedFromEndIsToEnd: boolean;
   beginRotationX: number;
   endRotationX: number;
+  modelPaths: string[];
 };
 
 export type PointOnTrack = {

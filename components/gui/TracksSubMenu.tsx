@@ -349,6 +349,7 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsToEnd: false,
     beginRotationX: curve.beginRotationX,
     endRotationX: curve.endRotationX,
+    modelPaths: tracks[0].modelPaths,
   }
 
   const transitionCurveId = uuidv4();
@@ -372,6 +373,7 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsToEnd: false,
     beginRotationX: tracks[0].beginRotationX,
     endRotationX: curve.beginRotationX,
+    modelPaths: tracks[0].modelPaths,
     beginCurvature: transitionCurve.beginCurvature,
     endCurvature: transitionCurve.endCurvature,
     endPosition: transitionCurve.endPosition.toArray(),
@@ -405,6 +407,7 @@ export function onClickAddingTrack(index: number) {
     connectedFromEndIsToEnd: false,
     beginRotationX: index === 1 || index === 2 || index === 4 || index === 7 ? tracks[1].beginRotationX : -tracks[1].beginRotationX,
     endRotationX: -curve.endRotationX,
+    modelPaths: tracks[1].modelPaths,
     beginCurvature: transitionCurve1.beginCurvature,
     endCurvature: transitionCurve1.endCurvature,
     endPosition: transitionCurve1.endPosition.toArray(),
@@ -527,6 +530,7 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsToEnd: false,
         beginRotationX: tracks[0].beginRotationX,
         endRotationX: tracks[0].beginRotationX,
+        modelPaths: tracks[0].modelPaths,
       }
 
       tracks[0].length *= s;
@@ -563,6 +567,7 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsToEnd: false,
         beginRotationX: tracks[0].beginRotationX,
         endRotationX: tracks[0].beginRotationX,
+        modelPaths: tracks[0].modelPaths,
       }
 
       tracks[0].position = getPosition(tracks[0], tracks[0].length * s);
@@ -705,6 +710,7 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsToEnd: false,
         beginRotationX: tracks[1].beginRotationX,
         endRotationX: tracks[1].beginRotationX,
+        modelPaths: tracks[1].modelPaths,
       }
 
       tracks[1].length *= t;
@@ -740,6 +746,7 @@ export function onClickAddingTrack(index: number) {
         connectedFromEndIsToEnd: false,
         beginRotationX: tracks[1].beginRotationX,
         endRotationX: tracks[1].beginRotationX,
+        modelPaths: tracks[1].modelPaths,
       }
 
       tracks[1].position = getPosition(tracks[1], tracks[1].length * t);

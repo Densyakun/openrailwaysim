@@ -42,7 +42,7 @@ export function toSerializableProp(path: string[], value: any): any {
     if (path.length === 1)
       return Object.keys(value).map(id => toSerializableProp([path[0], id], value[id]))
     else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd, beginRotationX, endRotationX } = value as Track
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd, beginRotationX, endRotationX, modelPaths } = value as Track
 
       const serializableTrack: SerializableTrack = {
         id: path[1],
@@ -59,6 +59,7 @@ export function toSerializableProp(path: string[], value: any): any {
         connectedFromEndIsToEnd,
         beginRotationX,
         endRotationX,
+        modelPaths,
       }
 
       if ((value as TransitionCurve).endPosition === undefined)
@@ -170,7 +171,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       )
       return prop
     } else if (path.length === 2) {
-      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd, beginRotationX, endRotationX } = value as SerializableTrack
+      const { centerCoordinate, position, rotationY, length, radius, idOfTrackOrSwitchConnectedFromStart, idOfTrackOrSwitchConnectedFromEnd, connectedFromStartIsTrack, connectedFromEndIsTrack, connectedFromStartIsToEnd, connectedFromEndIsToEnd, beginRotationX, endRotationX, modelPaths } = value as SerializableTrack
 
       const track: Track = {
         centerCoordinate,
@@ -186,6 +187,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
         connectedFromEndIsToEnd,
         beginRotationX,
         endRotationX,
+        modelPaths,
       }
 
       if ((value as SerializableTransitionCurve).endPosition === undefined)

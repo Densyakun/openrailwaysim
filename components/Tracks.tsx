@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
-import { useFrame } from '@react-three/fiber'
 import { Line, useGLTF } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { TransitionCurve, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
@@ -33,31 +32,27 @@ export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.
   return euler
 }
 
-function LineTrack({
+function RailModel({
   from,
   to,
   rotationX,
-  object,
+  modelPath,
   color,
 }: {
   from: THREE.Vector3;
   to: THREE.Vector3;
   rotationX: number;
-  object: THREE.Group;
+  modelPath: string;
   color?: string;
 }) {
-  const groupRef = React.useRef<THREE.Group>(null)
+  const { scene } = useGLTF(modelPath)
 
-  useFrame(() => {
-    const rotation = getRotationFromTwoPoints(from, to, rotationX)
-
-    groupRef.current!.position.copy(from)
-    groupRef.current!.rotation.copy(rotation)
-    groupRef.current!.scale.set(1, 1, from.distanceTo(to))
-  })
-
-  return <group ref={groupRef}>
-    {object.children.map((child, index) => (
+  return <group
+    position={from}
+    rotation={getRotationFromTwoPoints(from, to, rotationX)}
+    scale={[1, 1, from.distanceTo(to)]}
+  >
+    {scene.children.map((child, index) => (
       <mesh
         key={index}
         castShadow
@@ -74,8 +69,6 @@ function LineTrack({
 }
 
 export default function Tracks() {
-  const { scene } = useGLTF('https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf')
-
   useSnapshot(gameState)
   useSnapshot(tracksSubMenuState)
 
@@ -95,7 +88,7 @@ export default function Tracks() {
       {Object.keys(gameState.tracks).map(trackId => {
         const track = gameState.tracks[trackId]
 
-        const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX } = track
+        const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths } = track
         let points: THREE.Vector3[] = []
         let rotationXList: number[] = []
         if ((track as TransitionCurve).endPosition === undefined) {
@@ -126,8 +119,8 @@ export default function Tracks() {
           rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x)
 
         return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
-          {points.map((nextPoint, index, array) => {
-            if (index === 0) return null
+          {points.map((nextPoint, pointIndex, array) => {
+            if (pointIndex === 0) return null
 
             let color: string | undefined;
             if (guiState.menuState === "switches") {
@@ -143,14 +136,16 @@ export default function Tracks() {
             else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
             else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
 
-            return <LineTrack
-              key={index}
-              from={array[index - 1]}
-              to={nextPoint}
-              rotationX={rotationXList[index - 1]}
-              object={scene}
-              color={color}
-            />
+            return <React.Fragment key={pointIndex}>
+              {modelPaths.map((modelPath, modelIndex) => <RailModel
+                key={modelIndex}
+                from={array[pointIndex - 1]}
+                to={nextPoint}
+                rotationX={rotationXList[pointIndex - 1]}
+                modelPath={modelPath}
+                color={color}
+              />)}
+            </React.Fragment>
           })}
           {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
             <Line

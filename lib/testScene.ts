@@ -29,10 +29,6 @@ export function createTestScene(gameState: GameStateType, featureCollection: Fea
   }
   gameState.projectedLines["1"].points = points;*/
 
-  [
-    //createUIKeiseiAESeriesMasterControllerConfig(),
-    createUISotetsu20000SeriesMasterControllerConfig(),
-  ].forEach((uiOneHandleMasterControllerConfig, index) =>
-    gameState.uiOneHandleMasterControllerConfigs[index] = uiOneHandleMasterControllerConfig
-  );
+  gameState.uiOneHandleMasterControllerConfigs["Sotetsu20000"] = createUISotetsu20000SeriesMasterControllerConfig();
+  gameState.uiOneHandleMasterControllerConfigs["KseiAE"] = createUIKeiseiAESeriesMasterControllerConfig();
 }

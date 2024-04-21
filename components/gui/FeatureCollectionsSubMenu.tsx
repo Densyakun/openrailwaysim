@@ -32,7 +32,7 @@ function ModelPaths() {
     <IconButton color="primary" onClick={() => featureCollectionsSubMenuState.modelPaths.push("")}>
       <AddIcon />
     </IconButton>
-    {modelPaths.map((_, index) => <Stack direction="row">
+    {modelPaths.map((_, index) => <Stack key={index} direction="row">
       <TextField
         value={modelPaths[index]}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) =>

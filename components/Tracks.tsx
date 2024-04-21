@@ -202,7 +202,10 @@ export default function Tracks() {
                       gameState,
                       trackId,
                       length: tracksState.pointingOnTrack.length,
-                      uiMasterControllerOptionId: "0",
+                      uiMasterControllerOptionId: (() => {
+                        const k = Object.keys(gameState.uiOneHandleMasterControllerConfigs);
+                        return k.length ? k[0] : undefined;
+                      })(),
                     })
                   );
 

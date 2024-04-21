@@ -10,7 +10,9 @@ export default function Speed() {
   const train = gameState.trains[trainsState.activeTrainId];
 
   return (
-    <Paper>
+    <Paper sx={{
+      width: "90px"
+    }}>
       {(train.speed * 3.6).toFixed(1).padStart(5, '0') + " km/h"}
     </Paper>
   );

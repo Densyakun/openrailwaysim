@@ -79,6 +79,10 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           } else if (path.length === 3 && path[2] === "currentConnected") {
             push()
           }
+        } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
+          if (path.length === 2) {
+            push()
+          }
         }
       })
 

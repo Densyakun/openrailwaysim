@@ -5,7 +5,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import { Button, IconButton, List, ListItem, ListItemText, Stack, TextField, Tooltip } from '@mui/material';
 import * as React from 'react';
-import { Control, Controller, DefaultValues, FieldErrors, useForm } from 'react-hook-form';
+import { Control, Controller, DefaultValues, FieldErrors, UseFormReturn, useForm } from 'react-hook-form';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT } from '@/lib/game';
 
@@ -25,17 +25,18 @@ export default function DataMenu<FormValues extends { id: string }>({
   objectKey?: string;
   getSaveValueOnEdit?: (inputs: FormValues) => any;
   objects: {};
-  valueControllers?: (control: Control<FormValues>, errors: FieldErrors<FormValues>) => JSX.Element;
+  valueControllers?: (control: Control<FormValues>, errors: FieldErrors<FormValues>, form: UseFormReturn<FormValues>) => JSX.Element;
   listItemButtons?: (id: string) => JSX.Element;
 }) {
+  const form = useForm<FormValues>({
+    defaultValues,
+  });
   const {
     handleSubmit,
     control,
     reset,
     formState: { errors },
-  } = useForm<FormValues>({
-    defaultValues,
-  })
+  } = form;
 
   const [adding, setAdding] = React.useState(false);
   const [editingId, setEditingId_] = React.useState("");
@@ -92,7 +93,7 @@ export default function DataMenu<FormValues extends { id: string }>({
                 )
                 } {...field} />}
               />
-              {valueControllers!(control, errors)}
+              {valueControllers!(control, errors, form)}
               <Button type="submit" variant="contained" startIcon={adding ? <AddIcon /> : <SaveIcon />}>
                 {adding ? "Add" : "Save"}
               </Button>

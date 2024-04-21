@@ -33,7 +33,10 @@ export default function FeatureCollectionTable() {
       </Stack>
     )}
     objectKey="featureCollections"
-    getSaveValueOnEdit={({ value }) => ({ value: JSON.parse(value) })}
+    getSaveValueOnEdit={({ id, value }) => ({
+      id,
+      value: JSON.parse(value),
+    })}
     objects={gameState.featureCollections}
     valueControllers={(control, errors) =>
       <Controller

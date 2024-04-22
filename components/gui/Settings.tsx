@@ -1,9 +1,13 @@
 import * as React from 'react';
+import SaveIcon from '@mui/icons-material/Save';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListSubheader from '@mui/material/ListSubheader';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
+import { Button } from '@mui/material';
+import { socket } from '../Client';
+import { FROM_CLIENT_SAVE } from '@/lib/game';
 
 export default function Settings() {
   return (
@@ -37,6 +41,9 @@ export default function Settings() {
           </ul>
         </li>
       </List>
+      <Button variant="contained" startIcon={<SaveIcon />} onClick={() => socket.send(JSON.stringify([FROM_CLIENT_SAVE]))}>
+        Save
+      </Button>
     </>
   )
 }

@@ -1,8 +1,21 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
+import { readFileSync, writeFileSync } from "fs";
+
+export const saveFilePath = "./save.json";
+
+export function loadSave(gameState: GameStateType) {
+  try {
+    const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
+    Object.keys(getNewState()).forEach(key => {
+      if (newState[key] !== undefined)
+        gameState[key] = newState[key];
+    });
+  } catch { }
+}
 
 export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
   let messageEmitter = new MessageEmitter();
@@ -137,6 +150,13 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           const [objectKey, id] = value as [string, number];
 
           delete gameState[objectKey][id];
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_SAVE: {
+          writeFileSync(saveFilePath, JSON.stringify(gameState), "utf8");
+          console.log("Data saved.");
 
           messageEmitter.isInvalidMessage = false;
           break;

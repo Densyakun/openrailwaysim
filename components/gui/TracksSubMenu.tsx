@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
 import { Button, Paper, Stack, TextField } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import centroid from '@turf/centroid';
@@ -11,7 +12,7 @@ import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOL
 import { guiState } from './GUI';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -868,6 +869,13 @@ export default function TracksSubMenu() {
                 tracksState.selectedTrackIds.splice(0, tracksState.selectedTrackIds.length);
               }}>
                 Deselect tracks
+              </Button>
+              <Button variant='contained' startIcon={<DeleteIcon />} disabled={!tracksState.selectedTrackIds.length} onClick={() =>
+                tracksState.selectedTrackIds.forEach(trackId =>
+                  socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, ["tracks", trackId]]))
+                )
+              }>
+                Delete tracks
               </Button>
               <Button variant='contained' disabled={tracksState.selectedTrackIds.length !== 2} onClick={() => {
                 const tracks = getSelectedTracks(gameState);

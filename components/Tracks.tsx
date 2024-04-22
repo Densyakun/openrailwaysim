@@ -45,27 +45,31 @@ function RailModel({
   modelPath: string;
   color?: string;
 }) {
-  const { scene } = useGLTF(modelPath)
+  try {
+    const { scene } = useGLTF(modelPath)
 
-  return <group
-    position={from}
-    rotation={getRotationFromTwoPoints(from, to, rotationX)}
-    scale={[1, 1, from.distanceTo(to)]}
-  >
-    {scene.children.map((child, index) => (
-      <mesh
-        key={index}
-        castShadow
-        receiveShadow
-        position={(child as THREE.Mesh).position}
-        rotation={(child as THREE.Mesh).rotation}
-        scale={(child as THREE.Mesh).scale}
-        geometry={(child as THREE.Mesh).geometry}
-        material={color ? new THREE.MeshBasicMaterial({ color }) :
-          (child as THREE.Mesh).material}
-      />
-    ))}
-  </group>
+    return <group
+      position={from}
+      rotation={getRotationFromTwoPoints(from, to, rotationX)}
+      scale={[1, 1, from.distanceTo(to)]}
+    >
+      {scene.children.map((child, index) => (
+        <mesh
+          key={index}
+          castShadow
+          receiveShadow
+          position={(child as THREE.Mesh).position}
+          rotation={(child as THREE.Mesh).rotation}
+          scale={(child as THREE.Mesh).scale}
+          geometry={(child as THREE.Mesh).geometry}
+          material={color ? new THREE.MeshBasicMaterial({ color }) :
+            (child as THREE.Mesh).material}
+        />
+      ))}
+    </group>
+  } catch (e) {
+    return null
+  }
 }
 
 export default function Tracks() {

@@ -12,6 +12,8 @@ export type ControlsRefs = {
   [key: string]: THREE.EventDispatcher
 }
 
+const cameraNearOnTeleport = 1;
+
 export const state = proxy<{
   mainControlsKey: string;
   controlsRefs: ControlsRefs;
@@ -19,7 +21,7 @@ export const state = proxy<{
 }>({
   mainControlsKey: "orbitControls",
   controlsRefs: ref<ControlsRefs>({}),
-  target: new THREE.Vector3()
+  target: new THREE.Vector3(cameraNearOnTeleport)
 })
 
 export function setCameraTargetPosition(targetCoordinate: Position, targetElevation?: number) {
@@ -27,9 +29,12 @@ export function setCameraTargetPosition(targetCoordinate: Position, targetElevat
   const mainControls = state.controlsRefs[state.mainControlsKey]
   if (mainControls) {
     const controlsTargetPosition = ((mainControls as any).target as THREE.Vector3)
+    const d = controlsTargetPosition.length();
     move(gisState.originTransform.quaternion, -controlsTargetPosition.x, -controlsTargetPosition.z)
     if (targetElevation !== undefined)
       gisState.originTransform.elevation = targetElevation - controlsTargetPosition.y
+
+    state.target.setLength(d < cameraNearOnTeleport ? cameraNearOnTeleport : d);
   }
 }
 

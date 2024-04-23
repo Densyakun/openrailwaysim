@@ -2,7 +2,6 @@
 
 import { gameState, clientState, messageEmitter } from "@/lib/client"
 import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp, updateTime } from "@/lib/game"
-import { setCameraToTestLine } from "@/lib/testClient"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
@@ -14,10 +13,9 @@ export default function Client() {
   const onMessage: OnMessageInClient = (id, value, ws) => {
     switch (id) {
       case FROM_SERVER_STATE:
-        clientState.isSynced = true
         Object.keys(gameState).forEach(key => (gameState as any)[key] = fromSerializableProp([key], value[key], gameState))
 
-        setCameraToTestLine()
+        clientState.isSynced = true
 
         messageEmitter.isInvalidMessage = false
         break

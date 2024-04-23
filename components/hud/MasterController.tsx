@@ -20,6 +20,8 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
     const newValue_ = newValue as number;
 
     const getNewValue = (newValue: number) => {
+      if (steps.length === 0) return newValue;
+
       for (const stepRange of stepRangeList)
         if (stepRange[0] <= newValue && newValue <= stepRange[1]) {
           for (let stepIndex = 0; stepIndex <= steps.length - 2; stepIndex++)

@@ -80,24 +80,6 @@ export default function CoordinatesLine({
               delete gisState.hoveredFeatures[index]
           }}
         />
-        <Line
-          points={[points[nextPointIndex - 1], point]}
-          color={
-            gisState.hoveredFeatures.find(value =>
-              value
-              && value.featureCollectionId === featureCollectionId
-              && value.featureIndex === featureIndex
-              && value.segmentIndex === nextPointIndex - 1
-            ) ? "#ff0" :
-              gisState.selectedFeatures.find(value =>
-                value
-                && value.featureCollectionId === featureCollectionId
-                && value.featureIndex === featureIndex
-                && value.segmentIndex === nextPointIndex - 1
-              ) ? "#f00" :
-                "#000"
-          }
-        />
       </React.Fragment>
     )}
   </>

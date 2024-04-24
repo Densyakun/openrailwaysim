@@ -4,6 +4,7 @@ import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
 import FollowOriginGIS from './cameras-and-controls/FollowOriginGIS'
 import SunAndSky from './SunAndSky'
+import DreiSegments from './DreiSegments'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
 import Trains from './Trains'
@@ -18,6 +19,7 @@ export default function App() {
       <CameraControls />
       <SunAndSky />
       <FollowOriginGIS />
+      <DreiSegments />
       <FeatureCollections />
       <Tracks />
       <Trains />

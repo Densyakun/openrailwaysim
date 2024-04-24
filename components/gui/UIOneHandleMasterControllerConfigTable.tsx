@@ -110,7 +110,7 @@ function Controllers({
     <FormGroup>
       <FormControlLabel control={<Checkbox checked={values.steps.includes(value)} onChange={event => {
         if (event.target.checked)
-          values.steps.splice(values.steps.findLastIndex(v => v < value) + 1, 0, value);
+          values.steps.splice(values.steps.findIndex(v => value <= v), 0, value);
         else
           values.steps.splice(values.steps.indexOf(value), 1);
 

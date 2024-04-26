@@ -6,6 +6,7 @@ import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
+import { state as tracksState } from "@/lib/tracks"
 
 export let socket: WebSocket
 
@@ -35,6 +36,11 @@ export default function Client() {
 
               break
             case "delete":
+              if (path.length === 2 && path[0] === "tracks") {
+                const index = tracksState.selectedTrackIds.findIndex(id => id === path[1]);
+                if (index !== -1) tracksState.selectedTrackIds.splice(index, 1);
+              }
+
               const deleteObj = function (obj: any, path: string[], n = 0) {
                 if (n + 1 === path.length)
                   delete obj[path[n]]

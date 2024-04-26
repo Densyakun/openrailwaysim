@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
-import { Line, useGLTF } from '@react-three/drei'
+import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { TransitionCurve, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
@@ -14,6 +14,8 @@ import { createTestOneAxleCar } from '@/lib/trainSamples'
 import { SerializableTrain } from '@/lib/trains'
 import { FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, toSerializableProp } from '@/lib/game'
 import { socket } from './Client'
+import GLTFModel from './GLTFModel';
+import { ErrorBoundary } from 'react-error-boundary';
 
 export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
 
@@ -45,31 +47,23 @@ function RailModel({
   modelPath: string;
   color?: string;
 }) {
-  try {
-    const { scene } = useGLTF(modelPath)
-
-    return <group
-      position={from}
-      rotation={getRotationFromTwoPoints(from, to, rotationX)}
-      scale={[1, 1, from.distanceTo(to)]}
-    >
-      {scene.children.map((child, index) => (
-        <mesh
-          key={index}
-          castShadow
-          receiveShadow
-          position={(child as THREE.Mesh).position}
-          rotation={(child as THREE.Mesh).rotation}
-          scale={(child as THREE.Mesh).scale}
-          geometry={(child as THREE.Mesh).geometry}
-          material={color ? new THREE.MeshBasicMaterial({ color }) :
-            (child as THREE.Mesh).material}
+  return <group
+    position={from}
+    rotation={getRotationFromTwoPoints(from, to, rotationX)}
+    scale={[1, 1, from.distanceTo(to)]}
+  >
+    <ErrorBoundary fallback={null}>
+      <React.Suspense fallback={null}>
+        <GLTFModel
+          modelPath={modelPath}
+          meshProps={
+            color ? { material: new THREE.MeshBasicMaterial({ color }) }
+              : undefined
+          }
         />
-      ))}
-    </group>
-  } catch (e) {
-    return null
-  }
+      </React.Suspense>
+    </ErrorBoundary>
+  </group>
 }
 
 export default function Tracks() {

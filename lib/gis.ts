@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { FeatureCollection, LineString, Position, point } from '@turf/helpers'
+import { Feature, FeatureCollection, LineString, Point, Position } from '@turf/helpers'
 import { default as turfBearing } from '@turf/bearing'
 import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
@@ -157,19 +157,13 @@ export type ProjectedLineAndLength = {
 }
 
 /**
- * featureCollectionId1 で指定した FeatureCollection の LineString から featureAt に隣接するセグメントを含み、 selectedFeatures に含まれるセグメントを除いたリストを返す。
- * @param featureAt 対象のセグメント
+ * featureCollectionId1 で指定した FeatureCollection の LineString から coordinates に隣接するセグメントを含み、 selectedFeatures に含まれるセグメントを除いたリストを返す。リスト内のセグメントは重複しない。
+ * @param points 対象の点
  * @param featureCollectionId1 追加するセグメントを含むFeatureCollectionのID
  * @param selectedFeatures 既に選択しているセグメント
  */
-export function SelectAdjoinedLineStringSegments(gameState: GameStateType, featureAt: FeatureAt & { segmentIndex: number }, featureCollectionId1: string, selectedFeatures: FeatureAt[]) {
+export function SelectAdjoinedLineStringSegments(gameState: GameStateType, points: Feature<Point>[], featureCollectionId1: string, selectedFeatures: FeatureAt[]) {
   const adjoinedSegments: FeatureAt[] = [];
-
-  const featureCollection = gameState.featureCollections[featureAt.featureCollectionId].value;
-
-  const geometry = featureCollection.features[featureAt.featureIndex].geometry;
-  const coordinate = point((geometry as LineString).coordinates[featureAt.segmentIndex]);
-  const coordinate1 = point((geometry as LineString).coordinates[featureAt.segmentIndex + 1]);
 
   const featureCollection1 = gameState.featureCollections[featureCollectionId1].value;
   featureCollection1.features.forEach((feature1, featureIndex1) => {
@@ -178,35 +172,46 @@ export function SelectAdjoinedLineStringSegments(gameState: GameStateType, featu
 
     const coordinates1 = (geometry1 as LineString).coordinates;
     for (let i = 0; i < coordinates1.length; i++) {
-      if (booleanEqual(coordinate, point(coordinates1[i]))
-        || booleanEqual(coordinate1, point(coordinates1[i]))) {
-        if (i !== coordinates1.length - 1) {
-          // 選択済みのセグメントは追加しない
-          if (selectedFeatures.find(featureAt1 =>
-            featureAt1.featureCollectionId === featureCollectionId1
-            && featureAt1.featureIndex === featureIndex1
-            && featureAt1.segmentIndex === i
-          ) === undefined)
-            adjoinedSegments.push({
-              featureCollectionId: featureCollectionId1,
-              featureIndex: featureIndex1,
-              segmentIndex: i,
-            });
-        }
+      points.forEach(point => {
+        if (booleanEqual(point, turfPoint(coordinates1[i]))) {
+          if (i !== coordinates1.length - 1) {
+            // 選択済み、追加済みのセグメントは追加しない
+            if (selectedFeatures.find(featureAt1 =>
+              featureAt1.featureCollectionId === featureCollectionId1
+              && featureAt1.featureIndex === featureIndex1
+              && featureAt1.segmentIndex === i
+            ) === undefined
+              && adjoinedSegments.find(featureAt1 =>
+                featureAt1.featureCollectionId === featureCollectionId1
+                && featureAt1.featureIndex === featureIndex1
+                && featureAt1.segmentIndex === i
+              ) === undefined)
+              adjoinedSegments.push({
+                featureCollectionId: featureCollectionId1,
+                featureIndex: featureIndex1,
+                segmentIndex: i,
+              });
+          }
 
-        if (i !== 0) {
-          if (selectedFeatures.find(featureAt1 =>
-            featureAt1.featureCollectionId === featureCollectionId1
-            && featureAt1.featureIndex === featureIndex1
-            && featureAt1.segmentIndex === i - 1
-          ) === undefined)
-            adjoinedSegments.push({
-              featureCollectionId: featureCollectionId1,
-              featureIndex: featureIndex1,
-              segmentIndex: i - 1,
-            });
+          if (i !== 0) {
+            if (selectedFeatures.find(featureAt1 =>
+              featureAt1.featureCollectionId === featureCollectionId1
+              && featureAt1.featureIndex === featureIndex1
+              && featureAt1.segmentIndex === i - 1
+            ) === undefined
+              && adjoinedSegments.find(featureAt1 =>
+                featureAt1.featureCollectionId === featureCollectionId1
+                && featureAt1.featureIndex === featureIndex1
+                && featureAt1.segmentIndex === i - 1
+              ) === undefined)
+              adjoinedSegments.push({
+                featureCollectionId: featureCollectionId1,
+                featureIndex: featureIndex1,
+                segmentIndex: i - 1,
+              });
+          }
         }
-      }
+      })
     }
   });
 

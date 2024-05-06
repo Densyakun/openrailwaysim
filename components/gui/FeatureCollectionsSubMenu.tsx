@@ -10,14 +10,16 @@ import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { FeatureAt, SelectAdjoinedLineStringSegments, state as gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client';
-import { LineString, Position, lineString } from '@turf/helpers';
+import { Feature, LineString, Point, Position, Properties, lineString } from '@turf/helpers';
 import centroid from '@turf/centroid';
+import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 import { guiState } from './GUI';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
+import booleanEqual from '@turf/boolean-equal';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -83,10 +85,53 @@ function ModelPaths() {
 function onUpdateSegmentList() {
   // 隣接するセグメントの一覧を取得する
   const lastFeatureAt = featureCollectionsSubMenuState.segmentList[featureCollectionsSubMenuState.segmentList.length - 1];
+  if (lastFeatureAt.segmentIndex === undefined) return;
+
+  const featureCollection = gameState.featureCollections[lastFeatureAt.featureCollectionId].value;
+
+  const geometry = featureCollection.features[lastFeatureAt.featureIndex].geometry;
+  const point = turfPoint((geometry as LineString).coordinates[lastFeatureAt.segmentIndex]);
+  const point1 = turfPoint((geometry as LineString).coordinates[lastFeatureAt.segmentIndex + 1]);
+
+  // 両端の点をpointsに代入する
+  let points: Feature<Point, Properties>[] = [];
+
+  if (featureCollectionsSubMenuState.segmentList.length === 1)
+    points = [point, point1];
+  else {
+    let a = 0;
+    let b = 0;
+
+    for (let i = 0; i < featureCollectionsSubMenuState.segmentList.length; i++) {
+      const segment = featureCollectionsSubMenuState.segmentList[i];
+
+      if (booleanEqual(point, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
+        || booleanEqual(point, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
+        a++;
+        if (a === 2)
+          break;
+      }
+
+      if (booleanEqual(point1, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
+        || booleanEqual(point1, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
+        b++;
+        if (b === 2)
+          break;
+      }
+    }
+
+    if (a !== 2) {
+      if (b !== 2)
+        points = [point, point1];
+      else
+        points = [point];
+    } else if (b !== 2)
+      points = [point1];
+  };
 
   featureCollectionsSubMenuState.nextSegmentList = SelectAdjoinedLineStringSegments(
     gameState,
-    lastFeatureAt as FeatureAt & { segmentIndex: number },
+    points,
     lastFeatureAt.featureCollectionId,
     featureCollectionsSubMenuState.segmentList,
   );

@@ -3,6 +3,8 @@ import * as THREE from 'three'
 import { Line } from '@react-three/drei'
 import { Position } from '@turf/helpers'
 import { coordinateToEuler, getRelativePosition, state as gisState } from '@/lib/gis'
+import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu'
+import { useSnapshot } from 'valtio'
 
 export default function CoordinatesLine({
   featureCollectionId,
@@ -17,6 +19,8 @@ export default function CoordinatesLine({
   centerCoordinate: Position,
   y?: number
 }) {
+  useSnapshot(featureCollectionsSubMenuState);
+
   // Azimuthal equidistant projection
   const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate, 0))
 
@@ -36,51 +40,53 @@ export default function CoordinatesLine({
   })*/
 
   return <>
-    {points.map((point, nextPointIndex) => nextPointIndex === 0 ? null :
-      <React.Fragment key={nextPointIndex}>
-        <Line
-          points={[points[nextPointIndex - 1], point]}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onClick={() => {
-            const index = gisState.selectedFeatures.findIndex(value =>
-              value
-              && value.featureCollectionId === featureCollectionId
-              && value.featureIndex === featureIndex
-              && value.segmentIndex === nextPointIndex - 1
-            )
+    {!featureCollectionsSubMenuState.segmentList.length
+      && !featureCollectionsSubMenuState.straightTracks.length
+      && points.map((point, nextPointIndex) => nextPointIndex === 0 ? null :
+        <React.Fragment key={nextPointIndex}>
+          <Line
+            points={[points[nextPointIndex - 1], point]}
+            lineWidth={48}
+            transparent
+            opacity={0}
+            onClick={() => {
+              const index = gisState.selectedFeatures.findIndex(value =>
+                value
+                && value.featureCollectionId === featureCollectionId
+                && value.featureIndex === featureIndex
+                && value.segmentIndex === nextPointIndex - 1
+              )
 
-            if (0 <= index)
-              gisState.selectedFeatures.splice(index, 1)
-            else {
-              gisState.selectedFeatures.push({
-                featureCollectionId,
-                featureIndex,
+              if (0 <= index)
+                gisState.selectedFeatures.splice(index, 1)
+              else {
+                gisState.selectedFeatures.push({
+                  featureCollectionId,
+                  featureIndex,
+                  segmentIndex: nextPointIndex - 1
+                })
+              }
+            }}
+            onPointerOver={() => {
+              gisState.hoveredFeatures.push({
+                featureCollectionId: featureCollectionId,
+                featureIndex: featureIndex,
                 segmentIndex: nextPointIndex - 1
               })
-            }
-          }}
-          onPointerOver={() => {
-            gisState.hoveredFeatures.push({
-              featureCollectionId: featureCollectionId,
-              featureIndex: featureIndex,
-              segmentIndex: nextPointIndex - 1
-            })
-          }}
-          onPointerOut={() => {
-            const index = gisState.hoveredFeatures.findIndex(value =>
-              value
-              && value.featureCollectionId === featureCollectionId
-              && value.featureIndex === featureIndex
-              && value.segmentIndex === nextPointIndex - 1
-            )
+            }}
+            onPointerOut={() => {
+              const index = gisState.hoveredFeatures.findIndex(value =>
+                value
+                && value.featureCollectionId === featureCollectionId
+                && value.featureIndex === featureIndex
+                && value.segmentIndex === nextPointIndex - 1
+              )
 
-            if (0 <= index)
-              delete gisState.hoveredFeatures[index]
-          }}
-        />
-      </React.Fragment>
-    )}
+              if (0 <= index)
+                delete gisState.hoveredFeatures[index]
+            }}
+          />
+        </React.Fragment>
+      )}
   </>
 }

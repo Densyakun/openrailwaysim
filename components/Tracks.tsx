@@ -7,7 +7,7 @@ import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { TransitionCurve, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
-import { onClickAddingTrack, tracksSubMenuState } from './gui/TracksSubMenu'
+import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { trainsSubMenuState } from './gui/TrainsSubMenu'
 import { getRelativePosition } from '@/lib/gis'
 import { createTestOneAxleCar } from '@/lib/trainSamples'
@@ -16,6 +16,8 @@ import { FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, toSerializableProp } 
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary } from 'react-error-boundary';
+import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
+import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu';
 
 export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
 
@@ -64,6 +66,136 @@ function RailModel({
       </React.Suspense>
     </ErrorBoundary>
   </group>
+}
+
+function AddingTracks() {
+  //useSnapshot(guiState);
+  //useSnapshot(tracksSubMenuState);
+  useSnapshot(curveEditMenuState);
+
+  if (!(
+    guiState.menuState === "tracks" && tracksSubMenuState.isAddingCurve
+    || guiState.menuState === "featureCollections" && featureCollectionsSubMenuState.straightTracks.length
+  ))
+    return null;
+
+  return <>
+    {curveEditMenuState.addingCurves.map((curve, trackIndex) => {
+      if (!curve) return;
+
+      const { centerCoordinate, position, length, radius } = curve;
+
+      let points = []
+      if (radius === 0)
+        points = [position, getPosition(curve, length)]
+      else {
+        const numberOfPoints = getNumberOfCurvePoints(length, radius)
+        for (let i = 0; i <= numberOfPoints; i++)
+          points.push(getPosition(curve, length * i / numberOfPoints))
+      }
+
+      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+        <Line
+          points={points}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onClick={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              onClickAddingTrack(trackIndex)
+          }}
+          onPointerOver={() => {
+            tracksSubMenuState.hoveredAddingTracks = trackIndex
+          }}
+          onPointerOut={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              tracksSubMenuState.hoveredAddingTracks = -1
+          }}
+        />
+        <Line
+          points={points}
+          color={
+            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+              "#000"
+          }
+        />
+      </FeatureObject>
+    })}
+    {curveEditMenuState.addingTransitionsAB.map((curve, trackIndex) => {
+      if (!curve) return;
+
+      const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+
+      let points = [];
+      for (let i = 0; i < transitionCurves.length; i++)
+        points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+      points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+
+      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+        <Line
+          points={points}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onClick={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              onClickAddingTrack(trackIndex)
+          }}
+          onPointerOver={() => {
+            tracksSubMenuState.hoveredAddingTracks = trackIndex
+          }}
+          onPointerOut={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              tracksSubMenuState.hoveredAddingTracks = -1
+          }}
+        />
+        <Line
+          points={points}
+          color={
+            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+              "#f0f"
+          }
+        />
+      </FeatureObject>
+    })}
+    {curveEditMenuState.addingTransitionsCD.map((curve, trackIndex) => {
+      if (!curve) return;
+
+      const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+
+      let points = [];
+      for (let i = 0; i < transitionCurves.length; i++)
+        points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+      points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+
+      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+        <Line
+          points={points}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onClick={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              onClickAddingTrack(trackIndex)
+          }}
+          onPointerOver={() => {
+            tracksSubMenuState.hoveredAddingTracks = trackIndex
+          }}
+          onPointerOut={() => {
+            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+              tracksSubMenuState.hoveredAddingTracks = -1
+          }}
+        />
+        <Line
+          points={points}
+          color={
+            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
+              "#f0f"
+          }
+        />
+      </FeatureObject>
+    })}
+  </>;
 }
 
 export default function Tracks() {
@@ -278,125 +410,7 @@ export default function Tracks() {
           </>}
         </FeatureObject>
       })}
-      {guiState.menuState === "tracks" && tracksSubMenuState.isAddingCurve &&
-        <>
-          {tracksSubMenuState.addingCurves.map((curve, trackIndex) => {
-            if (!curve) return;
-
-            const { centerCoordinate, position, length, radius } = curve;
-
-            let points = []
-            if (radius === 0)
-              points = [position, getPosition(curve, length)]
-            else {
-              const numberOfPoints = getNumberOfCurvePoints(length, radius)
-              for (let i = 0; i <= numberOfPoints; i++)
-                points.push(getPosition(curve, length * i / numberOfPoints))
-            }
-
-            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
-              <Line
-                points={points}
-                lineWidth={48}
-                transparent
-                opacity={0}
-                onClick={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    onClickAddingTrack(trackIndex)
-                }}
-                onPointerOver={() => {
-                  tracksSubMenuState.hoveredAddingTracks = trackIndex
-                }}
-                onPointerOut={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    tracksSubMenuState.hoveredAddingTracks = -1
-                }}
-              />
-              <Line
-                points={points}
-                color={
-                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-                    "#000"
-                }
-              />
-            </FeatureObject>
-          })}
-          {tracksSubMenuState.addingTransitions.map((curve, trackIndex) => {
-            if (!curve) return;
-
-            const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
-
-            let points = [];
-            for (let i = 0; i < transitionCurves.length; i++)
-              points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-            points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-
-            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
-              <Line
-                points={points}
-                lineWidth={48}
-                transparent
-                opacity={0}
-                onClick={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    onClickAddingTrack(trackIndex)
-                }}
-                onPointerOver={() => {
-                  tracksSubMenuState.hoveredAddingTracks = trackIndex
-                }}
-                onPointerOut={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    tracksSubMenuState.hoveredAddingTracks = -1
-                }}
-              />
-              <Line
-                points={points}
-                color={
-                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-                    "#f0f"
-                }
-              />
-            </FeatureObject>
-          })}
-          {tracksSubMenuState.addingTransitions1.map((curve, trackIndex) => {
-            if (!curve) return;
-
-            const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
-
-            let points = [];
-            for (let i = 0; i < transitionCurves.length; i++)
-              points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-            points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-
-            return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
-              <Line
-                points={points}
-                lineWidth={48}
-                transparent
-                opacity={0}
-                onClick={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    onClickAddingTrack(trackIndex)
-                }}
-                onPointerOver={() => {
-                  tracksSubMenuState.hoveredAddingTracks = trackIndex
-                }}
-                onPointerOut={() => {
-                  if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-                    tracksSubMenuState.hoveredAddingTracks = -1
-                }}
-              />
-              <Line
-                points={points}
-                color={
-                  tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-                    "#f0f"
-                }
-              />
-            </FeatureObject>
-          })}
-        </>
-      }
+      <AddingTracks />
       {
         guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
         tracksState.pointingOnTrack &&

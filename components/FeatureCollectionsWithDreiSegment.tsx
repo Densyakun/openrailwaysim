@@ -1,11 +1,10 @@
 import * as React from 'react';
 import { gameState } from '@/lib/client';
-import { guiState } from './gui/GUI';
-import { useSnapshot } from 'valtio';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from '@turf/helpers';
-import { getRelativePosition, state as gisState } from '@/lib/gis';
+import { FeatureAt, equalFeatureAt, getRelativePosition, state as gisState } from '@/lib/gis';
+import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu';
 
 export default function FeatureCollectionsWithDreiSegment() {
   return (
@@ -51,9 +50,11 @@ function CoordinatesLineWithDreiSegment({
     {coordinates.map((nextCoordinate, nextCoordinateIndex) => nextCoordinateIndex === 0 ? null :
       <React.Fragment key={nextCoordinateIndex}>
         <LineStringSegment
-          featureCollectionId={featureCollectionId}
-          featureIndex={featureIndex}
-          nextCoordinateIndex={nextCoordinateIndex}
+          segment={{
+            featureCollectionId,
+            featureIndex,
+            segmentIndex: nextCoordinateIndex - 1
+          }}
           startCoordinate={coordinates[nextCoordinateIndex - 1]}
           endCoordinate={nextCoordinate}
         />
@@ -63,15 +64,11 @@ function CoordinatesLineWithDreiSegment({
 }
 
 function LineStringSegment({
-  featureCollectionId,
-  featureIndex,
-  nextCoordinateIndex,
+  segment,
   startCoordinate,
   endCoordinate
 }: {
-  featureCollectionId: string,
-  featureIndex: number,
-  nextCoordinateIndex: number,
+  segment: FeatureAt,
   startCoordinate: Position,
   endCoordinate: Position
 }) {
@@ -81,25 +78,56 @@ function LineStringSegment({
     if (!ref.current) return;
 
     // Azimuthal equidistant projection
-    //const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(originCoordinate), originCoordinate, 0));
     const start = getRelativePosition(startCoordinate);
     const end = getRelativePosition(endCoordinate);
 
     ref.current.start.copy(start);
     ref.current.end.copy(end);
 
-    if (gisState.hoveredFeatures.find(value =>
+    if (featureCollectionsSubMenuState.segmentList.length) {
+      const i = featureCollectionsSubMenuState.segmentList.findIndex(value =>
+        value
+        && equalFeatureAt(segment, value)
+      );
+      if (i !== -1) {
+        if (featureCollectionsSubMenuState.isStraightList[i])
+          ref.current.color.setRGB(1, 0, 1);
+        else
+          ref.current.color.setRGB(0, 0, 0);
+        return;
+      } else if (featureCollectionsSubMenuState.nextSegmentList.length) {
+        if ((featureCollectionsSubMenuState.focusedNextSegmentIndex === -1 || !featureCollectionsSubMenuState.nextSegmentList.length
+          ? false
+          : equalFeatureAt(segment, featureCollectionsSubMenuState.nextSegmentList[featureCollectionsSubMenuState.focusedNextSegmentIndex]))) {
+          ref.current.color.setRGB(1, 1, 0);
+          return;
+        } else if (featureCollectionsSubMenuState.nextSegmentList.find(value =>
+          value
+          && equalFeatureAt(segment, value)
+        )) {
+          ref.current.color.setRGB(1, 0, 0);
+          return;
+        }
+      }
+
+      if (!(featureCollectionsSubMenuState.nextSegmentList.length
+        ? featureCollectionsSubMenuState.nextSegmentList.find(segment1 =>
+          segment.featureCollectionId === segment1.featureCollectionId
+          && segment.featureIndex === segment1.featureIndex
+        )
+        : true)) {
+        ref.current.start.set(0, 0, 0);
+        ref.current.end.set(0, 0, 0);
+      } else
+        ref.current.color.setRGB(0, 0, 0);
+    } else if (gisState.hoveredFeatures.find(value =>
       value
-      && value.featureCollectionId === featureCollectionId
-      && value.featureIndex === featureIndex
-      && value.segmentIndex === nextCoordinateIndex - 1
+      && equalFeatureAt(segment, value)
     ))
       ref.current.color.setRGB(1, 1, 0);
     else if (gisState.selectedFeatures.find(value =>
       value
-      && value.featureCollectionId === featureCollectionId
-      && value.featureIndex === featureIndex
-      && value.segmentIndex === nextCoordinateIndex - 1
+      && equalFeatureAt(segment, value)
     ))
       ref.current.color.setRGB(1, 0, 0);
     else

@@ -1,7 +1,9 @@
-import { Position } from '@turf/helpers';
+import { Position, lineString } from '@turf/helpers';
 import * as THREE from 'three'
 import { GameStateType, IdentifiedRecord } from './game';
 import { proxy } from 'valtio';
+import centroid from '@turf/centroid';
+import { coordinateToEuler, getRelativePosition } from './gis';
 
 export type Track = {
   centerCoordinate: Position;
@@ -276,6 +278,74 @@ export function switchTrack(gameState: GameStateType, switchId: number, newCurre
       track.connectedFromStartIsToEnd = connectedIsToEnd;
     }
   }
+}
+
+export function areParallel(AB: Track, CD: Track) {
+  const centerCoordinate = centroid(lineString([AB.centerCoordinate, CD.centerCoordinate])).geometry.coordinates;
+  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
+
+  const trackCenterCoordinates = [
+    getRelativePosition(AB.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0),
+    getRelativePosition(CD.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0),
+  ];
+
+  const pointA = trackCenterCoordinates[0].clone().add(AB.position);
+  const pointB = trackCenterCoordinates[0].clone().add(AB.position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, AB.rotationY)).multiplyScalar(AB.length)));
+  const pointC = trackCenterCoordinates[1].clone().add(CD.position);
+  const pointD = trackCenterCoordinates[1].clone().add(CD.position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, CD.rotationY)).multiplyScalar(CD.length)));
+
+  const s = ((pointC.x - pointA.x) * (pointD.z - pointC.z) - (pointC.z - pointA.z) * (pointD.x - pointC.x))
+    / ((pointB.x - pointA.x) * (pointD.z - pointC.z) - (pointB.z - pointA.z) * (pointD.x - pointC.x));
+
+  return Number.isNaN(s);
+}
+
+export function createStraightTrackFromLineStrings(coordinatePairs: Position[], modelPaths: string[]) {
+  const centerCoordinate = centroid(lineString(coordinatePairs)).geometry.coordinates;
+  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
+
+  const points = coordinatePairs.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0));
+
+  const vector = points[1].clone().sub(points[0]);
+  const rotationYA = Math.atan2(-vector.z, vector.x);
+  for (let i = 3; i < points.length; i += 2) {
+    const vector_ = points[i].clone().sub(points[i - 1]);
+    const rotationYB = Math.atan2(-vector_.z, vector_.x);
+    if (Math.round((rotationYB - rotationYA) / Math.PI / 2) === 0)
+      vector.add(vector_);
+    else
+      vector.sub(vector_);
+  }
+  vector.divideScalar(points.length - 1);
+
+  const rotationY = Math.atan2(-vector.z, vector.x);
+
+  let mostNegativeZ = 0;
+  let mostPositiveZ = 0;
+  points.forEach(point => {
+    const z = point.clone().applyEuler(new THREE.Euler(0, -rotationY)).x;
+    mostNegativeZ = Math.min(mostNegativeZ, z);
+    mostPositiveZ = Math.max(mostPositiveZ, z);
+  })
+
+  return {
+    centerCoordinate,
+    position: vector.clone().setLength(mostNegativeZ),
+    rotationY,
+    length: mostPositiveZ - mostNegativeZ,
+    radius: 0,
+    /*startGrade: 0, // TODO grade
+    endGrade: 0,*/
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginRotationX: 0,
+    endRotationX: 0,
+    modelPaths,
+  } as Track;
 }
 
 export type Switch = {

@@ -282,11 +282,12 @@ export function finishCreateTracks() {
         t,
         curve,
         transitionCurveAB,
-        transitionCurveCD
+        transitionCurveCD,
+        false
       );
-
-      ABId = CDId;
     }
+
+    ABId = CDId;
   }
 
   resetEditing();

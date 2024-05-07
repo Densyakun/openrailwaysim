@@ -361,7 +361,7 @@ export function onClickAddingTrack(curveIndex: number) {
   connectTwoStraightLinesWithCurve(AB, ABId, CD, CDId, curveIndex, s, t, curve, transitionCurveAB, transitionCurveCD);
 }
 
-export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Track, CDId: string, curveIndex: number, s: number, t: number, curve: Track, transitionCurveAB?: TransitionCurve, transitionCurveCD?: TransitionCurve) {
+export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Track, CDId: string, curveIndex: number, s: number, t: number, curve: Track, transitionCurveAB?: TransitionCurve, transitionCurveCD?: TransitionCurve, createSwitch = true) {
   const curveId = uuidv4();
 
   const serializableCurve: SerializableTrack = {
@@ -528,100 +528,127 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         toSerializableProp(["tracks", ABId], AB)
       ]]));
   } else {
-    // ABの途中に分岐器を追加する場合
-    let trackB: SerializableTrack; // 分岐器の直進側
+    // ABの中間と接続する場合
 
-    const railroadSwitch: SerializableSwitch = {
-      id: uuidv4(),
-      connectedTrackIds: [],
-      isConnectedToEnd: [],
-      currentConnected: -1,
-    };
+    if (createSwitch) {
+      // 分岐器を作成する場合
+      let trackB: SerializableTrack; // 分岐器の直進側
 
-    if (curveIndex < 4) {
-      trackB = {
+      const railroadSwitch: SerializableSwitch = {
         id: uuidv4(),
-        centerCoordinate: AB.centerCoordinate,
-        position: getPosition(AB, AB.length * s).toArray(),
-        rotationY: AB.rotationY,
-        length: AB.length * (1 - s),
-        radius: 0,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
-        beginRotationX: AB.beginRotationX,
-        endRotationX: AB.beginRotationX,
-        modelPaths: AB.modelPaths,
+        connectedTrackIds: [],
+        isConnectedToEnd: [],
+        currentConnected: -1,
+      };
+
+      if (curveIndex < 4) {
+        trackB = {
+          id: uuidv4(),
+          centerCoordinate: AB.centerCoordinate,
+          position: getPosition(AB, AB.length * s).toArray(),
+          rotationY: AB.rotationY,
+          length: AB.length * (1 - s),
+          radius: 0,
+          /*startGrade: 0, // TODO grade
+          endGrade: 0,*/
+          idOfTrackOrSwitchConnectedFromStart: "",
+          idOfTrackOrSwitchConnectedFromEnd: "",
+          connectedFromStartIsTrack: true,
+          connectedFromEndIsTrack: true,
+          connectedFromStartIsToEnd: false,
+          connectedFromEndIsToEnd: false,
+          beginRotationX: AB.beginRotationX,
+          endRotationX: AB.beginRotationX,
+          modelPaths: AB.modelPaths,
+        }
+
+        AB.length *= s;
+
+        // 直進側を開通する
+        railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveAB ? transitionCurveABId : curveId];
+        railroadSwitch.isConnectedToEnd = [false, false];
+        railroadSwitch.currentConnected = 0;
+
+        trackB.idOfTrackOrSwitchConnectedFromEnd = AB.idOfTrackOrSwitchConnectedFromEnd;
+        trackB.connectedFromEndIsTrack = AB.connectedFromEndIsTrack;
+        trackB.connectedFromEndIsToEnd = AB.connectedFromEndIsToEnd;
+
+        AB.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+        AB.connectedFromEndIsTrack = false;
+        trackB.idOfTrackOrSwitchConnectedFromStart = ABId;
+        trackB.connectedFromStartIsTrack = true;
+        trackB.connectedFromStartIsToEnd = true;
+      } else {
+        trackB = {
+          id: uuidv4(),
+          centerCoordinate: AB.centerCoordinate,
+          position: getPosition(AB, 0).toArray(),
+          rotationY: AB.rotationY,
+          length: AB.length * s,
+          radius: 0,
+          /*startGrade: 0, // TODO grade
+          endGrade: 0,*/
+          idOfTrackOrSwitchConnectedFromStart: "",
+          idOfTrackOrSwitchConnectedFromEnd: "",
+          connectedFromStartIsTrack: true,
+          connectedFromEndIsTrack: true,
+          connectedFromStartIsToEnd: false,
+          connectedFromEndIsToEnd: false,
+          beginRotationX: AB.beginRotationX,
+          endRotationX: AB.beginRotationX,
+          modelPaths: AB.modelPaths,
+        }
+
+        AB.position = getPosition(AB, AB.length * s);
+        AB.length *= (1 - s);
+
+        railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveAB ? transitionCurveABId : curveId];
+        railroadSwitch.isConnectedToEnd = [true, false];
+        railroadSwitch.currentConnected = 0;
+
+        trackB.idOfTrackOrSwitchConnectedFromStart = AB.idOfTrackOrSwitchConnectedFromStart;
+        trackB.connectedFromStartIsTrack = AB.connectedFromStartIsTrack;
+        trackB.connectedFromStartIsToEnd = AB.connectedFromStartIsToEnd;
+
+        trackB.idOfTrackOrSwitchConnectedFromEnd = ABId;
+        trackB.connectedFromEndIsTrack = true;
+        trackB.connectedFromEndIsToEnd = false;
+        AB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+        AB.connectedFromStartIsTrack = false;
       }
 
-      AB.length *= s;
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
-      // 直進側を開通する
-      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveAB ? transitionCurveABId : curveId];
-      railroadSwitch.isConnectedToEnd = [false, false];
-      railroadSwitch.currentConnected = 0;
-
-      trackB.idOfTrackOrSwitchConnectedFromEnd = AB.idOfTrackOrSwitchConnectedFromEnd;
-      trackB.connectedFromEndIsTrack = AB.connectedFromEndIsTrack;
-      trackB.connectedFromEndIsToEnd = AB.connectedFromEndIsToEnd;
-
-      AB.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
-      AB.connectedFromEndIsTrack = false;
-      trackB.idOfTrackOrSwitchConnectedFromStart = ABId;
-      trackB.connectedFromStartIsTrack = true;
-      trackB.connectedFromStartIsToEnd = true;
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
     } else {
-      trackB = {
-        id: uuidv4(),
-        centerCoordinate: AB.centerCoordinate,
-        position: getPosition(AB, 0).toArray(),
-        rotationY: AB.rotationY,
-        length: AB.length * s,
-        radius: 0,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
-        beginRotationX: AB.beginRotationX,
-        endRotationX: AB.beginRotationX,
-        modelPaths: AB.modelPaths,
+      // 分岐器を作成しない場合
+      const connectedTrack = serializableTransitionCurveAB || serializableCurve;
+      if (curveIndex < 4) {
+        AB.length *= s;
+
+        AB.idOfTrackOrSwitchConnectedFromEnd = serializableTransitionCurveAB ? transitionCurveABId : curveId;
+        AB.connectedFromEndIsTrack = true;
+        AB.connectedFromEndIsToEnd = false;
+        connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
+        connectedTrack.connectedFromStartIsTrack = true;
+        connectedTrack.connectedFromStartIsToEnd = true;
+      } else {
+        AB.position = getPosition(AB, AB.length * s);
+        AB.length *= (1 - s);
+
+        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = ABId;
+        connectedTrack.connectedFromEndIsTrack = true;
+        connectedTrack.connectedFromEndIsToEnd = false;
+        AB.idOfTrackOrSwitchConnectedFromStart = serializableTransitionCurveAB ? transitionCurveABId : curveId;
+        AB.connectedFromStartIsTrack = true;
+        AB.connectedFromStartIsToEnd = false;
       }
-
-      AB.position = getPosition(AB, AB.length * s);
-      AB.length *= (1 - s);
-
-      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveAB ? transitionCurveABId : curveId];
-      railroadSwitch.isConnectedToEnd = [true, false];
-      railroadSwitch.currentConnected = 0;
-
-      trackB.idOfTrackOrSwitchConnectedFromStart = AB.idOfTrackOrSwitchConnectedFromStart;
-      trackB.connectedFromStartIsTrack = AB.connectedFromStartIsTrack;
-      trackB.connectedFromStartIsToEnd = AB.connectedFromStartIsToEnd;
-
-      trackB.idOfTrackOrSwitchConnectedFromEnd = ABId;
-      trackB.connectedFromEndIsTrack = true;
-      trackB.connectedFromEndIsToEnd = false;
-      AB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
-      AB.connectedFromStartIsTrack = false;
     }
-
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
       "tracks",
       toSerializableProp(["tracks", ABId], AB)
     ]]));
-
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
   }
 
   // CDと接続する
@@ -709,98 +736,122 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         toSerializableProp(["tracks", CDId], CD)
       ]]));
   } else {
-    let trackB: SerializableTrack;
+    if (createSwitch) {
+      let trackB: SerializableTrack;
 
-    const railroadSwitch: SerializableSwitch = {
-      id: uuidv4(),
-      connectedTrackIds: [],
-      isConnectedToEnd: [],
-      currentConnected: -1,
-    };
-
-    if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
-      trackB = {
+      const railroadSwitch: SerializableSwitch = {
         id: uuidv4(),
-        centerCoordinate: CD.centerCoordinate,
-        position: getPosition(CD, CD.length * t).toArray(),
-        rotationY: CD.rotationY,
-        length: CD.length * (1 - t),
-        radius: 0,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
-        beginRotationX: CD.beginRotationX,
-        endRotationX: CD.beginRotationX,
-        modelPaths: CD.modelPaths,
+        connectedTrackIds: [],
+        isConnectedToEnd: [],
+        currentConnected: -1,
+      };
+
+      if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
+        trackB = {
+          id: uuidv4(),
+          centerCoordinate: CD.centerCoordinate,
+          position: getPosition(CD, CD.length * t).toArray(),
+          rotationY: CD.rotationY,
+          length: CD.length * (1 - t),
+          radius: 0,
+          /*startGrade: 0, // TODO grade
+          endGrade: 0,*/
+          idOfTrackOrSwitchConnectedFromStart: "",
+          idOfTrackOrSwitchConnectedFromEnd: "",
+          connectedFromStartIsTrack: true,
+          connectedFromEndIsTrack: true,
+          connectedFromStartIsToEnd: false,
+          connectedFromEndIsToEnd: false,
+          beginRotationX: CD.beginRotationX,
+          endRotationX: CD.beginRotationX,
+          modelPaths: CD.modelPaths,
+        }
+
+        CD.length *= t;
+
+        railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveCD ? transitionCurveCDId : curveId];
+        railroadSwitch.isConnectedToEnd = [false, serializableTransitionCurveCD ? false : true];
+        railroadSwitch.currentConnected = 0;
+
+        trackB.idOfTrackOrSwitchConnectedFromEnd = CD.idOfTrackOrSwitchConnectedFromEnd;
+        trackB.connectedFromEndIsTrack = CD.connectedFromEndIsTrack;
+        trackB.connectedFromEndIsToEnd = CD.connectedFromEndIsToEnd;
+
+        CD.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+        CD.connectedFromEndIsTrack = false;
+        trackB.idOfTrackOrSwitchConnectedFromStart = CDId;
+        trackB.connectedFromStartIsTrack = true;
+        trackB.connectedFromStartIsToEnd = true;
+      } else {
+        trackB = {
+          id: uuidv4(),
+          centerCoordinate: CD.centerCoordinate,
+          position: getPosition(CD, 0).toArray(),
+          rotationY: CD.rotationY,
+          length: CD.length * t,
+          radius: 0,
+          /*startGrade: 0, // TODO grade
+          endGrade: 0,*/
+          idOfTrackOrSwitchConnectedFromStart: "",
+          idOfTrackOrSwitchConnectedFromEnd: "",
+          connectedFromStartIsTrack: true,
+          connectedFromEndIsTrack: true,
+          connectedFromStartIsToEnd: false,
+          connectedFromEndIsToEnd: false,
+          beginRotationX: CD.beginRotationX,
+          endRotationX: CD.beginRotationX,
+          modelPaths: CD.modelPaths,
+        }
+
+        CD.position = getPosition(CD, CD.length * t);
+        CD.length *= (1 - t);
+
+        railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveCD ? transitionCurveCDId : curveId];
+        railroadSwitch.isConnectedToEnd = [true, serializableTransitionCurveCD ? false : true];
+        railroadSwitch.currentConnected = 0;
+
+        trackB.idOfTrackOrSwitchConnectedFromStart = CD.idOfTrackOrSwitchConnectedFromStart;
+        trackB.connectedFromStartIsTrack = CD.connectedFromStartIsTrack;
+        trackB.connectedFromStartIsToEnd = CD.connectedFromStartIsToEnd;
+
+        CD.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+        CD.connectedFromStartIsTrack = false;
+        trackB.idOfTrackOrSwitchConnectedFromEnd = CDId;
+        trackB.connectedFromEndIsTrack = true;
+        trackB.connectedFromEndIsToEnd = false;
       }
 
-      CD.length *= t;
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
-      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveCD ? transitionCurveCDId : curveId];
-      railroadSwitch.isConnectedToEnd = [false, serializableTransitionCurveCD ? false : true];
-      railroadSwitch.currentConnected = 0;
-
-      trackB.idOfTrackOrSwitchConnectedFromEnd = CD.idOfTrackOrSwitchConnectedFromEnd;
-      trackB.connectedFromEndIsTrack = CD.connectedFromEndIsTrack;
-      trackB.connectedFromEndIsToEnd = CD.connectedFromEndIsToEnd;
-
-      CD.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
-      CD.connectedFromEndIsTrack = false;
-      trackB.idOfTrackOrSwitchConnectedFromStart = CDId;
-      trackB.connectedFromStartIsTrack = true;
-      trackB.connectedFromStartIsToEnd = true;
+      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
     } else {
-      trackB = {
-        id: uuidv4(),
-        centerCoordinate: CD.centerCoordinate,
-        position: getPosition(CD, 0).toArray(),
-        rotationY: CD.rotationY,
-        length: CD.length * t,
-        radius: 0,
-        /*startGrade: 0, // TODO grade
-        endGrade: 0,*/
-        idOfTrackOrSwitchConnectedFromStart: "",
-        idOfTrackOrSwitchConnectedFromEnd: "",
-        connectedFromStartIsTrack: true,
-        connectedFromEndIsTrack: true,
-        connectedFromStartIsToEnd: false,
-        connectedFromEndIsToEnd: false,
-        beginRotationX: CD.beginRotationX,
-        endRotationX: CD.beginRotationX,
-        modelPaths: CD.modelPaths,
+      const connectedTrack = serializableTransitionCurveCD || serializableCurve;
+      if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
+        CD.length *= t;
+
+        CD.idOfTrackOrSwitchConnectedFromEnd = serializableTransitionCurveCD ? transitionCurveCDId : curveId;
+        CD.connectedFromEndIsTrack = true;
+        CD.connectedFromEndIsToEnd = serializableTransitionCurveCD ? false : true;
+        connectedTrack.idOfTrackOrSwitchConnectedFromStart = CDId;
+        connectedTrack.connectedFromStartIsTrack = true;
+        connectedTrack.connectedFromStartIsToEnd = true;
+      } else {
+        CD.position = getPosition(CD, CD.length * t);
+        CD.length *= (1 - t);
+
+        CD.idOfTrackOrSwitchConnectedFromStart = serializableTransitionCurveCD ? transitionCurveCDId : curveId;
+        CD.connectedFromStartIsTrack = true;
+        CD.connectedFromStartIsToEnd = serializableTransitionCurveCD ? false : true;
+        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = CDId;
+        connectedTrack.connectedFromEndIsTrack = true;
+        connectedTrack.connectedFromEndIsToEnd = false;
       }
-
-      CD.position = getPosition(CD, CD.length * t);
-      CD.length *= (1 - t);
-
-      railroadSwitch.connectedTrackIds = [trackB.id, serializableTransitionCurveCD ? transitionCurveCDId : curveId];
-      railroadSwitch.isConnectedToEnd = [true, serializableTransitionCurveCD ? false : true];
-      railroadSwitch.currentConnected = 0;
-
-      trackB.idOfTrackOrSwitchConnectedFromStart = CD.idOfTrackOrSwitchConnectedFromStart;
-      trackB.connectedFromStartIsTrack = CD.connectedFromStartIsTrack;
-      trackB.connectedFromStartIsToEnd = CD.connectedFromStartIsToEnd;
-
-      CD.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
-      CD.connectedFromStartIsTrack = false;
-      trackB.idOfTrackOrSwitchConnectedFromEnd = CDId;
-      trackB.connectedFromEndIsTrack = true;
-      trackB.connectedFromEndIsToEnd = false;
     }
-
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
 
     socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
       "tracks",
       toSerializableProp(["tracks", CDId], CD)
     ]]));
-
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
   }
 
   // 緩和曲線と単曲線を接続する

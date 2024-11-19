@@ -5,12 +5,18 @@ import { proxy } from 'valtio';
 import centroid from '@turf/centroid';
 import { coordinateToEuler, getRelativePosition } from './gis';
 
-export type Track = {
-  centerCoordinate: Position;
+export type GradientsType = { [key: number]: number };
+
+export type TrackShape = {
   position: THREE.Vector3;
   rotationY: number;
   length: number;
   radius: number; // 正の値が右曲がり
+  gradients: GradientsType;
+};
+
+export type Track = TrackShape & {
+  centerCoordinate: Position;
   idOfTrackOrSwitchConnectedFromStart: string;
   idOfTrackOrSwitchConnectedFromEnd: string;
   connectedFromStartIsTrack: boolean;
@@ -37,6 +43,7 @@ export type SerializableTrack = IdentifiedRecord & {
   beginRotationX: number;
   endRotationX: number;
   modelPaths: string[];
+  gradients: GradientsType;
 };
 
 export type PointOnTrack = {
@@ -150,8 +157,57 @@ export function getSelectedTracks(gameState: GameStateType) {
   return tracks;
 }
 
-export function getPosition(track: Track, length: number): THREE.Vector3 {
-  const { position, rotationY, radius, length: curveLength } = track;
+export function getHeight(length: number, gradients: GradientsType) {
+  const keys = Object.keys(gradients);
+  let l = Number(keys[0]);
+  if (length <= l)
+    return gradients[l] * length / 1000;
+  let height = gradients[l] * l / 1000;
+
+  for (let n = 1; n < keys.length; n++) {
+    const l_ = Number(keys[n]);
+    if (gradients[l] === gradients[l_])
+      if (length <= l_)
+        return height + gradients[l_] * (length - l) / 1000;
+      else
+        height += gradients[l_] * (l_ - l) / 1000;
+    else if (length <= l_)
+      return height + (gradients[l] * (length - l)
+        + (gradients[l_] - gradients[l]) * (length - l) * (length - l) / (l_ - l) / 2
+      ) / 1000;
+    else
+      height += (gradients[l] * (l_ - l)
+        + (gradients[l_] - gradients[l]) * (l_ - l) / 2
+      ) / 1000;
+
+    l = l_;
+  }
+
+  return height + gradients[l] * (length - l) / 1000;
+}
+
+export function getGradient(length: number, gradients: GradientsType) {
+  const keys = Object.keys(gradients);
+  let l = Number(keys[0]);
+  if (length <= l)
+    return gradients[l];
+
+  for (let n = 1; n < keys.length; n++) {
+    const l_ = Number(keys[n]);
+    if (gradients[l] === gradients[l_]) {
+      if (length <= l_)
+        return gradients[l_];
+    } else if (length <= l_)
+      return gradients[l] + (gradients[l_] - gradients[l]) * (length - l) / (l_ - l);
+
+    l = l_;
+  }
+
+  return gradients[l];
+}
+
+export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
+  const { position, rotationY, radius, length: curveLength, gradients } = track;
 
   if (length === 0)
     return position.clone();
@@ -166,35 +222,55 @@ export function getPosition(track: Track, length: number): THREE.Vector3 {
         position: transition.position.clone().multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
         rotationY: (track as TransitionCurve).curveDirection ? transition.rotationY : -transition.rotationY,
         radius: transition.curvature === 0 ? 0 :
-          ((track as TransitionCurve).curveDirection ? -1 : 1) / transition.curvature
-      } as Track,
+          ((track as TransitionCurve).curveDirection ? -1 : 1) / transition.curvature,
+        length: 0,
+        gradients: { 0: 0 },
+      },
       length - i * curveLength / (track as TransitionCurve).transitionCurves.length
-    ).applyEuler(rotation).add(position);
+    ).applyEuler(rotation).add(position)
+      .add(new THREE.Vector3(0, getHeight(length, gradients)));
   }
 
   if (radius === 0)
-    return position.clone().add(new THREE.Vector3(1).applyEuler(rotation).multiplyScalar(length));
+    return position.clone().add(new THREE.Vector3(1).applyEuler(rotation).multiplyScalar(length))
+      .add(new THREE.Vector3(0, getHeight(length, gradients)));
   else
     return position.clone()
       .add(new THREE.Vector3(0, 0, radius).applyEuler(rotation))
-      .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)));
+      .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)))
+      .add(new THREE.Vector3(0, getHeight(length, gradients)));
 }
 
 export function getRotation(track: Track, length: number) {
-  const { rotationY, radius, length: curveLength, beginRotationX, endRotationX } = track;
+  const { rotationY, radius, length: curveLength, gradients, beginRotationX, endRotationX } = track;
 
   const cant = beginRotationX + (endRotationX - beginRotationX) * length / curveLength;
 
   if ((track as TransitionCurve).endPosition !== undefined) {
     const i = Math.max(0, Math.min((track as TransitionCurve).transitionCurves.length - 1, Math.ceil(length * (track as TransitionCurve).transitionCurves.length / curveLength)));
     const transition = (track as TransitionCurve).transitionCurves[i];
-    return new THREE.Euler(cant, rotationY + ((track as TransitionCurve).curveDirection ? 1 : -1) * (transition.rotationY + (transition.curvature === 0 ? 0 : (length - i * curveLength / (track as TransitionCurve).transitionCurves.length) * transition.curvature)), 0, 'YZX');
+    return new THREE.Euler(
+      cant,
+      rotationY + ((track as TransitionCurve).curveDirection ? 1 : -1) * (transition.rotationY + (transition.curvature === 0 ? 0 : (length - i * curveLength / (track as TransitionCurve).transitionCurves.length) * transition.curvature)),
+      Math.atan(getGradient(length, gradients) / 1000),
+      'YZX'
+    );
   }
 
   if (radius === 0)
-    return new THREE.Euler(cant, rotationY, 0, 'YZX');
+    return new THREE.Euler(
+      cant,
+      rotationY,
+      Math.atan(getGradient(length, gradients) / 1000),
+      'YZX'
+    );
   else
-    return new THREE.Euler(cant, length / -radius + rotationY, 0, 'YZX');
+    return new THREE.Euler(
+      cant,
+      length / -radius + rotationY,
+      Math.atan(getGradient(length, gradients) / 1000),
+      'YZX'
+    );
 }
 
 function transitionCurveA(point: THREE.Vector3, transitionCurves: TransitionCurveSegment[], curveDirection: boolean, lengthT: number, i = 0): number {
@@ -345,6 +421,7 @@ export function createStraightTrackFromLineStrings(coordinatePairs: Position[], 
     beginRotationX: 0,
     endRotationX: 0,
     modelPaths,
+    gradients: { 0: 0 },
   } as Track;
 }
 

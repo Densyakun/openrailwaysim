@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { TransitionCurve, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
+import { TransitionCurve, getHeight, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { trainsSubMenuState } from './gui/TrainsSubMenu'
@@ -218,12 +218,17 @@ export default function Tracks() {
       {Object.keys(gameState.tracks).map(trackId => {
         const track = gameState.tracks[trackId]
 
-        const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths } = track
+        const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
         let points: THREE.Vector3[] = []
         let rotationXList: number[] = []
         if ((track as TransitionCurve).endPosition === undefined) {
           if (radius === 0) {
-            if (beginRotationX === endRotationX)
+            const g = Object.keys(gradients).length
+            if (1 < g) {
+              const numberOfPoints = Math.ceil(length / 5) // TODO
+              for (let i = 0; i <= numberOfPoints; i++)
+                points.push(getPosition(track, length * i / numberOfPoints))
+            } else if (beginRotationX === endRotationX)
               points = [position, getPosition(track, length)]
             else {
               // 直線でカントが変化する場合
@@ -240,8 +245,16 @@ export default function Tracks() {
           const { transitionCurves, endPosition, curveDirection } = track as TransitionCurve;
 
           for (let i = 0; i < transitionCurves.length; i++)
-            points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-          points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
+            points.push(
+              position.clone()
+                .add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
+                  .add(new THREE.Vector3(0, getHeight(length * i / transitionCurves.length, gradients)))
+                ));
+          points.push(
+            position.clone()
+              .add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
+                .add(new THREE.Vector3(0, getHeight(length, gradients)))
+              ));
         }
 
         for (let i = 1; i < points.length; i++)

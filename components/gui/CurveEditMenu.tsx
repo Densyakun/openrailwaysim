@@ -228,6 +228,8 @@ export function updateAddingTracks() {
       connectedFromEndIsToEnd: false,
       beginRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
       endRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
+      gradients: { 0: 0 },
+      modelPaths: [],
     } as Track;
   });
 
@@ -382,6 +384,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     beginRotationX: curve.beginRotationX,
     endRotationX: curve.endRotationX,
     modelPaths: AB.modelPaths,
+    gradients: { 0: 0 },
   }
 
   const transitionCurveABId = uuidv4();
@@ -414,6 +417,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       curvature: value.curvature,
     })),
     curveDirection: transitionCurveAB.curveDirection,
+    gradients: { 0: 0 },
   };
 
   const transitionCurveCDId = uuidv4();
@@ -446,6 +450,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       curvature: value.curvature,
     })),
     curveDirection: transitionCurveCD.curveDirection,
+    gradients: { 0: 0 },
   };
 
   const s_ = s * AB.length;
@@ -560,6 +565,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           beginRotationX: AB.beginRotationX,
           endRotationX: AB.beginRotationX,
           modelPaths: AB.modelPaths,
+          gradients: { 0: 0 },
         }
 
         AB.length *= s;
@@ -597,6 +603,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           beginRotationX: AB.beginRotationX,
           endRotationX: AB.beginRotationX,
           modelPaths: AB.modelPaths,
+          gradients: { 0: 0 },
         }
 
         AB.position = getPosition(AB, AB.length * s);
@@ -765,6 +772,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           beginRotationX: CD.beginRotationX,
           endRotationX: CD.beginRotationX,
           modelPaths: CD.modelPaths,
+          gradients: { 0: 0 },
         }
 
         CD.length *= t;
@@ -801,6 +809,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           beginRotationX: CD.beginRotationX,
           endRotationX: CD.beginRotationX,
           modelPaths: CD.modelPaths,
+          gradients: { 0: 0 },
         }
 
         CD.position = getPosition(CD, CD.length * t);

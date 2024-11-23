@@ -1,5 +1,7 @@
 import { gameState } from '@/lib/client';
 import PlaceIcon from '@mui/icons-material/Place';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { IconButton, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import * as React from 'react';
 import { Controller } from 'react-hook-form';
@@ -57,17 +59,30 @@ export default function FeatureCollectionTable() {
       />
     }
     listItemButtons={id =>
-      <Tooltip title="Move camera to object">
-        <IconButton edge="end" onClick={() => {
-          const featureCollection = gameState.featureCollections[id].value
-          if (!featureCollection.features.length) return
+      <>
+        <Tooltip title="Change visibility">
+          <IconButton edge="end" onClick={() => {
+            const index = gameState.visibleFeatureCollections.indexOf(id);
+            if (index === -1)
+              gameState.visibleFeatureCollections.push(id);
+            else
+              gameState.visibleFeatureCollections.splice(index, 1);
+          }}>
+            {gameState.visibleFeatureCollections.includes(id) ? <VisibilityIcon /> : <VisibilityOffIcon />}
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Move camera to object">
+          <IconButton edge="end" onClick={() => {
+            const featureCollection = gameState.featureCollections[id].value
+            if (!featureCollection.features.length) return
 
-          const targetCoordinate = centroid(featureCollection).geometry.coordinates
-          setCameraTargetPosition(targetCoordinate, 0)
-        }}>
-          <PlaceIcon />
-        </IconButton>
-      </Tooltip>
+            const targetCoordinate = centroid(featureCollection).geometry.coordinates
+            setCameraTargetPosition(targetCoordinate, 0)
+          }}>
+            <PlaceIcon />
+          </IconButton>
+        </Tooltip>
+      </>
     }
   />
 }

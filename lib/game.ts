@@ -20,6 +20,7 @@ export type GameStateType = { [key: string]: any } & {
   trains: { [key: string]: Train };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
+  visibleFeatureCollections: string[];
 }
 
 export function getNewState() {
@@ -32,6 +33,7 @@ export function getNewState() {
     trains: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
+    visibleFeatureCollections: [],
   })
 
   return state

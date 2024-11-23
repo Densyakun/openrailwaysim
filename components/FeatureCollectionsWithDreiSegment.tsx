@@ -10,7 +10,9 @@ export default function FeatureCollectionsWithDreiSegment() {
   return (
     <>
       {Object.keys(gameState.featureCollections).map(id =>
-        <FeatureCollection key={id} id={id} />
+        gameState.visibleFeatureCollections.includes(id)
+          ? <FeatureCollection key={id} id={id} />
+          : null
       )}
     </>
   );

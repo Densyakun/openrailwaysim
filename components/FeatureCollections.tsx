@@ -13,11 +13,13 @@ export default function FeatureCollections() {
   return (
     <>
       {guiState.menuState === "featureCollections" && Object.keys(gameState.featureCollections).map(id => {
-        return (
-          <FeatureObject key={id} centerCoordinate={originCoordinate}>
-            <FeatureCollectionComponent featureCollectionId={id} centerCoordinate={originCoordinate} />
-          </FeatureObject>
-        )
+        return gameState.visibleFeatureCollections.includes(id)
+          ? (
+            <FeatureObject key={id} centerCoordinate={originCoordinate}>
+              <FeatureCollectionComponent featureCollectionId={id} centerCoordinate={originCoordinate} />
+            </FeatureObject>
+          )
+          : null
       })}
     </>
   );

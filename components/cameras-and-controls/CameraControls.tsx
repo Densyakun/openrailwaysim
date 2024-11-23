@@ -67,6 +67,8 @@ export default function CameraControls() {
         <OrbitControls
           ref={orbitControlsRef}
           camera={cameraRefs[mainCameraKey] as THREE.Camera}
+          zoomSpeed={5}
+          minDistance={1}
         />
       }
       {
@@ -74,6 +76,8 @@ export default function CameraControls() {
         <MapControls
           ref={mapControlsRef}
           camera={cameraRefs[mainCameraKey] as THREE.Camera}
+          zoomSpeed={5}
+          minDistance={1}
         />
       }
     </>

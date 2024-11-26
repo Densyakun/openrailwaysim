@@ -55,7 +55,7 @@ export default function FeatureCollectionTable() {
             return true
           }
         }}
-        render={({ field }) => <TextField label="Json" variant="outlined" error={errors.value !== undefined} helperText={errors.value && "Incorrect entry."} multiline {...field} />}
+        render={({ field }) => <TextField label="Json" variant="outlined" error={errors.value !== undefined} helperText={errors.value && "Incorrect entry."} multiline maxRows={8} {...field} />}
       />
     }
     listItemButtons={id =>

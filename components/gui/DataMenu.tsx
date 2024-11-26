@@ -79,24 +79,26 @@ export default function DataMenu<FormValues extends { id: string }>({
               else if (id !== editingId)
                 setEditingId("")
             })}>
-              <Controller
-                name={"id" as any}
-                control={control}
-                rules={{
-                  required: true, validate: value =>
-                    value === editingId || !Object.keys(objects).includes(value)
-                }}
-                render={({ field }) => <TextField label="ID" variant="outlined" error={errors.id !== undefined} helperText={errors.id && (
-                  errors.id.type === 'required' ? "This field is required." :
-                    errors.id.type === 'validate' ? "このIDは既に存在します" :
-                      ""
-                )
-                } {...field} />}
-              />
-              {valueControllers!(control, errors, form)}
-              <Button type="submit" variant="contained" startIcon={adding ? <AddIcon /> : <SaveIcon />}>
-                {adding ? "Add" : "Save"}
-              </Button>
+              <Stack spacing={1}>
+                <Controller
+                  name={"id" as any}
+                  control={control}
+                  rules={{
+                    required: true, validate: value =>
+                      value === editingId || !Object.keys(objects).includes(value)
+                  }}
+                  render={({ field }) => <TextField label="ID" variant="outlined" error={errors.id !== undefined} helperText={errors.id && (
+                    errors.id.type === 'required' ? "This field is required." :
+                      errors.id.type === 'validate' ? "このIDは既に存在します" :
+                        ""
+                  )
+                  } {...field} />}
+                />
+                {valueControllers!(control, errors, form)}
+                <Button type="submit" variant="contained" startIcon={adding ? <AddIcon /> : <SaveIcon />}>
+                  {adding ? "Add" : "Save"}
+                </Button>
+              </Stack>
             </form>
           </>
           :

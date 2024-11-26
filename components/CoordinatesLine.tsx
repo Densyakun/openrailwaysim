@@ -48,6 +48,7 @@ export default function CoordinatesLine({
             points={[points[nextPointIndex - 1], point]}
             lineWidth={48}
             transparent
+            depthTest={false}
             opacity={0}
             onClick={() => {
               const index = gisState.selectedFeatures.findIndex(value =>

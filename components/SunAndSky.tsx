@@ -1,11 +1,12 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { Sky } from '@react-three/drei'
+import { Environment, Sky } from '@react-three/drei'
 import FollowCamera, { state as followCameraState } from './cameras-and-controls/FollowCamera'
 import { proxy, ref } from 'valtio'
 import { getOriginEuler, state as gisState } from '@/lib/gis'
 import { gameState } from '@/lib/client'
+import { lightingIsForEditing } from './gui/GUI'
 
 export const skyDistanceHalf = 149600000000
 
@@ -73,8 +74,13 @@ export default function SunAndSky() {
       ))
     }
 
-    ambientLightRef.current!.intensity = ((sunPosition.y + 1) * maxAmbientLightIntensity / 2)
-    directionalLightRef.current!.intensity = Math.max(0, Math.min(1, sunPosition.y * 18))
+    const lightingIsForEditing_ = lightingIsForEditing();
+    ambientLightRef.current!.intensity = lightingIsForEditing_
+      ? 1
+      : ((sunPosition.y + 1) * maxAmbientLightIntensity / 2);
+    directionalLightRef.current!.intensity = lightingIsForEditing_
+      ? 0
+      : Math.max(0, Math.min(1, sunPosition.y * 18));
 
     directionalLightRef.current!.position.copy(sunPosition.clone().multiplyScalar(directionalLightDistance))
   })
@@ -87,10 +93,13 @@ export default function SunAndSky() {
         castShadow
       />
       <FollowCamera>
-        <Sky
-          distance={skyDistanceHalf * 2}
-          sunPosition={sunSkyPosition}
-        />
+        {lightingIsForEditing()
+          ? <Environment background={true} />
+          : <Sky
+            distance={skyDistanceHalf * 2}
+            sunPosition={sunSkyPosition}
+          />
+        }
       </FollowCamera>
     </>
   )

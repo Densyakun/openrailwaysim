@@ -259,3 +259,11 @@ export default function GUI() {
       </Stack>
     </>
 }
+
+export function lightingIsForEditing() {
+  return guiState.menuState === "terrains"
+    || guiState.menuState === "featureCollections"
+    || guiState.menuState === "tracks"
+    || guiState.menuState === "switches"
+    || guiState.menuState === "trains";
+}

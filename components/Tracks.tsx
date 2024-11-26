@@ -258,26 +258,45 @@ export default function Tracks() {
         }
 
         for (let i = 1; i < points.length; i++)
-          //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1))
-          rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x)
+          //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1));
+          rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
+
+        let color: string | undefined;
+        if (guiState.menuState === "switches") {
+          if (tracksState.hoveredSwitch) {
+            const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
+            const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
+            if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
+              color = "#f00";
+            else if (0 <= connectedIndex)
+              color = "#ff0";
+          }
+        }
+        else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
+        else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
+        else if (tracksState.hoveredTracks.length === 1) {
+          const hoveredTrack = gameState.tracks[tracksState.hoveredTracks[0]];
+
+          if (hoveredTrack.idOfTrackOrSwitchConnectedFromStart) {
+            if (hoveredTrack.connectedFromStartIsTrack) {
+              if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromStart) color = "#00f";
+            } else {
+              const trackSwitch = gameState.switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
+              if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
+            }
+          } else if (hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) {
+            if (hoveredTrack.connectedFromEndIsTrack) {
+              if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) color = "#00f";
+            } else {
+              const trackSwitch = gameState.switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
+              if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
+            }
+          }
+        }
 
         return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
           {points.map((nextPoint, pointIndex, array) => {
             if (pointIndex === 0) return null
-
-            let color: string | undefined;
-            if (guiState.menuState === "switches") {
-              if (tracksState.hoveredSwitch) {
-                const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
-                const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
-                if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
-                  color = "#f00";
-                else if (0 <= connectedIndex)
-                  color = "#ff0";
-              }
-            }
-            else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
-            else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
 
             return <React.Fragment key={pointIndex}>
               {modelPaths.map((modelPath, modelIndex) => <RailModel
@@ -316,11 +335,7 @@ export default function Tracks() {
             />
             <Line
               points={points}
-              color={
-                tracksState.hoveredTracks.find(value => value === trackId) ? "#ff0" :
-                  tracksState.selectedTrackIds.find(value => value === trackId) ? "#f00" :
-                    "#000"
-              }
+              color={color || "#000"}
             />
           </>}
           {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>

@@ -2,6 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
+import { clientState } from '@/lib/client'
 
 export type CameraRefs = {
   [key: string]: THREE.Camera
@@ -17,6 +18,7 @@ export const state = proxy<{
 
 export default function Cameras() {
   const { mainCameraKey } = useSnapshot(state)
+  const { cameraFar } = useSnapshot(clientState)
 
   const perspectiveCameraRef = React.useCallback((perspectiveCamera: THREE.PerspectiveCamera) => {
     state.cameraRefs["perspectiveCamera"] = perspectiveCamera
@@ -31,11 +33,13 @@ export default function Cameras() {
         ref={perspectiveCameraRef}
         makeDefault={mainCameraKey === "perspectiveCamera"}
         position={[10, 20, 30]}
+        far={cameraFar}
       />
       <OrthographicCamera
         ref={orthographicCameraRef}
         makeDefault={mainCameraKey === "orthographicCamera"}
         position={[10, 20, 30]}
+        far={cameraFar}
       />
     </>
   )

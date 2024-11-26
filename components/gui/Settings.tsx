@@ -5,9 +5,10 @@ import ListItem from '@mui/material/ListItem';
 import ListSubheader from '@mui/material/ListSubheader';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
-import { Button } from '@mui/material';
+import { Button, Stack } from '@mui/material';
 import { socket } from '../Client';
 import { FROM_CLIENT_SAVE } from '@/lib/game';
+import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 
 export default function Settings() {
   return (
@@ -28,7 +29,10 @@ export default function Settings() {
           <ul>
             <ListSubheader>Camera settings</ListSubheader>
             <ListItem sx={{ py: 0 }}>
-              <CameraSwitch />
+              <Stack spacing={1}>
+                <CameraSwitch />
+                <CameraFarTextField />
+              </Stack>
             </ListItem>
           </ul>
         </li>
@@ -42,7 +46,7 @@ export default function Settings() {
         </li>
       </List>
       <Button variant="contained" startIcon={<SaveIcon />} onClick={() => socket.send(JSON.stringify([FROM_CLIENT_SAVE]))}>
-        Save
+        Save world
       </Button>
     </>
   )

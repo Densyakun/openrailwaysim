@@ -118,8 +118,7 @@ function LineStringSegment({
           && segment.featureIndex === segment1.featureIndex
         )
         : true)) {
-        ref.current.start.set(0, 0, 0);
-        ref.current.end.set(0, 0, 0);
+        ref.current.color.setRGB(0.1, 0.1, 0.1);
       } else
         ref.current.color.setRGB(0, 0, 0);
     } else if (gisState.hoveredFeatures.find(value =>

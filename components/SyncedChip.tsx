@@ -13,7 +13,7 @@ export default function SyncedChip() {
       }
       size="small"
       sx={{
-        backgroundColor: "#00000080"
+        backgroundColor: isSynced ? "#00000080" : "#ff000080"
       }}
     />
   );

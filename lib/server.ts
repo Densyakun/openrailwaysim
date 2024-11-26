@@ -147,8 +147,40 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           break;
         }
         case FROM_CLIENT_DELETE_OBJECT: {
-          const [objectKey, id] = value as [string, number];
+          const [objectKey, id] = value as [string, string];
 
+          if (objectKey === "tracks") {
+            Object.keys(gameState.switches).forEach(switchId => {
+              const trackSwitch = gameState.switches[switchId];
+              const index = trackSwitch.connectedTrackIds.indexOf(id);
+              if (index !== -1) {
+                if (trackSwitch.currentConnected === index) trackSwitch.currentConnected = -1;
+                trackSwitch.connectedTrackIds.splice(index, 1);
+                trackSwitch.isConnectedToEnd.splice(index, 1);
+
+                if (trackSwitch.connectedTrackIds.length === 1) {
+                  // Delete switch
+                  Object.values(gameState.tracks).forEach(track => {
+                    if (track.idOfTrackOrSwitchConnectedFromStart === switchId) {
+                      track.idOfTrackOrSwitchConnectedFromStart = trackSwitch.connectedTrackIds[0];
+                      track.connectedFromStartIsTrack = true;
+                      track.connectedFromStartIsToEnd = trackSwitch.isConnectedToEnd[0];
+                    } else if (track.idOfTrackOrSwitchConnectedFromEnd === switchId) {
+                      track.idOfTrackOrSwitchConnectedFromEnd = trackSwitch.connectedTrackIds[0];
+                      track.connectedFromEndIsTrack = true;
+                      track.connectedFromEndIsToEnd = trackSwitch.isConnectedToEnd[0];
+                    }
+                  })
+                  delete gameState.switches[switchId];
+                }
+              }
+            });
+            Object.keys(gameState.trains).forEach(trainId => {
+              const train = gameState.trains[trainId];
+              if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === id)))
+                delete gameState.trains[trainId];
+            });
+          }
           delete gameState[objectKey][id];
 
           messageEmitter.isInvalidMessage = false;

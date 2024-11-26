@@ -12,7 +12,7 @@ export function loadSave(gameState: GameStateType) {
     const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
     Object.keys(getNewState()).forEach(key => {
       if (newState[key] !== undefined)
-        gameState[key] = newState[key];
+        gameState[key] = fromSerializableProp([key], newState[key], gameState);
     });
   } catch { }
 }
@@ -155,7 +155,11 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           break;
         }
         case FROM_CLIENT_SAVE: {
-          writeFileSync(saveFilePath, JSON.stringify(gameState), "utf8");
+          const gameState_: any = {};
+          Object.keys(gameState).forEach(key =>
+            gameState_[key] = toSerializableProp([key], gameState[key])
+          );
+          writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
           messageEmitter.isInvalidMessage = false;

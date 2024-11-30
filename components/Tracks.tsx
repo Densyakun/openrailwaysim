@@ -284,7 +284,9 @@ export default function Tracks() {
               const trackSwitch = gameState.switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
               if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
             }
-          } else if (hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) {
+          }
+
+          if (hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) {
             if (hoveredTrack.connectedFromEndIsTrack) {
               if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) color = "#00f";
             } else {

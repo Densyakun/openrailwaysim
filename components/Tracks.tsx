@@ -262,7 +262,8 @@ export default function Tracks() {
           rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
 
         let color: string | undefined;
-        if (guiState.menuState === "switches") {
+        if (tracksSubMenuState.isAddingCurve) color = "#888";
+        else if (guiState.menuState === "switches") {
           if (tracksState.hoveredSwitch) {
             const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
             const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
@@ -311,13 +312,15 @@ export default function Tracks() {
               />)}
             </React.Fragment>
           })}
-          {guiState.menuState === "tracks" && !tracksSubMenuState.isAddingCurve && <>
+          {guiState.menuState === "tracks" && <>
             <Line
               points={points}
               lineWidth={48}
               transparent
               opacity={0}
               onClick={() => {
+                if (tracksSubMenuState.isAddingCurve) return
+
                 const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
 
                 if (0 <= index)
@@ -326,6 +329,8 @@ export default function Tracks() {
                   tracksState.selectedTrackIds.push(trackId)
               }}
               onPointerOver={() => {
+                if (tracksSubMenuState.isAddingCurve) return
+
                 tracksState.hoveredTracks.push(trackId)
               }}
               onPointerOut={() => {

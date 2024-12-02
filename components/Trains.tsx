@@ -7,6 +7,7 @@ import { state as trainsState, Axle, Bogie, CarBody } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
+import { guiState } from './gui/GUI'
 
 function BogieModel({
   trainId,
@@ -34,6 +35,11 @@ function BogieModel({
       <mesh
         ref={meshRef}
         onClick={() => {
+          if (guiState.menuState) return
+
+          trainsState.hoveredBodyIndex = -1
+          trainsState.hoveredTrainId = ""
+
           if (isActive) {
             trainsState.activeBodyIndex = -1
             trainsState.activeTrainId = ""
@@ -42,11 +48,15 @@ function BogieModel({
             trainsState.activeTrainId = trainId
           }
         }}
-        onPointerOver={() => {
+        onPointerMove={() => {
+          if (guiState.menuState) return
+
           trainsState.hoveredBodyIndex = bogieIndex
           trainsState.hoveredTrainId = trainId
         }}
         onPointerOut={() => {
+          if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return
+
           trainsState.hoveredBodyIndex = -1
           trainsState.hoveredTrainId = ""
         }}

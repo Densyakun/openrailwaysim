@@ -180,6 +180,13 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
               if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === id)))
                 delete gameState.trains[trainId];
             });
+            Object.keys(gameState.tracks).forEach(trackId => {
+              const track = gameState.tracks[trackId];
+              if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === id)
+                track.idOfTrackOrSwitchConnectedFromStart = "";
+              else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === id)
+                track.idOfTrackOrSwitchConnectedFromEnd = "";
+            });
           }
           delete gameState[objectKey][id];
 

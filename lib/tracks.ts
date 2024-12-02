@@ -217,6 +217,7 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
   if ((track as TransitionCurve).endPosition !== undefined) {
     const i = Math.max(0, Math.min((track as TransitionCurve).transitionCurves.length - 1, Math.ceil(length * (track as TransitionCurve).transitionCurves.length / curveLength)));
     const transition = (track as TransitionCurve).transitionCurves[i];
+    // TODO 位置が間違っている！（カクカクする）
     return getPosition(
       {
         position: transition.position.clone().multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
@@ -273,22 +274,18 @@ export function getRotation(track: Track, length: number) {
     );
 }
 
-function transitionCurveA(point: THREE.Vector3, transitionCurves: TransitionCurveSegment[], curveDirection: boolean, lengthT: number, i = 0): number {
+function transitionCurveA(point: THREE.Vector3, transitionCurves: TransitionCurveSegment[], lengthT: number, i = 0): number {
   const { position, rotationY, curvature } = transitionCurves[i];
-  const length = getLength(point.clone().sub(position).applyEuler(new THREE.Euler(0, -rotationY)), {
-    position: new THREE.Vector3(),
-    rotationY: 0,
-    radius: curvature === 0 ? 0 : (curveDirection ? -1 : 1) / curvature,
+  const length = getLength(point, {
+    position,
+    rotationY,
+    radius: curvature === 0 ? 0 : -1 / curvature,
+    length: lengthT,
   } as Track);
 
-  if (lengthT < length) {
-    if (i + 1 === transitionCurves.length)
-      return i * lengthT + length;
-    else
-      transitionCurveA(point, transitionCurves, curveDirection, lengthT, i + 1);
-  }
-
-  return length;
+  return lengthT < length && i + 1 !== transitionCurves.length
+    ? lengthT + transitionCurveA(point, transitionCurves, lengthT, i + 1)
+    : length;
 }
 
 export function getLength(point: THREE.Vector3, track: Track): number {
@@ -299,7 +296,11 @@ export function getLength(point: THREE.Vector3, track: Track): number {
     const lengthT = track.length / (track as TransitionCurve).transitionCurves.length;
 
     // 最初に始点のセグメントの曲率で計算し、始点からの距離がlengthTより遠い場合、再帰的に次のセグメントで計算する
-    return transitionCurveA(point1, (track as TransitionCurve).transitionCurves, (track as TransitionCurve).curveDirection, lengthT);
+    return transitionCurveA(
+      point1.multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
+      (track as TransitionCurve).transitionCurves,
+      lengthT
+    );
   }
 
   if (track.radius === 0) {

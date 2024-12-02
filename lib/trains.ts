@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { proxy } from "valtio";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { GameStateType, IdentifiedRecord } from "./game";
-import { PointOnTrack, getLength, getPosition, getRotation } from "./tracks";
+import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation } from "./tracks";
 
 // Resistances
 
@@ -272,6 +272,10 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
 
 export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: PointOnTrack, globalPosition: THREE.Euler, position: THREE.Vector3) {
   const track = gameState.tracks[pointOnTrack.trackId];
+
+  // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
+  // 計算量が多いため緩和曲線では省く
+  if ((track as TransitionCurve).endPosition !== undefined) return;
 
   // axle.pointOnTrack to track
   const globalTrackRelativePosition = getRelativePosition(

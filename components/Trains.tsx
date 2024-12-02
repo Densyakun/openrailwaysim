@@ -35,7 +35,7 @@ function BogieModel({
       <mesh
         ref={meshRef}
         onClick={() => {
-          if (guiState.menuState) return
+          if (guiState.menuState || trainsState.activeTrainId) return
 
           trainsState.hoveredBodyIndex = -1
           trainsState.hoveredTrainId = ""
@@ -49,7 +49,7 @@ function BogieModel({
           }
         }}
         onPointerMove={() => {
-          if (guiState.menuState) return
+          if (guiState.menuState || trainsState.activeTrainId) return
 
           trainsState.hoveredBodyIndex = bogieIndex
           trainsState.hoveredTrainId = trainId

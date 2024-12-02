@@ -359,6 +359,10 @@ export default function Tracks() {
                   length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
                 }
               }}
+              onPointerOut={() => {
+                if (tracksState.pointingOnTrack?.trackId === trackId)
+                  tracksState.pointingOnTrack = undefined
+              }}
               onClick={() => {
                 if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
                   const train: SerializableTrain = toSerializableProp(

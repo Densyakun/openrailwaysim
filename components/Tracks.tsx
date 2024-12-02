@@ -268,9 +268,9 @@ export default function Tracks() {
             const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
             const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
             if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
-              color = "#f00";
+              color = "#0f0";
             else if (0 <= connectedIndex)
-              color = "#ff0";
+              color = "#f00";
           }
         }
         else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
@@ -441,10 +441,7 @@ export default function Tracks() {
             />
             <Line
               points={points}
-              color={
-                tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-                  "#000"
-              }
+              color={color || "#000"}
             />
           </>}
         </FeatureObject>

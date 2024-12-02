@@ -310,9 +310,9 @@ export function getLength(point: THREE.Vector3, track: Track): number {
     const eulerY = point1.x === 0 && point1.z === 0 ? 0 :
       Math.atan2(-point1.x, 0 < track.radius ? point1.z : -point1.z) + Math.PI;
 
-    // TODO 角度が範囲外の場合、近い方に合わせる
-
-    return eulerY * Math.abs(track.radius);
+    const r = Math.abs(track.radius);
+    const l = eulerY * r;
+    return (track.length + 2 * Math.PI * r) / 2 <= l ? l - 2 * Math.PI * r : l;
   }
 }
 

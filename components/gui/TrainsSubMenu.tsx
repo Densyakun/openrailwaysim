@@ -1,8 +1,10 @@
 import * as React from 'react';
 import { proxy, useSnapshot } from 'valtio';
-import { Drawer, IconButton, Paper, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Drawer, Fab, IconButton, Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import TableViewIcon from '@mui/icons-material/TableView';
 import TuneIcon from '@mui/icons-material/Tune';
 import UIOneHandleMasterControllerConfigTable from './UIOneHandleMasterControllerConfigTable';
+import { guiState } from './GUI';
 
 export const trainsSubMenuState = proxy<{
   menuState: string;
@@ -20,8 +22,16 @@ export default function TrainsSubMenu() {
   };
 
   return (
-    <>
-      <Stack direction="row" spacing={1}>
+    <Paper sx={{ p: 1 }}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Tooltip title="Toggle table" disableInteractive>
+          <Fab size="small" color="primary" onClick={() => guiState.isShowTable = !guiState.isShowTable} sx={{
+            pointerEvents: 'auto',
+            userSelect: 'none'
+          }}>
+            <TableViewIcon />
+          </Fab>
+        </Tooltip>
         <Paper elevation={0}>
           <ToggleButtonGroup
             value={trainsSubMenuState.menuState}
@@ -49,6 +59,6 @@ export default function TrainsSubMenu() {
           </Drawer>
         </Paper>
       </Stack>
-    </>
+    </Paper>
   );
 }

@@ -7,7 +7,7 @@ import { gameState } from '@/lib/client';
 import { areParallel, getSelectedTracks, state as tracksState } from '@/lib/tracks';
 import { guiState } from './GUI';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_OBJECT } from '@/lib/game';
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
 
 export const tracksSubMenuState = proxy<{
@@ -62,6 +62,14 @@ export default function TracksSubMenu() {
                 tracksSubMenuState.isAddingCurve = true;
               }}>
                 Create new curve
+              </Button>
+              <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() =>
+                tracksState.selectedTrackIds.forEach(trackId => {
+                  gameState.tracks[trackId].modelPaths = ["https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf"];
+                  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", toSerializableProp(["tracks", trackId], gameState.tracks[trackId])]]));
+                })
+              }>
+                Test model
               </Button>
             </>}
         </Stack>

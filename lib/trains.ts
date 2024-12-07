@@ -665,7 +665,9 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
             // 分岐器が接続している軌道を取得する
             const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromStart];
             if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
-              // TODO 接続先がない場合
+              // 接続先がない場合
+              train.speed = 0;
+              axle.pointOnTrack.length = 0;
             } else {
               const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
               if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
@@ -683,7 +685,9 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
             }
           }
         } else {
-          // TODO 接続先がない場合
+          // 接続先がない場合
+          train.speed = 0;
+          axle.pointOnTrack.length = 0;
         }
       } else {
         const track = gameState.tracks[axle.pointOnTrack.trackId];
@@ -707,7 +711,9 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
             } else {
               const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromEnd];
               if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
-                // TODO 接続先がない場合
+                // 接続先がない場合
+                train.speed = 0;
+                axle.pointOnTrack.length = track.length;
               } else {
                 const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
                 if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
@@ -725,7 +731,9 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
               }
             }
           } else {
-            // TODO 接続先がない場合
+            // 接続先がない場合
+            train.speed = 0;
+            axle.pointOnTrack.length = track.length;
           }
         }
       }

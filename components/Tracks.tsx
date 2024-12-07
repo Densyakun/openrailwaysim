@@ -264,13 +264,15 @@ export default function Tracks() {
         let color: string | undefined;
         if (tracksSubMenuState.isAddingCurve) color = "#888";
         else if (guiState.menuState === "switches") {
-          if (tracksState.hoveredSwitch) {
-            const { connectedTrackIds, currentConnected } = gameState.switches[tracksState.hoveredSwitch];
+          for (const { connectedTrackIds, currentConnected } of Object.values(gameState.switches)) {
             const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
-            if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId)
+            if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
               color = "#0f0";
-            else if (0 <= connectedIndex)
+              break;
+            } else if (0 <= connectedIndex) {
               color = "#f00";
+              break;
+            }
           }
         }
         else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";

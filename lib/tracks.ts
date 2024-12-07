@@ -1,6 +1,7 @@
 import { Position, lineString } from '@turf/helpers';
 import * as THREE from 'three'
 import { GameStateType, IdentifiedRecord } from './game';
+import { v4 as uuidv4 } from 'uuid';
 import { proxy } from 'valtio';
 import centroid from '@turf/centroid';
 import { coordinateToEuler, getRelativePosition } from './gis';
@@ -435,3 +436,59 @@ export type Switch = {
 export type SerializableSwitch = IdentifiedRecord & Switch;
 
 export const TOLERANCE_FOR_TRACK_CONNECTIONS = 0.1;
+
+/**
+ * ベースとなる既存の軌道から直列化可能な軌道を作成する
+ * @param baseTrack ベースとなる軌道
+ * @param startLengthS baseTrackの開始位置。デフォルトは 0
+ * @param endLengthS baseTrackの終了位置。デフォルトは 1
+ * @param beginRotationX デフォルトは baseTrack.beginRotationX
+ * @param endRotationX デフォルトは baseTrack.endRotationX
+ * @param modelPaths デフォルトは baseTrack.modelPaths
+ * @returns 直列化可能な軌道
+ */
+export function createSerializableTrackBasedOnTrack(
+  baseTrack: Track,
+  startLengthS = 0,
+  endLengthS = 1,
+  beginRotationX = baseTrack.beginRotationX,
+  endRotationX = baseTrack.endRotationX,
+  modelPaths = baseTrack.modelPaths,
+) {
+  const serializableTrack: SerializableTrack = {
+    id: uuidv4(),
+    centerCoordinate: baseTrack.centerCoordinate,
+    position: getPosition(baseTrack, baseTrack.length * startLengthS).toArray(),
+    length: baseTrack.length * (endLengthS - startLengthS),
+    radius: baseTrack.radius,
+    rotationY: baseTrack.rotationY,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    gradients: { 0: 0 },
+    beginRotationX,
+    endRotationX,
+    modelPaths,
+  };
+
+  return serializableTrack;
+}
+
+export function applyTransitionCurveToSerializableTrack(serializableTrack: SerializableTrack, transitionCurve: TransitionCurve) {
+  return serializableTrack = {
+    ...serializableTrack,
+    beginCurvature: transitionCurve.beginCurvature,
+    endCurvature: transitionCurve.endCurvature,
+    endPosition: transitionCurve.endPosition.toArray(),
+    endRotationY: transitionCurve.endRotationY,
+    transitionCurves: transitionCurve.transitionCurves.map(value => ({
+      position: value.position.toArray(),
+      rotationY: value.rotationY,
+      curvature: value.curvature,
+    })),
+    curveDirection: transitionCurve.curveDirection,
+  } as SerializableTransitionCurve;
+}

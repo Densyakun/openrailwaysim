@@ -142,13 +142,14 @@ export function toSerializableProp(path: string[], value: any): any {
           pointOnTrack,
           weight,
           masterControllers,
-          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor, rotationIsReversed }) => ({
             pointOnTrack,
             z,
             position: position.toArray(),
             rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
             diameter,
             hasMotor,
+            rotationIsReversed,
           } as SerializableAxle)),
         } as SerializableBogie)),
         otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({
@@ -297,7 +298,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
           pointOnTrack,
           weight,
           masterControllers,
-          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor }) => ({
+          axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor, rotationIsReversed }) => ({
             pointOnTrack,
             z,
             position: new THREE.Vector3(...position),
@@ -305,6 +306,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
             diameter,
             rotationX: 0,
             hasMotor,
+            rotationIsReversed,
           } as Axle)),
         } as Bogie)),
         otherBodies.map(({ position, rotation, pointOnTrack, weight, masterControllers }) => ({

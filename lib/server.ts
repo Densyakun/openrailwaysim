@@ -43,12 +43,11 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
             } else if (path[2] === "bogies") {
               if (6 <= path.length) {
                 if (path[4] === "axles") {
-                  if (path.length === 8 && path[6] === "pointOnTrack") {
-                    if (path[7] === "trackId")
+                  if (7 <= path.length)
+                    if (path[6] === "pointOnTrack")
                       push()
-                    else if (path[7] === "length")
+                    else if (path[6] === "rotationIsReversed")
                       push()
-                  }
                 } else if (path[4] === "masterControllers") {
                   if (path.length === 7 && path[6] === "value")
                     push()

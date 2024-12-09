@@ -221,9 +221,15 @@ export function getAxlePosition(gameState: GameStateType, train: Train, axle: Ax
   return globalTrackRelativePosition.add(axleRelativePosition);
 }
 
-export function getAxleRotation(gameState: GameStateType, train: Train, pointOnTrack: PointOnTrack) {
+export function getAxleRotation(gameState: GameStateType, train: Train, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
   const track = gameState.tracks[pointOnTrack.trackId];
   const axleRelativeRotation = getRotation(track, pointOnTrack.length);
+
+  if (rotationIsReversed) {
+    axleRelativeRotation.x = -axleRelativeRotation.x;
+    axleRelativeRotation.y += Math.PI;
+    axleRelativeRotation.z = -axleRelativeRotation.z;
+  }
 
   // 軌道の進行方向がX軸、列車の進行方向がZ軸になっている
   return new THREE.Euler(
@@ -249,7 +255,7 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
       )
     );
 
-    const axleRotation = getAxleRotation(gameState, train, bogie.axles[index].pointOnTrack);
+    const axleRotation = getAxleRotation(gameState, train, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
     rotationX += axleRotation.x;
     rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
     rotationZ += axleRotation.z;
@@ -421,7 +427,8 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
 
     otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
 
-    otherBody.rotation.copy(getAxleRotation(gameState, train, otherBody.pointOnTrack));
+    // TODO rotationIsReversed
+    otherBody.rotation.copy(getAxleRotation(gameState, train, otherBody.pointOnTrack, false));
   });
 }
 
@@ -551,6 +558,7 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
 }
 
 export function placeTrain(gameState: GameStateType, train: Train) {
+  // TODO otherBodiesとbogiesのrotationIsReversedを指定して正しい向きで列車を設置する
   // 連結器の向きを反転させないため
   placeOtherBodies(gameState, train);
 

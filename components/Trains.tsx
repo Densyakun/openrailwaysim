@@ -23,53 +23,54 @@ function BogieModel({
   isHovered: boolean;
   isActive: boolean;
 }) {
-  const meshRef = React.useRef<THREE.Mesh>(null)
+  const groupRef = React.useRef<THREE.Group>(null)
 
   useFrame(() => {
-    meshRef.current!.position.copy(bogie.position)
-    meshRef.current!.rotation.copy(bogie.rotation)
+    groupRef.current!.position.copy(bogie.position)
+    groupRef.current!.rotation.copy(bogie.rotation)
   })
 
   return (
     <>
-      <mesh
-        ref={meshRef}
-        onClick={() => {
-          if (guiState.menuState || trainsState.activeTrainId) return
+      <group ref={groupRef} {...props}>
+        <mesh
+          onClick={() => {
+            if (guiState.menuState || trainsState.activeTrainId) return
 
-          trainsState.hoveredBodyIndex = -1
-          trainsState.hoveredTrainId = ""
+            trainsState.hoveredBodyIndex = -1
+            trainsState.hoveredTrainId = ""
 
-          if (isActive) {
-            trainsState.activeBodyIndex = -1
-            trainsState.activeTrainId = ""
-          } else {
-            trainsState.activeBodyIndex = bogieIndex
-            trainsState.activeTrainId = trainId
+            if (isActive) {
+              trainsState.activeBodyIndex = -1
+              trainsState.activeTrainId = ""
+            } else {
+              trainsState.activeBodyIndex = bogieIndex
+              trainsState.activeTrainId = trainId
+            }
+          }}
+          onPointerMove={() => {
+            if (guiState.menuState || trainsState.activeTrainId) return
+
+            trainsState.hoveredBodyIndex = bogieIndex
+            trainsState.hoveredTrainId = trainId
+          }}
+          onPointerOut={() => {
+            if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return
+
+            trainsState.hoveredBodyIndex = -1
+            trainsState.hoveredTrainId = ""
+          }}
+          rotation={[Math.PI / -2, 0, 0]}
+        >
+          <cylinderGeometry args={[0.5, 0, 3, 8]} />
+          {isHovered
+            ? <meshBasicMaterial color="yellow" />
+            : isActive && !trainsState.activeTrainId
+              ? <meshBasicMaterial color="red" />
+              : <meshStandardMaterial />
           }
-        }}
-        onPointerMove={() => {
-          if (guiState.menuState || trainsState.activeTrainId) return
-
-          trainsState.hoveredBodyIndex = bogieIndex
-          trainsState.hoveredTrainId = trainId
-        }}
-        onPointerOut={() => {
-          if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return
-
-          trainsState.hoveredBodyIndex = -1
-          trainsState.hoveredTrainId = ""
-        }}
-        {...props}
-      >
-        <boxGeometry args={[1, 0.3, 3]} />
-        {isHovered
-          ? <meshBasicMaterial color="yellow" />
-          : isActive && !trainsState.activeTrainId
-            ? <meshBasicMaterial color="red" />
-            : <meshStandardMaterial />
-        }
-      </mesh>
+        </mesh>
+      </group>
       {bogie.axles.map((axle, axleIndex) => (
         <WheelAndAxleModel
           key={axleIndex}

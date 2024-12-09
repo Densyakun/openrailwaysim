@@ -427,7 +427,6 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
 
     otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
 
-    // TODO rotationIsReversed
     otherBody.rotation.copy(getAxleRotation(gameState, train, otherBody.pointOnTrack, false));
   });
 }
@@ -558,7 +557,6 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
 }
 
 export function placeTrain(gameState: GameStateType, train: Train) {
-  // TODO otherBodiesとbogiesのrotationIsReversedを指定して正しい向きで列車を設置する
   // 連結器の向きを反転させないため
   placeOtherBodies(gameState, train);
 

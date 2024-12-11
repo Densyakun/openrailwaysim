@@ -219,8 +219,8 @@ export default function Tracks() {
         const track = gameState.tracks[trackId];
 
         return guiState.menuState === "switches"
-          ? <TracksOnSwitchMode track={track} trackId={trackId} />
-          : <TracksOnOtherMode track={track} trackId={trackId} />;
+          ? <TracksOnSwitchMode key={trackId} track={track} trackId={trackId} />
+          : <TracksOnOtherMode key={trackId} track={track} trackId={trackId} />;
       })}
       <AddingTracks />
       {
@@ -307,7 +307,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
     }
   }
 
-  return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
+  return <FeatureObject centerCoordinate={centerCoordinate}>
     {points.map((nextPoint, pointIndex, array) => {
       if (pointIndex === 0) return null
 
@@ -468,7 +468,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
     }
   }
 
-  return <FeatureObject key={trackId} centerCoordinate={centerCoordinate}>
+  return <FeatureObject centerCoordinate={centerCoordinate}>
     {guiState.menuState === "switches" && <>
       <Line
         points={points.slice(0, points.length / 2 + 1)}

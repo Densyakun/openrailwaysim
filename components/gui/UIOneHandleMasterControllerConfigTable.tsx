@@ -8,6 +8,7 @@ import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { IdentifiedRecord } from '@/lib/game';
 import { MasterControllerSlider } from '../hud/MasterController';
+import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainSamples';
 
 type UIOneHandleMasterControllerConfigFormValues = IdentifiedRecord & {
   steps: number[];
@@ -75,6 +76,26 @@ function Controllers({
   }, [value]);
 
   return <>
+    <Button variant="outlined" onClick={() => {
+      const a = createUISotetsu20000SeriesMasterControllerConfig();
+      form.setValue("marks", a.marks);
+      form.setValue("maxValue", a.maxValue);
+      form.setValue("nValue", a.nValue);
+      form.setValue("stepRangeList", JSON.stringify(a.stepRangeList));
+      form.setValue("steps", a.steps);
+    }}>
+      Sotetsu 20000 Series
+    </Button>
+    <Button variant="outlined" onClick={() => {
+      const a = createUIKeiseiAESeriesMasterControllerConfig();
+      form.setValue("marks", a.marks);
+      form.setValue("maxValue", a.maxValue);
+      form.setValue("nValue", a.nValue);
+      form.setValue("stepRangeList", JSON.stringify(a.stepRangeList));
+      form.setValue("steps", a.steps);
+    }}>
+      Keisei AE Series
+    </Button>
     <Controller
       name="maxValue"
       control={control}

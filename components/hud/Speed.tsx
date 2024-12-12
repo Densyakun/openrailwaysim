@@ -13,7 +13,7 @@ export default function Speed() {
     <Paper sx={{
       width: "90px"
     }}>
-      {(train.speed * 3.6).toFixed(1).padStart(5, '0') + " km/h"}
+      {Math.abs(train.speed * 3.6).toFixed(1).padStart(5, '0') + " km/h"}
     </Paper>
   );
 }

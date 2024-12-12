@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { UIOneHandleMasterControllerConfig, state as trainsState } from '@/lib/trains';
+import { ControlStand, UIOneHandleMasterControllerConfig, state as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE } from '@/lib/game';
@@ -130,18 +130,17 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
   );
 }
 
-export default function MasterController() {
+export default function MasterController({
+  controlStandIndex,
+  controlStand,
+}: {
+  controlStandIndex: number;
+  controlStand: ControlStand;
+}) {
   useSnapshot(gameState);
   useSnapshot(trainsState);
 
-  const train = gameState.trains[trainsState.activeTrainId];
-  const { masterControllers } = trainsState.activeBodyIndex < train.bogies.length ? train.bogies[trainsState.activeBodyIndex] : train.otherBodies[trainsState.activeBodyIndex - train.bogies.length];
-  // TODO 複数のマスコンの追加されたボギー台車に対応する
-  const masterControllerIndex = 0;
-  const masterController = masterControllers[masterControllerIndex];
-  if (!masterController) return null;
-
-  const { uiOptionId, value } = masterController;
+  const { uiOptionId, value } = controlStand.masterController;
 
   return (
     <MasterControllerSlider
@@ -151,7 +150,7 @@ export default function MasterController() {
         socket.send(JSON.stringify([FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, [
           trainsState.activeTrainId,
           trainsState.activeBodyIndex,
-          masterControllerIndex,
+          controlStandIndex,
           newValue
         ]]))
       }

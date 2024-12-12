@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -48,10 +48,8 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
                       push()
                     else if (path[6] === "rotationIsReversed")
                       push()
-                } else if (path[4] === "masterControllers") {
-                  if (path.length === 7 && path[6] === "value")
-                    push()
-                }
+                } else if (path[4] === "controlStands")
+                  push()
               }
             } else if (path[2] === "otherBodies") {
               if (6 <= path.length) {
@@ -139,6 +137,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
           gameState[objectKey][newValue.id] = fromSerializableProp([objectKey, newValue.id], newValue, gameState);
           if (oldId) {
+            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
             delete gameState[objectKey][oldId];
           }
 
@@ -224,13 +223,24 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           break;
         }
         case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE: {
-          const [trainId, bodyIndex, masterControllerIndex, newValue] = value;
+          const [trainId, bodyIndex, controlStandIndex, newValue] = value;
 
           const train = gameState.trains[trainId];
           const carBody = bodyIndex < train.bogies.length ? train.bogies[bodyIndex] : train.otherBodies[bodyIndex - train.bogies.length];
-          const masterController = carBody.masterControllers[masterControllerIndex];
+          const masterController = carBody.controlStands[controlStandIndex].masterController;
 
           masterController.value = newValue;
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_SET_PROP: {
+          const [propPath, newValue] = value as [string[], any];
+
+          let object = gameState;
+          for (let n = 0; n < propPath.length - 1; n++)
+            object = object[propPath[n]];
+          object[propPath[propPath.length - 1]] = fromSerializableProp(propPath, newValue, gameState);
 
           messageEmitter.isInvalidMessage = false;
           break;

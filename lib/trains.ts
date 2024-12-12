@@ -38,7 +38,7 @@ export type CarBody = {
   rotation: THREE.Euler;
   pointOnTrack: PointOnTrack;
   weight: number; // ton
-  masterControllers: OneHandleMasterController[];
+  controlStands: ControlStand[];
 }
 
 export type SerializableCarBody = {
@@ -46,7 +46,7 @@ export type SerializableCarBody = {
   rotation: [number, number, number, THREE.EulerOrder];
   pointOnTrack: PointOnTrack;
   weight: number;
-  masterControllers: OneHandleMasterController[];
+  controlStands: ControlStand[];
 }
 
 // 台車。CarBodyの一種
@@ -572,21 +572,22 @@ export function updateTime(gameState: GameStateType, train: Train, delta: number
   let accel = 0
   let brake = 1
   train.bogies.forEach(bogie => {
-    bogie.masterControllers.forEach(masterController => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, masterController)
+    bogie.controlStands.forEach(controlStand => {
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, controlStand);
 
-      accel = Math.max(accel, accel1)
+      accel += accel1;
       brake = Math.min(brake, brake1)
     })
   })
   train.otherBodies.forEach(body => {
-    body.masterControllers.forEach(masterController => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, masterController)
+    body.controlStands.forEach(controlStand => {
+      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, controlStand);
 
-      accel = Math.max(accel, accel1)
+      accel += accel1;
       brake = Math.min(brake, brake1)
     })
   })
+  accel = 0 < accel ? Math.min(1, accel) : Math.max(-1, accel);
 
   const speedKMH = train.speed * 3.6
 
@@ -826,6 +827,12 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
   train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
 }
 
+export type ControlStand = {
+  directionIsReversed: boolean;
+  reverser: number;
+  masterController: OneHandleMasterController;
+}
+
 export type UIOneHandleMasterControllerConfig = {
   steps: number[];
   marks: {
@@ -842,15 +849,18 @@ export type OneHandleMasterController = {
   uiOptionId: string;
 };
 
-export function getOneHandleMasterControllerOutput(gameState: GameStateType, masterController: OneHandleMasterController) {
+export function getOneHandleMasterControllerOutput(gameState: GameStateType, controlStand: ControlStand) {
   // TODO Call different functions depending on the vehicle
-  return getOneHandleMasterControllerSimpleOutput(gameState, masterController);
+  return getOneHandleMasterControllerSimpleOutput(gameState, controlStand);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, masterController: OneHandleMasterController) {
-  const config = gameState.uiOneHandleMasterControllerConfigs[masterController.uiOptionId];
+export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, controlStand: ControlStand) {
+  const config = gameState.uiOneHandleMasterControllerConfigs[controlStand.masterController.uiOptionId];
 
-  return [Math.max(0, 1 - masterController.value / config.nValue), Math.max(0, (masterController.value - config.nValue) / (config.maxValue - config.nValue))];
+  return [
+    (controlStand.directionIsReversed ? -1 : 1) * controlStand.reverser * Math.max(0, 1 - controlStand.masterController.value / config.nValue),
+    Math.max(0, (controlStand.masterController.value - config.nValue) / (config.maxValue - config.nValue))
+  ];
 }
 
 export function getTractiveForcePerMotorCars(speed: number/*, fieldCoil: number*/) {

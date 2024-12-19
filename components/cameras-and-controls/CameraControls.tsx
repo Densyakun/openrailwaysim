@@ -5,7 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, MapControls } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
 import { state as cameraState } from './Cameras'
-import { Position } from '@turf/helpers'
+import { Position } from 'geojson'
 import { coordinateToEuler, move, state as gisState } from '@/lib/gis'
 
 export type ControlsRefs = {

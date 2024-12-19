@@ -2,7 +2,7 @@ import * as React from 'react';
 import { gameState } from '@/lib/client';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { LineString, Position } from '@turf/helpers';
+import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, state as gisState } from '@/lib/gis';
 import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu';
 

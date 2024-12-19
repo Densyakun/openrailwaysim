@@ -10,7 +10,8 @@ import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { FeatureAt, SelectAdjoinedLineStringSegments, state as gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client';
-import { Feature, LineString, Point, Position, Properties, lineString } from '@turf/helpers';
+import { Feature, LineString, Point, Position } from 'geojson';
+import { lineString } from '@turf/helpers';
 import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings } from '@/lib/tracks';
@@ -94,7 +95,7 @@ function onUpdateSegmentList() {
   const point1 = turfPoint((geometry as LineString).coordinates[lastFeatureAt.segmentIndex + 1]);
 
   // 両端の点をpointsに代入する
-  let points: Feature<Point, Properties>[] = [];
+  let points: Feature<Point>[] = [];
 
   if (featureCollectionsSubMenuState.segmentList.length === 1)
     points = [point, point1];

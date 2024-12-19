@@ -4,7 +4,7 @@ import { proxy } from "valtio"
 import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
 //import { ProjectedLine, SerializableProjectedLine } from "./gis";
-import { FeatureCollection } from "@turf/helpers";
+import { FeatureCollection } from "geojson";
 import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
 import { HeightmapType } from './terrain';
 

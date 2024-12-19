@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Feature, FeatureCollection, LineString, Point, Position } from '@turf/helpers'
+import { Feature, FeatureCollection, LineString, Point, Position } from 'geojson'
 import { default as turfBearing } from '@turf/bearing'
 import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'

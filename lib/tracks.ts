@@ -1,4 +1,5 @@
-import { Position, lineString } from '@turf/helpers';
+import { Position } from 'geojson';
+import { lineString } from '@turf/helpers';
 import * as THREE from 'three'
 import { GameStateType, IdentifiedRecord } from './game';
 import { v4 as uuidv4 } from 'uuid';

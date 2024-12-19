@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { LineString, Point, Position } from '@turf/helpers'
+import { LineString, Point, Position } from 'geojson'
 import CoordinatesLine from './CoordinatesLine'
 import { gameState } from '@/lib/client'
 import { Billboard, ScreenSizer, Text } from '@react-three/drei'

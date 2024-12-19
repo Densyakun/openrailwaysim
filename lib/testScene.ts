@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GameStateType } from './game.js';
-import { FeatureCollection } from '@turf/helpers';
+import { FeatureCollection } from 'geojson';
 //import { getProjectedLines } from "./gis.js";
 import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '../lib/trainSamples.js';
 

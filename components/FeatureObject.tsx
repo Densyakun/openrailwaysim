@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { Position } from '@turf/helpers'
+import { Position } from 'geojson'
 import { getRelativePosition, getOriginEuler, eulerToCoordinate, getMeridianAngle } from '@/lib/gis'
 
 function getRotation(centerCoordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {

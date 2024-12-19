@@ -9,7 +9,7 @@ import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOL
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
-import { featureCollectionsSubMenuState, onClickCurve } from './FeatureCollectionsSubMenu';
+import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
 
 export type NextCurveEditStateType = {
   addingCurves: (Track | undefined)[]; // 単曲線
@@ -343,7 +343,7 @@ export function onClickAddingTrack(curveIndex: number) {
   const transitionCurveAB = curveEditMenuState.addingTransitionsAB[curveIndex];
   const transitionCurveCD = curveEditMenuState.addingTransitionsCD[curveIndex];
 
-  if (featureCollectionsSubMenuState.straightTracks.length) {
+  if (featureCollectionsTabPanelState.straightTracks.length) {
     // FeatureCollectionsSubMenu で LineString から曲線を作成する場合
     onClickCurve(
       curveIndex,

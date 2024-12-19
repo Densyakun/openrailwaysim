@@ -4,7 +4,7 @@ import { Segment, SegmentObject } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, state as gisState } from '@/lib/gis';
-import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu';
+import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 
 export default function FeatureCollectionsWithDreiSegment() {
   return (
@@ -86,24 +86,24 @@ function LineStringSegment({
     ref.current.start.copy(start);
     ref.current.end.copy(end);
 
-    if (featureCollectionsSubMenuState.segmentList.length) {
-      const i = featureCollectionsSubMenuState.segmentList.findIndex(value =>
+    if (featureCollectionsTabPanelState.segmentList.length) {
+      const i = featureCollectionsTabPanelState.segmentList.findIndex(value =>
         value
         && equalFeatureAt(segment, value)
       );
       if (i !== -1) {
-        if (featureCollectionsSubMenuState.isStraightList[i])
+        if (featureCollectionsTabPanelState.isStraightList[i])
           ref.current.color.setRGB(1, 0, 1);
         else
           ref.current.color.setRGB(0, 0, 0);
         return;
-      } else if (featureCollectionsSubMenuState.nextSegmentList.length) {
-        if ((featureCollectionsSubMenuState.focusedNextSegmentIndex === -1 || !featureCollectionsSubMenuState.nextSegmentList.length
+      } else if (featureCollectionsTabPanelState.nextSegmentList.length) {
+        if ((featureCollectionsTabPanelState.focusedNextSegmentIndex === -1 || !featureCollectionsTabPanelState.nextSegmentList.length
           ? false
-          : equalFeatureAt(segment, featureCollectionsSubMenuState.nextSegmentList[featureCollectionsSubMenuState.focusedNextSegmentIndex]))) {
+          : equalFeatureAt(segment, featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]))) {
           ref.current.color.setRGB(1, 1, 0);
           return;
-        } else if (featureCollectionsSubMenuState.nextSegmentList.find(value =>
+        } else if (featureCollectionsTabPanelState.nextSegmentList.find(value =>
           value
           && equalFeatureAt(segment, value)
         )) {
@@ -112,8 +112,8 @@ function LineStringSegment({
         }
       }
 
-      if (!(featureCollectionsSubMenuState.nextSegmentList.length
-        ? featureCollectionsSubMenuState.nextSegmentList.find(segment1 =>
+      if (!(featureCollectionsTabPanelState.nextSegmentList.length
+        ? featureCollectionsTabPanelState.nextSegmentList.find(segment1 =>
           segment.featureCollectionId === segment1.featureCollectionId
           && segment.featureIndex === segment1.featureIndex
         )

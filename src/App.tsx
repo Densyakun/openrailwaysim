@@ -1,8 +1,8 @@
-//import { useState } from 'react'
 import './App.css'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import Container from './components/Container'
+import CanvasContainer from './components/CanvasContainer'
+import GUI from './components/gui/GUI'
 
 const darkTheme = createTheme({
   palette: {
@@ -11,13 +11,12 @@ const darkTheme = createTheme({
 })
 
 function App() {
-  //const [count, setCount] = useState(0)
-
   return (
     <>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <Container />
+        <CanvasContainer />
+        <GUI />
       </ThemeProvider>
     </>
   )

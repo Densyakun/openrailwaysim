@@ -8,7 +8,7 @@ export default function DreiSegments() {
   useSnapshot(guiState);
 
   return <>
-    {guiState.menuState === "featureCollections" && <>
+    {guiState.tabState === "featureCollections" && <>
       <Segments
         limit={2000}
         lineWidth={0.5}

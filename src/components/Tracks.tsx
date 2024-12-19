@@ -8,7 +8,7 @@ import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
 import { guiState } from './gui/GUI'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
-import { trainsSubMenuState } from './gui/TrainsSubMenu'
+import { trainsTabPanelState } from './gui/TrainsTabPanel'
 import { getRelativePosition } from '@/lib/gis'
 import { createTestOneAxleCar } from '@/lib/trainSamples'
 import { SerializableTrain } from '@/lib/trains'
@@ -17,7 +17,7 @@ import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary } from 'react-error-boundary';
 import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
-import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu';
+import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 
 export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
 
@@ -74,8 +74,8 @@ function AddingTracks() {
   useSnapshot(curveEditMenuState);
 
   if (!(
-    guiState.menuState === "tracks" && tracksSubMenuState.isAddingCurve
-    || guiState.menuState === "featureCollections" && featureCollectionsSubMenuState.straightTracks.length
+    guiState.tabState === "tracks" && tracksSubMenuState.isAddingCurve
+    || guiState.tabState === "featureCollections" && featureCollectionsTabPanelState.straightTracks.length
   ))
     return null;
 
@@ -218,13 +218,13 @@ export default function Tracks() {
       {Object.keys(gameState.tracks).map(trackId => {
         const track = gameState.tracks[trackId];
 
-        return guiState.menuState === "switches"
+        return guiState.tabState === "switches"
           ? <TracksOnSwitchMode key={trackId} track={track} trackId={trackId} />
           : <TracksOnOtherMode key={trackId} track={track} trackId={trackId} />;
       })}
       <AddingTracks />
       {
-        guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" &&
+        guiState.tabState === "trains" && trainsTabPanelState.menuState === "placeAxle" &&
         tracksState.pointingOnTrack &&
         <FeatureObject centerCoordinate={gameState.tracks[tracksState.pointingOnTrack.trackId].centerCoordinate}>
           <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId], tracksState.pointingOnTrack.length)}>
@@ -322,7 +322,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
         />)}
       </React.Fragment>
     })}
-    {guiState.menuState === "tracks" && <>
+    {guiState.tabState === "tracks" && <>
       <Line
         points={points}
         lineWidth={48}
@@ -355,7 +355,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
         color={color || "#000"}
       />
     </>}
-    {guiState.menuState === "trains" && trainsSubMenuState.menuState === "placeAxle" && <>
+    {guiState.tabState === "trains" && trainsTabPanelState.menuState === "placeAxle" && <>
       <Line
         points={points}
         lineWidth={48}
@@ -449,7 +449,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
-  if (guiState.menuState === "switches") {
+  if (guiState.tabState === "switches") {
     for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(gameState.switches)) {
       const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
       if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
@@ -469,7 +469,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   }
 
   return <FeatureObject centerCoordinate={centerCoordinate}>
-    {guiState.menuState === "switches" && <>
+    {guiState.tabState === "switches" && <>
       <Line
         points={points.slice(0, points.length / 2 + 1)}
         lineWidth={48}

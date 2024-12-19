@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Paper } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { state as trainsState } from '@/lib/trains';
+import { trainsState as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 
 export default function Speed() {

@@ -11,20 +11,25 @@ import Terrains from './Terrains'
 import TerrainGenerator from './TerrainGenerator'
 import Client from './Client'
 
-export default function App() {
-  return (
-    <Canvas shadows frameloop="demand">
-      <Cameras />
-      <CameraControls />
-      <SunAndSky />
-      <FollowOriginGIS />
-      <DreiSegments />
-      <FeatureCollections />
-      <Tracks />
-      <Trains />
-      <Terrains />
-      <TerrainGenerator />
-      <Client />
-    </Canvas>
-  )
+export default function CanvasContainer() {
+  return <Canvas shadows frameloop="demand" style={{
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    width: '100%',
+  }}>
+    <Cameras />
+    <CameraControls />
+    <SunAndSky />
+    <FollowOriginGIS />
+    <DreiSegments />
+    <FeatureCollections />
+    <Tracks />
+    <Trains />
+    <Terrains />
+    <TerrainGenerator />
+    <Client />
+  </Canvas>;
 }

@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { Line } from '@react-three/drei'
 import { Position } from 'geojson'
 import { coordinateToEuler, getRelativePosition, state as gisState } from '@/lib/gis'
-import { featureCollectionsSubMenuState } from './gui/FeatureCollectionsSubMenu'
+import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel'
 import { useSnapshot } from 'valtio'
 
 export default function CoordinatesLine({
@@ -19,7 +19,7 @@ export default function CoordinatesLine({
   centerCoordinate: Position,
   y?: number
 }) {
-  useSnapshot(featureCollectionsSubMenuState);
+  useSnapshot(featureCollectionsTabPanelState);
 
   // Azimuthal equidistant projection
   const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate, 0))
@@ -40,8 +40,8 @@ export default function CoordinatesLine({
   })*/
 
   return <>
-    {!featureCollectionsSubMenuState.segmentList.length
-      && !featureCollectionsSubMenuState.straightTracks.length
+    {!featureCollectionsTabPanelState.segmentList.length
+      && !featureCollectionsTabPanelState.straightTracks.length
       && points.map((point, nextPointIndex) => nextPointIndex === 0 ? null :
         <React.Fragment key={nextPointIndex}>
           <Line

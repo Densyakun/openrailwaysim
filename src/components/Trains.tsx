@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
-import { state as trainsState, Axle, Bogie, CarBody } from '@/lib/trains'
+import { trainsState as trainsState, Axle, Bogie, CarBody } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
@@ -35,7 +35,7 @@ function BogieModel({
       <group ref={groupRef} {...props}>
         <mesh
           onClick={() => {
-            if (guiState.menuState || trainsState.activeTrainId) return
+            if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
 
             trainsState.hoveredBodyIndex = -1
             trainsState.hoveredTrainId = ""
@@ -49,7 +49,7 @@ function BogieModel({
             }
           }}
           onPointerMove={() => {
-            if (guiState.menuState || trainsState.activeTrainId) return
+            if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
 
             trainsState.hoveredBodyIndex = bogieIndex
             trainsState.hoveredTrainId = trainId
@@ -124,6 +124,11 @@ function OtherBodyModel({
     <mesh
       ref={meshRef}
       onClick={() => {
+        if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+
+        trainsState.hoveredBodyIndex = -1
+        trainsState.hoveredTrainId = ""
+
         if (isActive) {
           trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""
@@ -133,6 +138,8 @@ function OtherBodyModel({
         }
       }}
       onPointerOver={() => {
+        if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+
         trainsState.hoveredBodyIndex = bodyIndex
         trainsState.hoveredTrainId = trainId
       }}

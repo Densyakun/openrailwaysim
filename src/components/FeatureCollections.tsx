@@ -12,7 +12,7 @@ export default function FeatureCollections() {
 
   return (
     <>
-      {guiState.menuState === "featureCollections" && Object.keys(gameState.featureCollections).map(id => {
+      {guiState.tabState === "featureCollections" && Object.keys(gameState.featureCollections).map(id => {
         return gameState.visibleFeatureCollections.includes(id)
           ? (
             <FeatureObject key={id} centerCoordinate={originCoordinate}>

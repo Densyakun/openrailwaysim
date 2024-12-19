@@ -1,113 +1,61 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
-import Fab from '@mui/material/Fab';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
-import TableViewIcon from '@mui/icons-material/TableView';
 import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
 import { SxProps } from '@mui/system';
 import { proxy, useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
 import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
-import ControlStand from '../hud/ControlStand';
 import SyncedChip from '../SyncedChip';
-import { state as trainsState } from '@/lib/trains';
-import FeatureCollectionTable from './FeatureCollectionTable';
-//import ProjectedLineTable from './ProjectedLineTable';
 import Settings from './Settings';
-import TrainTable from './TrainTable';
-import FeatureCollectionsSubMenu from './FeatureCollectionsSubMenu';
-//import TrackTable from './TrackTable';
+import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
-import TrainsSubMenu from './TrainsSubMenu';
+import TrainsTabPanel from './TrainsTabPanel';
+import { trainsState } from '@/lib/trains';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
   component?: React.ElementType;
   ref?: React.Ref<unknown>;
   sx?: SxProps;
-}) => JSX.Element
+}) => JSX.Element;
 
 export const guiState = proxy<{
-  menuState: string;
-  isShowTable: boolean;
+  tabState: string;
 }>({
-  menuState: "",
-  isShowTable: false,
+  tabState: "",
 });
 
 function TopInfo() {
-  return (
+  return <Box_ sx={{
+    width: "100%",
+    display: "flex",
+    justifyContent: 'center',
+  }}>
     <Stack
-      direction="row"
-      alignItems="flex-start"
+      sx={{ p: 0.5 }}
+      direction={'row'}
       spacing={1}
-      sx={{
-        width: "100%",
-        height: "100%",
-      }}
     >
-      <Box_ sx={{
-        width: "100%",
-        display: "flex",
-        justifyContent: 'flex-start',
-      }}>
-      </Box_>
-      <Box_ sx={{
-        width: "100%",
-        display: "flex",
-        justifyContent: 'center',
-      }}>
-        <Stack
-          sx={{ p: 1 }}
-          direction={'row'}
-          spacing={1}
-        >
-          <TimeChip />
-          <SyncedChip />
-        </Stack>
-      </Box_>
-      <Box_ sx={{
-        width: "100%",
-        display: "flex",
-        justifyContent: 'flex-end',
-      }}>
-      </Box_>
+      <TimeChip />
+      <SyncedChip />
     </Stack>
-  )
+  </Box_>;
 }
 
-/*function SubMenu() {
-  return <Paper sx={{
-    p: 1,
-    pointerEvents: 'auto',
-    userSelect: 'none',
-  }}>
-    <Tooltip title="Toggle table" disableInteractive>
-      <Fab size="small" color="primary" onClick={() => guiState.isShowTable = !guiState.isShowTable} sx={{
-        pointerEvents: 'auto',
-        userSelect: 'none'
-      }}>
-        <TableViewIcon />
-      </Fab>
-    </Tooltip>
-  </Paper>
-}*/
-
 export default function GUI() {
-  useSnapshot(guiState);
-  useSnapshot(trainsState);
+  const { tabState } = useSnapshot(guiState);
+  const { activeTrainId } = useSnapshot(trainsState);
 
   const menuComponents: {
     [key: string]: {
       title: string;
       icon: JSX.Element;
       component?: JSX.Element;
-      subMenu?: JSX.Element;
-      table?: JSX.Element;
     }
   } = {
     'terrains': {
@@ -117,20 +65,12 @@ export default function GUI() {
     'featureCollections': {
       title: 'Feature collections',
       icon: <PlaceIcon />,
-      subMenu: <FeatureCollectionsSubMenu />,
-      table: <FeatureCollectionTable />,
+      component: <FeatureCollectionsTabPanel />,
     },
-    /*'projectedLines': {
-          title: 'Projected lines',
-        icon: <RouteIcon />,
-        subMenu: <SubMenu />,
-        table: <ProjectedLineTable />,
-    },*/
     'tracks': {
       title: 'Tracks',
       icon: <RouteIcon />,
-      subMenu: <TracksSubMenu />,
-      //table: <TrackTable />,
+      component: <TracksSubMenu />,
     },
     'switches': {
       title: 'Switches',
@@ -139,8 +79,7 @@ export default function GUI() {
     'trains': {
       title: 'Trains',
       icon: <TrainIcon />,
-      subMenu: <TrainsSubMenu />,
-      table: <TrainTable />,
+      component: <TrainsTabPanel />,
     },
     'settings': {
       title: 'Settings',
@@ -149,121 +88,65 @@ export default function GUI() {
     },
   };
 
-  return trainsState.activeTrainId ?
-    <>
-      <TopInfo />
-      <Stack
-        direction="row"
-        alignItems="flex-end"
-        spacing={1}
-        sx={{
-          width: "100%",
-          height: "100%",
-        }}
-      >
-        <Box_ sx={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          justifyContent: 'flex-start',
-          alignItems: 'flex-end',
-        }}>
-          <Box_ sx={{
-            display: "contents",
-            alignItems: 'flex-end',
-            pointerEvents: 'auto',
-            userSelect: 'none',
-          }}>
-            <ControlStand />
-          </Box_>
-        </Box_>
-        <Box_ sx={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          justifyContent: 'center',
-          alignItems: 'flex-end',
-        }}>
-        </Box_>
-        <Box_ sx={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          justifyContent: 'flex-end',
-          alignItems: 'flex-end',
-        }}>
-        </Box_>
-      </Stack>
-    </>
-    :
-    <>
-      {guiState.menuState &&
-        (menuComponents[guiState.menuState].component ||
-          guiState.isShowTable && menuComponents[guiState.menuState].table) ?
-        <Paper square sx={{
-          width: "100%",
-          height: "100%",
-          pointerEvents: 'auto',
-          userSelect: 'none',
-          p: 1,
-          overflow: 'auto',
-          backgroundColor: '#000b',
-        }}>
-          {guiState.isShowTable && menuComponents[guiState.menuState].table ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
-        </Paper>
-        :
-        <>
-          <TopInfo />
-        </>
-      }
-      <Stack
-        direction="row"
-        alignItems="flex-end"
-        spacing={1}
-        sx={{
-          width: "100%",
-          display: "flex",
-          justifyContent: 'center',
-          alignItems: 'flex-end',
-        }}
-      >
-        <Stack direction="column" spacing={1} alignItems={'center'} sx={{
-          p: 1,
-          pointerEvents: 'auto',
-          userSelect: 'none',
-        }}>
-          {guiState.menuState && menuComponents[guiState.menuState].subMenu}
-          <Paper elevation={0}>
-            <ToggleButtonGroup
-              value={guiState.menuState}
-              exclusive
-              onChange={(
-                event: React.MouseEvent<HTMLElement>,
-                newValue: string | null,
-              ) => {
-                guiState.menuState = newValue || "";
-              }}
-            >
-              {Object.keys(menuComponents).map(id => {
-                const { title, icon } = menuComponents[id]
+  return <Stack
+    justifyContent="space-between"
+    alignItems="center"
+    sx={{
+      position: 'fixed',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      overflow: 'clip',
+      pointerEvents: 'none',
+    }}
+  >
+    <TopInfo />
+    <Stack
+      justifyContent="flex-end"
+      alignItems="center"
+      sx={{
+        width: '100%',
+        height: '100%',
+      }}
+    >
+      {tabState && menuComponents[tabState].component && menuComponents[tabState].component}
+    </Stack>
+    {(tabState !== "trains" || !activeTrainId) &&
+      <Paper elevation={0} sx={{
+        m: 0.5,
+        pointerEvents: 'auto',
+        userSelect: 'none',
+      }}>
+        <ToggleButtonGroup
+          value={tabState}
+          exclusive
+          onChange={(
+            event: React.MouseEvent<HTMLElement>,
+            newValue: string | null,
+          ) =>
+            guiState.tabState = newValue || ""
+          }
+        >
+          {Object.keys(menuComponents).map(id => {
+            const { title, icon } = menuComponents[id];
 
-                return <Tooltip key={id} title={title} disableInteractive>
-                  <ToggleButton value={id} selected={guiState.menuState === id}>
-                    {icon}
-                  </ToggleButton>
-                </Tooltip>
-              })}
-            </ToggleButtonGroup>
-          </Paper>
-        </Stack>
-      </Stack>
-    </>
+            return <Tooltip key={id} title={title} disableInteractive>
+              <ToggleButton value={id} selected={tabState === id}>
+                {icon}
+              </ToggleButton>
+            </Tooltip>
+          })}
+        </ToggleButtonGroup>
+      </Paper>
+    }
+  </Stack>;
 }
 
 export function lightingIsForEditing() {
-  return guiState.menuState === "terrains"
-    || guiState.menuState === "featureCollections"
-    || guiState.menuState === "tracks"
-    || guiState.menuState === "switches"
-    || guiState.menuState === "trains";
+  return guiState.tabState === "terrains"
+    || guiState.tabState === "featureCollections"
+    || guiState.tabState === "tracks"
+    || guiState.tabState === "switches"
+    || guiState.tabState === "trains";
 }

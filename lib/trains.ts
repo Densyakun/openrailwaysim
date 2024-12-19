@@ -111,7 +111,7 @@ export type SerializableTrain = IdentifiedRecord & {
   motorCars: number;
 };
 
-export const state = proxy<{
+export const trainsState = proxy<{
   hoveredTrainId: string;
   hoveredBodyIndex: number;
   activeTrainId: string;

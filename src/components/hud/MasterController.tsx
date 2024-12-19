@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { ControlStand, UIOneHandleMasterControllerConfig, state as trainsState } from '@/lib/trains';
+import { ControlStand, UIOneHandleMasterControllerConfig, trainsState as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE } from '@/lib/game';

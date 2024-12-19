@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { ControlStand, state as trainsState } from '@/lib/trains';
+import { ControlStand, trainsState as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP } from '@/lib/game';

@@ -75,7 +75,7 @@ export default function TerrainGenerator() {
 
   return (
     <>
-      {guiState.menuState === "terrains" &&
+      {guiState.tabState === "terrains" &&
         <>
           <CoordinateUpdater />
           {[...Array(newTerrainWidth)].map((_, x) => [...Array(newTerrainWidth)].map((_, y) => [

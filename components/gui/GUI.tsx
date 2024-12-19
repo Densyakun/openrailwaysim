@@ -209,7 +209,7 @@ export default function GUI() {
           overflow: 'auto',
           backgroundColor: '#000b',
         }}>
-          {guiState.isShowTable ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
+          {guiState.isShowTable && menuComponents[guiState.menuState].table ? menuComponents[guiState.menuState].table : menuComponents[guiState.menuState].component}
         </Paper>
         :
         <>

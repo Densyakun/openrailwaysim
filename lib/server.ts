@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -62,6 +62,8 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           } else if (path.length === 2) {
             push()
           }
+        } else if (path[0] === "trainGroups") {
+          push()
         } else if (path[0] === "featureCollections") {
           if (path.length === 2) {
             push()
@@ -235,12 +237,41 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           break;
         }
         case FROM_CLIENT_SET_PROP: {
-          const [propPath, newValue] = value as [string[], any];
+          const [propPath, newValue, oldPath] = value as [string[], any, string[] | undefined];
 
           let object = gameState;
+          if (oldPath) {
+            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
+            for (let n = 0; n < oldPath.length - 1; n++)
+              object = object[oldPath[n]];
+            delete object[oldPath[oldPath.length - 1]];
+
+            object = gameState;
+          }
           for (let n = 0; n < propPath.length - 1; n++)
             object = object[propPath[n]];
           object[propPath[propPath.length - 1]] = fromSerializableProp(propPath, newValue, gameState);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_DELETE_PROP: {
+          const propPath = value as string[];
+
+          // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
+          if (propPath.length == 2 && propPath[0] === "trains") {
+            for (const trainGroupId in Object.keys(gameState["trainGroups"])) {
+              const index = gameState["trainGroups"][trainGroupId].indexOf(propPath[1]);
+              if (index !== -1)
+                gameState["trainGroups"][trainGroupId].splice(index, 1);
+            }
+            delete gameState["trains"][propPath[1]];
+          } else {
+            let object = gameState;
+            for (let n = 0; n < propPath.length - 1; n++)
+              object = object[propPath[n]];
+            delete object[propPath[propPath.length - 1]];
+          }
 
           messageEmitter.isInvalidMessage = false;
           break;

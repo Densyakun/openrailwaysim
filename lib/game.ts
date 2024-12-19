@@ -7,7 +7,6 @@ import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, Seri
 import { FeatureCollection } from "@turf/helpers";
 import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
 import { HeightmapType } from './terrain';
-import { createTestControlStands } from './trainSamples';
 
 export type IdentifiedRecord = { id: string };
 
@@ -19,6 +18,8 @@ export type GameStateType = { [key: string]: any } & {
   tracks: { [key: string]: Track | TransitionCurve };
   switches: { [key: string]: Switch };
   trains: { [key: string]: Train };
+  /** Trainを文字列で分類する */
+  trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   visibleFeatureCollections: string[];
@@ -32,6 +33,7 @@ export function getNewState() {
     tracks: {},
     switches: {},
     trains: {},
+    trainGroups: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
     visibleFeatureCollections: [],
@@ -375,7 +377,7 @@ export class MessageEmitter extends EventEmitter {
       const result = super.emit(eventName, ...args)
 
       if (this.isInvalidMessage)
-        console.log(`Received invalid message. id: ${args[0]}, value: ${args[1]}`)
+        console.log(`Received invalid message. id: ${args[0]}, value: ${JSON.stringify(args[1])}`)
 
       return result
     } else
@@ -393,3 +395,4 @@ export const FROM_CLIENT_SWITCH_TRACK = 6
 export const FROM_CLIENT_GET_HEIGHTMAP = 7
 export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 8
 export const FROM_CLIENT_SET_PROP = 9
+export const FROM_CLIENT_DELETE_PROP = 10

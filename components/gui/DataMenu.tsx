@@ -18,6 +18,9 @@ export default function DataMenu<FormValues extends { id: string }>({
   objects,
   valueControllers,
   listItemButtons,
+  handleSubmit: handleSubmit_,
+  handleDelete: handleDelete_,
+  editable = true,
 }: {
   defaultValues?: DefaultValues<FormValues>;
   getValueOnEdit?: (newEditingId: string) => FormValues;
@@ -27,6 +30,9 @@ export default function DataMenu<FormValues extends { id: string }>({
   objects: {};
   valueControllers?: (control: Control<FormValues>, errors: FieldErrors<FormValues>, form: UseFormReturn<FormValues>) => JSX.Element;
   listItemButtons?: (id: string) => JSX.Element;
+  handleSubmit?: (inputs: FormValues, editingId: string) => void;
+  handleDelete?: (id: string) => void;
+  editable?: boolean;
 }) {
   const form = useForm<FormValues>({
     defaultValues,
@@ -61,24 +67,29 @@ export default function DataMenu<FormValues extends { id: string }>({
             }}>
               Back
             </Button>
-            <form onSubmit={handleSubmit((inputs) => {
+            <form onSubmit={handleSubmit((inputs => {
               const id = inputs.id;
-              socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, adding || editingId === id ? [
-                objectKey,
-                getSaveValueOnEdit!(inputs),
-              ] : [
-                objectKey,
-                getSaveValueOnEdit!(inputs),
-                editingId,
-              ]]));
+
+              if (handleSubmit_)
+                handleSubmit_(inputs, editingId);
+              else {
+                socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, adding || editingId === id ? [
+                  objectKey,
+                  getSaveValueOnEdit ? getSaveValueOnEdit(inputs) : inputs,
+                ] : [
+                  objectKey,
+                  getSaveValueOnEdit ? getSaveValueOnEdit(inputs) : inputs,
+                  editingId,
+                ]]));
+              }
 
               if (adding)
                 reset(undefined, {
                   keepDefaultValues: true,
                 });
               else if (id !== editingId)
-                setEditingId("")
-            })}>
+                setEditingId("");
+            }))}>
               <Stack spacing={1}>
                 <Controller
                   name={"id" as any}
@@ -94,7 +105,7 @@ export default function DataMenu<FormValues extends { id: string }>({
                   )
                   } {...field} />}
                 />
-                {valueControllers!(control, errors, form)}
+                {valueControllers && valueControllers(control, errors, form)}
                 <Button type="submit" variant="contained" startIcon={adding ? <AddIcon /> : <SaveIcon />}>
                   {adding ? "Add" : "Save"}
                 </Button>
@@ -103,7 +114,7 @@ export default function DataMenu<FormValues extends { id: string }>({
           </>
           :
           <>
-            {valueControllers &&
+            {getValueOnEdit &&
               <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
                 Add
               </Button>
@@ -118,7 +129,7 @@ export default function DataMenu<FormValues extends { id: string }>({
                     secondaryAction={
                       <>
                         {listItemButtons && listItemButtons(id)}
-                        {valueControllers &&
+                        {editable &&
                           <Tooltip title="Edit" disableInteractive>
                             <IconButton edge="end" onClick={() =>
                               setEditingId(id)
@@ -128,9 +139,9 @@ export default function DataMenu<FormValues extends { id: string }>({
                           </Tooltip>
                         }
                         <Tooltip title="Delete" disableInteractive>
-                          <IconButton edge="end" onClick={() => {
-                            socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, [objectKey, id]]));
-                          }}>
+                          <IconButton edge="end" onClick={handleDelete_ ? (() => handleDelete_(id)) : (() =>
+                            socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, [objectKey, id]]))
+                          )}>
                             <DeleteIcon />
                           </IconButton>
                         </Tooltip>

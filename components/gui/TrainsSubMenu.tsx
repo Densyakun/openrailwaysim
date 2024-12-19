@@ -8,8 +8,10 @@ import { guiState } from './GUI';
 
 export const trainsSubMenuState = proxy<{
   menuState: string;
+  selectedTrainGroup: string;
 }>({
   menuState: "",
+  selectedTrainGroup: "",
 });
 
 export default function TrainsSubMenu() {

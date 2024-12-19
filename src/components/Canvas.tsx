@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { Canvas } from '@react-three/fiber'
 import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'

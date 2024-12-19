@@ -56,7 +56,7 @@ export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: nu
   )
 }
 
-export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.EventDispatcher<THREE.Event>) {
+export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.EventDispatcher) {
   move(state.originTransform.quaternion, mainCamera.position.x, mainCamera.position.z)
 
   state.originTransform.elevation += mainCamera.position.y;

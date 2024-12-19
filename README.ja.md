@@ -47,7 +47,13 @@ cd openrailwaysim
 npm install
 ```
 
-3. Run your App:
+3. Run websocket server:
+
+```sh
+npm run ws
+```
+
+4. Run app:
 
 ```sh
 npm run dev

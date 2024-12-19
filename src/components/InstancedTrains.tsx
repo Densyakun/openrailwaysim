@@ -1,4 +1,5 @@
 import * as React from 'react'
+import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber'
 import { Instance, Instances } from '@react-three/drei'
 import { useSnapshot } from 'valtio'

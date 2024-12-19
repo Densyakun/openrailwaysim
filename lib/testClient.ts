@@ -1,4 +1,4 @@
-import { setCameraTargetPosition } from '@/components/cameras-and-controls/CameraControls'
+import { setCameraTargetPosition } from '@/src/components/cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
 import centroid from '@turf/centroid'
 

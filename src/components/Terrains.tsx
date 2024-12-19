@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from "react"
 import { BufferAttribute, Mesh } from "three"
 import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
-import SphericalMercator from '@mapbox/sphericalmercator'
+import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
 import { clientState, gameState } from "@/lib/client"

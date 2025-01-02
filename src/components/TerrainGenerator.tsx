@@ -53,7 +53,7 @@ function NewTerrainTile({ tileX, tileY, isHovered }: { tileX: number, tileY: num
 }
 
 function CoordinateUpdater() {
-  const originCoordinate = useOriginCoordinate();
+  const originCoordinate = useOriginCoordinate(256);
 
   let [newTileX, newTileY] = merc.px([originCoordinate[0], originCoordinate[1]], terrainZoom)
     .map((value: number) => Math.floor(value / 256));

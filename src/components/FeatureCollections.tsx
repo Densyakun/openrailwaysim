@@ -7,7 +7,7 @@ import { guiState } from '@/lib/client/gui';
 
 export default function FeatureCollections() {
   const { selectedTab } = useSnapshot(guiState);
-  const originCoordinate = useOriginCoordinate();
+  const originCoordinate = useOriginCoordinate(1);
 
   return (
     <>

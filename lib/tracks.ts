@@ -137,7 +137,7 @@ export function getTransitionCurveData(beginCurvature: number, endCurvature: num
   };
 }
 
-export const state = proxy<{
+export const tracksState = proxy<{
   hoveredTracks: string[];
   selectedTrackIds: string[];
   pointingOnTrack?: PointOnTrack;
@@ -151,7 +151,7 @@ export const state = proxy<{
 export function getSelectedTracks(gameState: GameStateType) {
   let tracks: Track[] = [];
 
-  state.selectedTrackIds
+  tracksState.selectedTrackIds
     .forEach(trackId => {
       tracks.push(gameState.tracks[trackId]);
     });

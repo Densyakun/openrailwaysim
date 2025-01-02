@@ -20,6 +20,7 @@ export default function DataMenu<FormValues extends { id: string }>({
   listItemButtons,
   handleSubmit: handleSubmit_,
   handleDelete: handleDelete_,
+  addable = true,
   editable = true,
 }: {
   defaultValues?: DefaultValues<FormValues>;
@@ -32,6 +33,7 @@ export default function DataMenu<FormValues extends { id: string }>({
   listItemButtons?: (id: string) => JSX.Element;
   handleSubmit?: (inputs: FormValues, editingId: string) => void;
   handleDelete?: (id: string) => void;
+  addable?: boolean;
   editable?: boolean;
 }) {
   const form = useForm<FormValues>({
@@ -114,7 +116,7 @@ export default function DataMenu<FormValues extends { id: string }>({
           </>
           :
           <>
-            {getValueOnEdit &&
+            {getValueOnEdit && addable &&
               <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAdding(true)}>
                 Add
               </Button>

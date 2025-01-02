@@ -2,13 +2,13 @@ import { terrainZoom } from "@/lib/terrain"
 import { Plane } from '@react-three/drei'
 import { proxy, useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
-import { guiState } from './gui/GUI'
 import { useOriginCoordinate } from '@/lib';
 import distance from "@turf/distance"
 import { socket } from "./Client"
 import { FROM_CLIENT_GET_HEIGHTMAP } from "@/lib/game"
 import { gameState } from "@/lib/client"
 import { merc } from "./Terrains"
+import { guiState } from "@/lib/client/gui";
 
 const state = proxy({
   currentTileX: -1,
@@ -70,28 +70,24 @@ const newTerrainWidth = 5;
 
 export default function TerrainGenerator() {
   useSnapshot(gameState.terrains);
-  useSnapshot(guiState);
+  const { selectedTab } = useSnapshot(guiState);
   const { currentTileX, currentTileY, hoveredTileX, hoveredTileY } = useSnapshot(state);
 
-  return (
-    <>
-      {guiState.tabState === "terrains" &&
-        <>
-          <CoordinateUpdater />
-          {[...Array(newTerrainWidth)].map((_, x) => [...Array(newTerrainWidth)].map((_, y) => [
-            currentTileX + x - Math.floor(newTerrainWidth / 2),
-            currentTileY + y - Math.floor(newTerrainWidth / 2)
-          ])).flat()
-            .map(([tileX, tileY], index) => {
-              if (tileX < 0 || (2 ** terrainZoom <= tileY)) return null;
+  if (selectedTab !== "terrains") return null;
 
-              // 既に地形が存在する場所は作成できないようにする
-              if (gameState.terrains[tileY]?.[tileX]) return null;
+  return <>
+    <CoordinateUpdater />
+    {[...Array(newTerrainWidth)].map((_, x) => [...Array(newTerrainWidth)].map((_, y) => [
+      currentTileX + x - Math.floor(newTerrainWidth / 2),
+      currentTileY + y - Math.floor(newTerrainWidth / 2)
+    ])).flat()
+      .map(([tileX, tileY], index) => {
+        if (tileX < 0 || (2 ** terrainZoom <= tileY)) return null;
 
-              return <NewTerrainTile key={index} tileX={tileX} tileY={tileY} isHovered={hoveredTileX === tileX && hoveredTileY === tileY} />;
-            })}
-        </>
-      }
-    </>
-  )
+        // 既に地形が存在する場所は作成できないようにする
+        if (gameState.terrains[tileY]?.[tileX]) return null;
+
+        return <NewTerrainTile key={index} tileX={tileX} tileY={tileY} isHovered={hoveredTileX === tileX && hoveredTileY === tileY} />;
+      })}
+  </>;
 }

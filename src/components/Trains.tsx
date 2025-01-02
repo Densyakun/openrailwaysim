@@ -3,11 +3,13 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
-import { trainsState as trainsState, Axle, Bogie, CarBody } from '@/lib/trains'
+import { trainsState as trainsState, Axle, Bogie, CarBody, Train } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
-import { guiState } from './gui/GUI'
+import { guiState } from '@/lib/client/gui'
+import { trainsTabPanelState } from '@/lib/client/trains'
+import { Line } from '@react-three/drei'
 
 function BogieModel({
   trainId,
@@ -15,6 +17,7 @@ function BogieModel({
   bogie,
   isHovered,
   isActive,
+  isEditing = false,
   ...props
 }: {
   trainId: string;
@@ -22,6 +25,7 @@ function BogieModel({
   bogie: Bogie;
   isHovered: boolean;
   isActive: boolean;
+  isEditing?: boolean;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
 
@@ -35,30 +39,59 @@ function BogieModel({
       <group ref={groupRef} {...props}>
         <mesh
           onClick={() => {
-            if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+            if (trainsState.activeTrainId) return;
 
-            trainsState.hoveredBodyIndex = -1
-            trainsState.hoveredTrainId = ""
+            if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
+              trainsState.hoveredBodyIndex = -1;
+              trainsState.hoveredTrainId = "";
 
-            if (isActive) {
-              trainsState.activeBodyIndex = -1
-              trainsState.activeTrainId = ""
-            } else {
-              trainsState.activeBodyIndex = bogieIndex
-              trainsState.activeTrainId = trainId
+              if (isActive) {
+                trainsState.activeBodyIndex = -1;
+                trainsState.activeTrainId = "";
+              } else {
+                trainsState.activeBodyIndex = bogieIndex;
+                trainsState.activeTrainId = trainId;
+              }
+            }
+
+            if (isEditing) {
+              if (trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+
+                trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexA = bogieIndex;
+              }
+
+              if (trainsTabPanelState.isSelectingCarBodyB) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+
+                if (trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint)
+                  trainsTabPanelState.bodySupporterJoints[trainsTabPanelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
+                else
+                  trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
+              }
             }
           }}
           onPointerMove={() => {
-            if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+            if (trainsState.activeTrainId) return;
 
-            trainsState.hoveredBodyIndex = bogieIndex
-            trainsState.hoveredTrainId = trainId
+            if (
+              guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
+              || isEditing && (
+                trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint
+                || trainsTabPanelState.isSelectingCarBodyB
+              )
+            ) {
+              trainsState.hoveredBodyIndex = bogieIndex;
+              trainsState.hoveredTrainId = trainId;
+            }
           }}
           onPointerOut={() => {
-            if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return
+            if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return;
 
-            trainsState.hoveredBodyIndex = -1
-            trainsState.hoveredTrainId = ""
+            trainsState.hoveredBodyIndex = -1;
+            trainsState.hoveredTrainId = "";
           }}
           rotation={[Math.PI / -2, 0, 0]}
         >
@@ -105,6 +138,7 @@ function OtherBodyModel({
   carBody,
   isHovered,
   isActive,
+  isEditing = false,
   ...props
 }: {
   trainId: string;
@@ -112,6 +146,7 @@ function OtherBodyModel({
   carBody: CarBody;
   isHovered: boolean;
   isActive: boolean;
+  isEditing?: boolean;
 }) {
   const meshRef = React.useRef<THREE.Mesh>(null)
 
@@ -124,28 +159,59 @@ function OtherBodyModel({
     <mesh
       ref={meshRef}
       onClick={() => {
-        if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+        if (trainsState.activeTrainId) return;
 
-        trainsState.hoveredBodyIndex = -1
-        trainsState.hoveredTrainId = ""
+        if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
+          trainsState.hoveredBodyIndex = -1;
+          trainsState.hoveredTrainId = "";
 
-        if (isActive) {
-          trainsState.activeBodyIndex = -1
-          trainsState.activeTrainId = ""
-        } else {
-          trainsState.activeBodyIndex = bodyIndex
-          trainsState.activeTrainId = trainId
+          if (isActive) {
+            trainsState.activeBodyIndex = -1;
+            trainsState.activeTrainId = "";
+          } else {
+            trainsState.activeBodyIndex = bodyIndex;
+            trainsState.activeTrainId = trainId;
+          }
+        }
+
+        if (isEditing) {
+          if (trainsTabPanelState.isSelectingCarBodyA) {
+            trainsState.hoveredBodyIndex = -1;
+            trainsState.hoveredTrainId = "";
+
+            if (trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint)
+              trainsTabPanelState.bodySupporterJoints[trainsTabPanelState.selectedBodySupporterJointIndex].otherBodyIndex = bodyIndex - trainsTabPanelState.axleTable.length;
+            else
+              trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
+          }
+
+          if (trainsTabPanelState.isSelectingCarBodyB && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
+            trainsState.hoveredBodyIndex = -1;
+            trainsState.hoveredTrainId = "";
+
+            trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
+          }
         }
       }}
-      onPointerOver={() => {
-        if (guiState.tabState !== "trains" || trainsState.activeTrainId) return
+      onPointerMove={() => {
+        if (trainsState.activeTrainId) return;
 
-        trainsState.hoveredBodyIndex = bodyIndex
-        trainsState.hoveredTrainId = trainId
+        if (
+          guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
+          || isEditing && (
+            trainsTabPanelState.isSelectingCarBodyA
+            || trainsTabPanelState.isSelectingCarBodyB && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint
+          )
+        ) {
+          trainsState.hoveredBodyIndex = bodyIndex;
+          trainsState.hoveredTrainId = trainId;
+        }
       }}
       onPointerOut={() => {
-        trainsState.hoveredBodyIndex = -1
-        trainsState.hoveredTrainId = ""
+        if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bodyIndex) return;
+
+        trainsState.hoveredBodyIndex = -1;
+        trainsState.hoveredTrainId = "";
       }}
       {...props}
     >
@@ -162,7 +228,7 @@ function OtherBodyModel({
 
 export function onFrame() {
   // Track the camera to the selected car body
-  if (trainsState.activeBodyIndex !== -1) {
+  if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
     const selectedTrain = gameState.trains[trainsState.activeTrainId]
     const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
     setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
@@ -171,50 +237,149 @@ export function onFrame() {
 }
 
 export default function Trains() {
-  useSnapshot(gameState)
-  useSnapshot(trainsState)
+  useSnapshot(gameState);
+  useSnapshot(trainsState);
+  const { selectedTab } = useSnapshot(guiState);
+  const { editingTrain } = useSnapshot(trainsTabPanelState);
 
-  return (
+  return <>
+    {Object.keys(gameState.trains).map(trainId => {
+      const train = gameState.trains[trainId];
+
+      return <TrainComponent key={trainId} trainId={trainId} train={train} />;
+    })}
+    {selectedTab === "trains" && editingTrain && <TrainComponent train={editingTrain as Train} isEditing />}
+  </>;
+}
+
+function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: string, train: Train, isEditing?: boolean }) {
+  return <FeatureObject centerCoordinate={eulerToCoordinate(train.globalPosition)}>
+    {train.bogies.map((bogie, bogieIndex) => {
+      // TODO
+      const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
+      const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
+
+      return (
+        <BogieModel
+          key={bogieIndex}
+          trainId={trainId}
+          bogieIndex={bogieIndex}
+          bogie={bogie}
+          isActive={isActive}
+          isHovered={isHovered}
+          isEditing={isEditing}
+        />
+      )
+    })}
+    {train.otherBodies.map((carBody, otherBodieIndex) => {
+      const bodyIndex = otherBodieIndex + train.bogies.length
+      // TODO
+      const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bodyIndex
+      const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
+
+      return (
+        <OtherBodyModel
+          key={otherBodieIndex}
+          trainId={trainId}
+          bodyIndex={bodyIndex}
+          carBody={carBody}
+          isActive={isActive}
+          isHovered={isHovered}
+          isEditing={isEditing}
+        />
+      )
+    })}
+    {isEditing && <EditingJoints />}
+  </FeatureObject>;
+}
+
+function EditingJoints() {
+  const { editingTrain, selectedBodySupporterJointIndex, selectedOtherJointIndex, axleTable } = useSnapshot(trainsTabPanelState);
+
+  if (!editingTrain) return null;
+
+  return <>
     <>
-      {Object.keys(gameState.trains).map(trainId => {
-        const train = gameState.trains[trainId]
-
-        return (
-          <FeatureObject key={trainId} centerCoordinate={eulerToCoordinate(train.globalPosition)}>
-            {train.bogies.map((bogie, bogieIndex) => {
-              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
-              const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
-
-              return (
-                <BogieModel
-                  key={bogieIndex}
-                  trainId={trainId}
-                  bogieIndex={bogieIndex}
-                  bogie={bogie}
-                  isActive={isActive}
-                  isHovered={isHovered}
-                />
-              )
-            })}
-            {train.otherBodies.map((carBody, otherBodieIndex) => {
-              const bodyIndex = otherBodieIndex + train.bogies.length
-              const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bodyIndex
-              const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
-
-              return (
-                <OtherBodyModel
-                  key={otherBodieIndex}
-                  trainId={trainId}
-                  bodyIndex={bodyIndex}
-                  carBody={carBody}
-                  isActive={isActive}
-                  isHovered={isHovered}
-                />
-              )
-            })}
-          </FeatureObject>
-        )
-      })}
+      {editingTrain.bodySupporterJoints.map((bodySupporterJoint, index) => <React.Fragment key={index}>
+        {bodySupporterJoint.otherBodyIndex !== -1 && bodySupporterJoint.bogieIndex !== -1 &&
+          selectedBodySupporterJointIndex === index && <>
+            <Line
+              points={[
+                editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].position,
+                editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].position.clone()
+                  .add(
+                    bodySupporterJoint.otherBodyPosition.clone()
+                      .applyEuler(editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].rotation)
+                  ),
+              ]}
+              color={"#f00"}
+              depthTest={false}
+            />
+            <Line
+              points={[
+                editingTrain.bogies[bodySupporterJoint.bogieIndex].position,
+                editingTrain.bogies[bodySupporterJoint.bogieIndex].position.clone()
+                  .add(
+                    bodySupporterJoint.bogiePosition.clone()
+                      .applyEuler(editingTrain.bogies[bodySupporterJoint.bogieIndex].rotation)
+                  ),
+              ]}
+              color={"#0f0"}
+              depthTest={false}
+            />
+          </>}
+      </React.Fragment>)}
     </>
-  )
+    <>
+      {editingTrain.otherJoints.map((otherJoint, index) => <React.Fragment key={index}>
+        {otherJoint.bodyIndexA !== -1 && otherJoint.bodyIndexB !== -1 &&
+          selectedOtherJointIndex === index && <>
+            <Line
+              points={otherJoint.bodyIndexA < axleTable.length
+                ? [
+                  editingTrain.bogies[otherJoint.bodyIndexA].position,
+                  editingTrain.bogies[otherJoint.bodyIndexA].position.clone()
+                    .add(
+                      otherJoint.positionA.clone()
+                        .applyEuler(editingTrain.bogies[otherJoint.bodyIndexA].rotation)
+                    ),
+                ]
+                : [
+                  editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].position,
+                  editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].position.clone()
+                    .add(
+                      otherJoint.positionA.clone()
+                        .applyEuler(editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].rotation)
+                    ),
+                ]
+              }
+              color={"#f00"}
+              depthTest={false}
+            />
+            <Line
+              points={otherJoint.bodyIndexB < axleTable.length
+                ? [
+                  editingTrain.bogies[otherJoint.bodyIndexB].position,
+                  editingTrain.bogies[otherJoint.bodyIndexB].position.clone()
+                    .add(
+                      otherJoint.positionB.clone()
+                        .applyEuler(editingTrain.bogies[otherJoint.bodyIndexB].rotation)
+                    ),
+                ]
+                : [
+                  editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].position,
+                  editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].position.clone()
+                    .add(
+                      otherJoint.positionB.clone()
+                        .applyEuler(editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].rotation)
+                    ),
+                ]
+              }
+              color={"#0f0"}
+              depthTest={false}
+            />
+          </>}
+      </React.Fragment>)}
+    </>
+  </>;
 }

@@ -8,7 +8,7 @@ export default function FollowOriginGIS() {
     const mainCamera = camerasState.cameraRefs[camerasState.mainCameraKey]
     const mainControls = controlsState.controlsRefs[controlsState.mainControlsKey]
 
-    if (mainCamera && mainControls)
+    if (mainCamera && mainControls && (mainCamera.position.x || mainCamera.position.z || mainCamera.position.y))
       onMovedCamera(mainCamera, mainControls)
   })
 

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import EventEmitter from "events"
 import { proxy } from "valtio"
 import { WebSocket as WebSocketInNode } from "ws"
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTime as updateTrainOnTime } from "./trains";
+import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTrainOnTime } from "./trains";
 //import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "geojson";
 import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
@@ -396,3 +396,4 @@ export const FROM_CLIENT_GET_HEIGHTMAP = 7
 export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 8
 export const FROM_CLIENT_SET_PROP = 9
 export const FROM_CLIENT_DELETE_PROP = 10
+export const FROM_CLIENT_SET_TRAIN = 11

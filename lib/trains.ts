@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { proxy } from "valtio";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { GameStateType, IdentifiedRecord } from "./game";
-import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation } from "./tracks";
+import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 
 // Resistances
 
@@ -38,7 +38,7 @@ export type CarBody = {
   rotation: THREE.Euler;
   pointOnTrack: PointOnTrack;
   weight: number; // ton
-  controlStands: ControlStand[];
+  controlStands: ControlStandType[];
 }
 
 export type SerializableCarBody = {
@@ -46,7 +46,7 @@ export type SerializableCarBody = {
   rotation: [number, number, number, THREE.EulerOrder];
   pointOnTrack: PointOnTrack;
   weight: number;
-  controlStands: ControlStand[];
+  controlStands: ControlStandType[];
 }
 
 // 台車。CarBodyの一種
@@ -567,7 +567,7 @@ export function placeTrain(gameState: GameStateType, train: Train) {
   train.bogies.forEach(fromBogie => axlesToBogie(gameState, train, fromBogie));
 }
 
-export function updateTime(gameState: GameStateType, train: Train, delta: number) {
+export function updateTrainOnTime(gameState: GameStateType, train: Train, delta: number) {
   // 自動でマスコンと主制御器（Control System）を接続する
   let accel = 0
   let brake = 1
@@ -644,106 +644,11 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
 
     // 輪軸を転がす
     bogie.axles.forEach(axle => {
-      axle.rotationIsReversed
-        ? axle.pointOnTrack.length -= distance
-        : axle.pointOnTrack.length += distance;
+      const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(gameState, axle.pointOnTrack, axle.rotationIsReversed, distance);
 
-      if (axle.pointOnTrack.length < 0) {
-        // 輪軸が軌道の始点より外に進入した場合
-        const track = gameState.tracks[axle.pointOnTrack.trackId];
-        if (track.idOfTrackOrSwitchConnectedFromStart) {
-          if (track.connectedFromStartIsTrack) {
-            const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromStart];
-            if (track.connectedFromStartIsToEnd) {
-              axle.pointOnTrack = {
-                trackId: track.idOfTrackOrSwitchConnectedFromStart,
-                length: connectedTo.length + axle.pointOnTrack.length,
-              };
-            } else {
-              // 軌道の始点側に進入する場合
-              axle.pointOnTrack = {
-                trackId: track.idOfTrackOrSwitchConnectedFromStart,
-                length: -axle.pointOnTrack.length,
-              };
-              // 軌道に対する輪軸の進行方向を反転する
-              axle.rotationIsReversed = !axle.rotationIsReversed;
-            }
-          } else {
-            // 分岐器が接続している軌道を取得する
-            const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromStart];
-            if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
-              // 接続先がない場合
-              train.speed = 0;
-              axle.pointOnTrack.length = 0;
-            } else {
-              const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
-              if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
-                axle.pointOnTrack = {
-                  trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                  length: connectedTo.length + axle.pointOnTrack.length,
-                };
-              } else {
-                axle.pointOnTrack = {
-                  trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                  length: -axle.pointOnTrack.length,
-                };
-                axle.rotationIsReversed = !axle.rotationIsReversed;
-              }
-            }
-          }
-        } else {
-          // 接続先がない場合
-          train.speed = 0;
-          axle.pointOnTrack.length = 0;
-        }
-      } else {
-        const track = gameState.tracks[axle.pointOnTrack.trackId];
-        if (track.length < axle.pointOnTrack.length) {
-          // 輪軸が軌道の終点より外に進入した場合
-          if (track.idOfTrackOrSwitchConnectedFromEnd) {
-            if (track.connectedFromEndIsTrack) {
-              const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
-              if (track.connectedFromEndIsToEnd) {
-                axle.pointOnTrack = {
-                  trackId: track.idOfTrackOrSwitchConnectedFromEnd,
-                  length: connectedTo.length + track.length - axle.pointOnTrack.length,
-                };
-                axle.rotationIsReversed = !axle.rotationIsReversed;
-              } else {
-                axle.pointOnTrack = {
-                  trackId: track.idOfTrackOrSwitchConnectedFromEnd,
-                  length: axle.pointOnTrack.length - track.length,
-                };
-              }
-            } else {
-              const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromEnd];
-              if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
-                // 接続先がない場合
-                train.speed = 0;
-                axle.pointOnTrack.length = track.length;
-              } else {
-                const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
-                if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
-                  axle.pointOnTrack = {
-                    trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                    length: connectedTo.length + track.length - axle.pointOnTrack.length,
-                  };
-                  axle.rotationIsReversed = !axle.rotationIsReversed;
-                } else {
-                  axle.pointOnTrack = {
-                    trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                    length: axle.pointOnTrack.length - track.length,
-                  };
-                }
-              }
-            }
-          } else {
-            // 接続先がない場合
-            train.speed = 0;
-            axle.pointOnTrack.length = track.length;
-          }
-        }
-      }
+      axle.pointOnTrack = newPointOnTrack;
+      axle.rotationIsReversed = newDirectionIsReversed;
+      if (isDeadEnd) train.speed = 0;
 
       axle.rotationX += distance * axle.diameter;
     });
@@ -827,7 +732,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
   train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
 }
 
-export type ControlStand = {
+export type ControlStandType = {
   directionIsReversed: boolean;
   reverser: number;
   masterController: OneHandleMasterController;
@@ -849,13 +754,14 @@ export type OneHandleMasterController = {
   uiOptionId: string;
 };
 
-export function getOneHandleMasterControllerOutput(gameState: GameStateType, controlStand: ControlStand) {
+export function getOneHandleMasterControllerOutput(gameState: GameStateType, controlStand: ControlStandType) {
   // TODO Call different functions depending on the vehicle
   return getOneHandleMasterControllerSimpleOutput(gameState, controlStand);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, controlStand: ControlStand) {
+export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, controlStand: ControlStandType) {
   const config = gameState.uiOneHandleMasterControllerConfigs[controlStand.masterController.uiOptionId];
+  if (!config) return [0, 0];
 
   return [
     (controlStand.directionIsReversed ? -1 : 1) * controlStand.reverser * Math.max(0, 1 - controlStand.masterController.value / config.nValue),

@@ -5,9 +5,9 @@ import TrainIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { trainsTabPanelState } from './TrainsTabPanel';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { trainsTabPanelState } from '@/lib/client/trains';
 
 export default function TrainGroupTable() {
   useSnapshot(gameState);

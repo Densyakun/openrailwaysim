@@ -3,10 +3,11 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Environment, Sky } from '@react-three/drei'
 import FollowCamera, { state as followCameraState } from './cameras-and-controls/FollowCamera'
-import { proxy, ref } from 'valtio'
+import { useSnapshot } from 'valtio'
 import { getOriginEuler, state as gisState } from '@/lib/gis'
 import { gameState } from '@/lib/client'
-import { lightingIsForEditing } from './gui/GUI'
+import { guiState, lightingIsForEditing } from '@/lib/client/gui'
+import { lightingState } from '@/lib/client/lighting'
 
 export const skyDistanceHalf = 149600000000
 
@@ -15,34 +16,26 @@ export const maxAmbientLightIntensity = 0.1
 export const directionalLightCameraSize = 1000
 export const directionalLightDistance = 10000000
 
-export const state = proxy<{
-  directionalLight: { value?: THREE.DirectionalLight };
-  elevation: number;
-  azimuth: number;
-}>({
-  directionalLight: ref<{ value?: THREE.DirectionalLight }>({}),
-  elevation: 0,
-  azimuth: Math.PI / 2,
-})
-
 function getSunPosition() {
   const originCoordinateEuler = getOriginEuler()
 
   return new THREE.Vector3(
-    Math.sin(state.azimuth + originCoordinateEuler.z) * Math.cos(state.elevation),
-    Math.sin(state.elevation),
-    -Math.cos(state.azimuth + originCoordinateEuler.z) * Math.cos(state.elevation)
+    Math.sin(lightingState.azimuth + originCoordinateEuler.z) * Math.cos(lightingState.elevation),
+    Math.sin(lightingState.elevation),
+    -Math.cos(lightingState.azimuth + originCoordinateEuler.z) * Math.cos(lightingState.elevation)
   )
 }
 
 export default function SunAndSky() {
+  const { selectedTab } = useSnapshot(guiState);
+
   const ambientLightRef = React.useRef<THREE.AmbientLight>(null)
 
   const directionalLightRef = React.useRef<THREE.DirectionalLight>(null)
   React.useEffect(() => {
     if (!directionalLightRef.current) return
 
-    if (state.directionalLight.value = directionalLightRef.current) {
+    if (lightingState.directionalLight.value = directionalLightRef.current) {
       directionalLightRef.current.shadow.mapSize.width = 4096
       directionalLightRef.current.shadow.mapSize.height = 4096
       directionalLightRef.current.shadow.camera.far = directionalLightDistance * 2
@@ -59,7 +52,7 @@ export default function SunAndSky() {
 
   useFrame(() => {
     const nowDate = new Date(gameState.nowDate)
-    state.elevation =
+    lightingState.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
       + new THREE.Euler().setFromQuaternion(gisState.originTransform.quaternion, 'YXZ').y
       - Math.PI / 2
@@ -74,7 +67,7 @@ export default function SunAndSky() {
       ))
     }
 
-    const lightingIsForEditing_ = lightingIsForEditing();
+    const lightingIsForEditing_ = lightingIsForEditing(selectedTab);
     ambientLightRef.current!.intensity = lightingIsForEditing_
       ? 1
       : ((sunPosition.y + 1) * maxAmbientLightIntensity / 2);
@@ -93,7 +86,7 @@ export default function SunAndSky() {
         castShadow
       />
       <FollowCamera>
-        {lightingIsForEditing()
+        {lightingIsForEditing(selectedTab)
           ? <Environment background={true} />
           : <Sky
             distance={skyDistanceHalf * 2}

@@ -17,7 +17,6 @@ import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
-import { guiState } from './GUI';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
@@ -486,7 +485,6 @@ function CreateTrackMenu() {
 }
 
 export default function FeatureCollectionsTabPanel() {
-  useSnapshot(guiState);
   useSnapshot(gisState);
   const { isShowTable, segmentList } = useSnapshot(featureCollectionsTabPanelState);
 

@@ -493,3 +493,116 @@ export function applyTransitionCurveToSerializableTrack(serializableTrack: Seria
     curveDirection: transitionCurve.curveDirection,
   } as SerializableTransitionCurve;
 }
+
+export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
+  let newPointOnTrack: PointOnTrack = { ...pointOnTrack };
+  let newDirectionIsReversed = directionIsReversed;
+  let isDeadEnd = false;
+
+  directionIsReversed
+    ? newPointOnTrack.length -= distance
+    : newPointOnTrack.length += distance;
+
+  if (pointOnTrack.length < 0) {
+    // 輪軸が軌道の始点より外に進入した場合
+    const track = gameState.tracks[pointOnTrack.trackId];
+    if (track.idOfTrackOrSwitchConnectedFromStart) {
+      if (track.connectedFromStartIsTrack) {
+        const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromStart];
+        if (track.connectedFromStartIsToEnd) {
+          newPointOnTrack = {
+            trackId: track.idOfTrackOrSwitchConnectedFromStart,
+            length: connectedTo.length + pointOnTrack.length,
+          };
+        } else {
+          // 軌道の始点側に進入する場合
+          newPointOnTrack = {
+            trackId: track.idOfTrackOrSwitchConnectedFromStart,
+            length: -pointOnTrack.length,
+          };
+          // 軌道に対する輪軸の進行方向を反転する
+          newDirectionIsReversed = !directionIsReversed;
+        }
+      } else {
+        // 分岐器が接続している軌道を取得する
+        const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromStart];
+        if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
+          // 接続先がない場合
+          isDeadEnd = true;
+          newPointOnTrack.length = 0;
+        } else {
+          const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+          if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+            newPointOnTrack = {
+              trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+              length: connectedTo.length + pointOnTrack.length,
+            };
+          } else {
+            newPointOnTrack = {
+              trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+              length: -pointOnTrack.length,
+            };
+            newDirectionIsReversed = !directionIsReversed;
+          }
+        }
+      }
+    } else {
+      // 接続先がない場合
+      isDeadEnd = true;
+      newPointOnTrack.length = 0;
+    }
+  } else {
+    const track = gameState.tracks[pointOnTrack.trackId];
+    if (track.length < pointOnTrack.length) {
+      // 輪軸が軌道の終点より外に進入した場合
+      if (track.idOfTrackOrSwitchConnectedFromEnd) {
+        if (track.connectedFromEndIsTrack) {
+          const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
+          if (track.connectedFromEndIsToEnd) {
+            newPointOnTrack = {
+              trackId: track.idOfTrackOrSwitchConnectedFromEnd,
+              length: connectedTo.length + track.length - pointOnTrack.length,
+            };
+            directionIsReversed = !directionIsReversed;
+          } else {
+            newPointOnTrack = {
+              trackId: track.idOfTrackOrSwitchConnectedFromEnd,
+              length: pointOnTrack.length - track.length,
+            };
+          }
+        } else {
+          const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
+            // 接続先がない場合
+            isDeadEnd = true;
+            newPointOnTrack.length = track.length;
+          } else {
+            const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+            if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+              newPointOnTrack = {
+                trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                length: connectedTo.length + track.length - pointOnTrack.length,
+              };
+              directionIsReversed = !directionIsReversed;
+            } else {
+              newPointOnTrack = {
+                trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
+                length: pointOnTrack.length - track.length,
+              };
+            }
+          }
+        }
+      } else {
+        // 接続先がない場合
+        isDeadEnd = true;
+        newPointOnTrack.length = track.length;
+      }
+    }
+  }
+
+  return {
+    newPointOnTrack,
+    newDirectionIsReversed,
+    isDeadEnd,
+  };
+}

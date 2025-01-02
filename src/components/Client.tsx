@@ -1,6 +1,6 @@
 'use client'
 
-import { gameState, clientState, messageEmitter } from "@/lib/client"
+import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client"
 import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
@@ -72,6 +72,7 @@ export default function Client() {
 
   useFrame(({ }, delta) => {
     updateTime(gameState, delta)
+    updateClientOnTime(gameState, delta)
 
     onFrameTrains()
   })

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { Box, Paper, Slider, SxProps } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { ControlStand, UIOneHandleMasterControllerConfig, trainsState as trainsState } from '@/lib/trains';
+import { ControlStandType, UIOneHandleMasterControllerConfig, trainsState as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE } from '@/lib/game';
@@ -135,12 +135,14 @@ export default function MasterController({
   controlStand,
 }: {
   controlStandIndex: number;
-  controlStand: ControlStand;
+  controlStand: ControlStandType;
 }) {
   useSnapshot(gameState);
   useSnapshot(trainsState);
 
   const { uiOptionId, value } = controlStand.masterController;
+
+  if (!gameState.uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
 
   return (
     <MasterControllerSlider

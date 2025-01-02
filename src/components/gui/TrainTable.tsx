@@ -1,21 +1,24 @@
 import { gameState } from '@/lib/client';
+import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import ListIcon from '@mui/icons-material/List';
 import PlaceIcon from '@mui/icons-material/Place';
 import TrainIcon from '@mui/icons-material/Train';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis';
-import { trainsTabPanelState } from './TrainsTabPanel';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
 import { Train } from '@/lib/trains';
+import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains';
+import { useSnapshot } from 'valtio';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
-  let trains: { [key: string]: Train } = {};
-  gameState.trainGroups[trainGroupId].forEach(trainId =>
-    trains[trainId] = gameState.trains[trainId]
+  const { trainGroups, trains } = useSnapshot(gameState);
+
+  let trains_: { [key: string]: Train } = {};
+  trainGroups[trainGroupId].forEach(trainId =>
+    trains_[trainId] = trains[trainId] as Train
   );
 
   return <Paper square sx={{
@@ -38,13 +41,25 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
             Back
           </Button>
           <TrainIcon />
-          <Typography variant="h5" gutterBottom>{adding ? `Add a train to ${trainGroupId}` :
-            //editingId ? `Edit a train "${editingId}"` :
-            trainGroupId}</Typography>
+          <Typography variant="h5" gutterBottom>{trainGroupId}</Typography>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
+            trainsTabPanelState.isAddingTrain = true;
+            resetEditingTrainState();
+            trainsTabPanelState.bogieOffsets = [0];
+            trainsTabPanelState.bogieWeights = [0];
+            trainsTabPanelState.axleTable = [[{
+              z: 0,
+              diameter: 0.86,
+              hasMotor: true,
+            }]];
+          }}>
+            Add
+          </Button>
         </Stack>
       )}
-      objects={trains}
+      objects={trains_}
       listItemButtons={id => <>
+        {/** TODO Edit button */}
         <Tooltip title="Move camera to object" disableInteractive>
           <IconButton edge="end" onClick={() => {
             const train = gameState.trains[id]
@@ -71,6 +86,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
       handleDelete={(id => {
         socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["trains", id]]));
       })}
+      addable={false}
       editable={false}
     />
   </Paper>;

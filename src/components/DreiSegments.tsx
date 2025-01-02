@@ -1,14 +1,13 @@
-import * as React from 'react';
 import { Segments } from '@react-three/drei';
 import FeatureCollectionsWithDreiSegment from './FeatureCollectionsWithDreiSegment';
 import { useSnapshot } from 'valtio';
-import { guiState } from './gui/GUI';
+import { guiState } from '@/lib/client/gui';
 
 export default function DreiSegments() {
-  useSnapshot(guiState);
+  const { selectedTab } = useSnapshot(guiState);
 
   return <>
-    {guiState.tabState === "featureCollections" && <>
+    {selectedTab === "featureCollections" && <>
       <Segments
         limit={2000}
         lineWidth={0.5}

@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -272,6 +272,23 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
               object = object[propPath[n]];
             delete object[propPath[propPath.length - 1]];
           }
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case FROM_CLIENT_SET_TRAIN: {
+          const [[trainGroupId, trainId], newValue, oldPath] = value as [string[], any, string[] | undefined];
+
+          if (oldPath) {
+            if (gameState["trains"][trainId]) break;
+
+            const [oldTrainGroupId, oldTrainId] = oldPath;
+            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
+            gameState["trainGroups"][oldTrainGroupId].splice(gameState["trainGroups"][oldTrainGroupId].indexOf(oldTrainId), 1);
+            delete gameState["trains"][oldTrainId];
+          }
+          gameState["trains"][trainId] = fromSerializableProp(["trains", trainId], newValue, gameState);
+          gameState["trainGroups"][trainGroupId].push(trainId);
 
           messageEmitter.isInvalidMessage = false;
           break;

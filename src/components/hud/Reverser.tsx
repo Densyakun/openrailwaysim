@@ -1,17 +1,9 @@
-import * as React from 'react';
-import { Box, Paper, Slider, SxProps } from '@mui/material';
+import { Paper, Slider } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { ControlStand, trainsState as trainsState } from '@/lib/trains';
+import { ControlStandType, trainsState as trainsState } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP } from '@/lib/game';
-
-const Box_ = Box as (props: {
-  children?: React.ReactNode;
-  component?: React.ElementType;
-  ref?: React.Ref<unknown>;
-  sx?: SxProps;
-}) => JSX.Element;
 
 export function ReverserSlider({ value, setValue }: { value: number, setValue: (newValue: number) => void }) {
   const handleChange = (event: Event, newValue: number | number[]) => {
@@ -52,7 +44,7 @@ export default function Reverser({
   controlStand,
 }: {
   controlStandIndex: number;
-  controlStand: ControlStand;
+  controlStand: ControlStandType;
 }) {
   useSnapshot(gameState);
   useSnapshot(trainsState);

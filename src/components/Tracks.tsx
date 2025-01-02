@@ -1,40 +1,21 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { v4 as uuidv4 } from 'uuid';
 import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation, state as tracksState } from '@/lib/tracks'
-import { guiState } from './gui/GUI'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
-import { trainsTabPanelState } from './gui/TrainsTabPanel'
 import { getRelativePosition } from '@/lib/gis'
-import { createTestOneAxleCar } from '@/lib/trainSamples'
-import { SerializableTrain } from '@/lib/trains'
-import { FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SWITCH_TRACK, toSerializableProp } from '@/lib/game'
+import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary } from 'react-error-boundary';
 import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
-
-export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
-
-export function getNumberOfCurvePoints(length: number, radius: number) {
-  return Math.max(1, Math.ceil(length * railModelFactor / Math.abs(radius)))
-}
-
-export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3, rotationX: number) {
-  const euler = new THREE.Euler(0, 0, 0, 'XZY').setFromQuaternion(
-    new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 0, -1),
-      nextPoint.clone().sub(point).normalize()
-    ), 'YXZ'
-  )
-  euler.z = -rotationX
-  return euler
-}
+import { getNumberOfCurvePoints, getRotationFromTwoPoints } from '@/lib/client/tracks';
+import { guiState } from '@/lib/client/gui';
+import { trainsTabPanelState } from '@/lib/client/trains';
 
 function RailModel({
   from,
@@ -69,13 +50,12 @@ function RailModel({
 }
 
 function AddingTracks() {
-  //useSnapshot(guiState);
-  //useSnapshot(tracksSubMenuState);
+  useSnapshot(tracksSubMenuState);
   useSnapshot(curveEditMenuState);
 
   if (!(
-    guiState.tabState === "tracks" && tracksSubMenuState.isAddingCurve
-    || guiState.tabState === "featureCollections" && featureCollectionsTabPanelState.straightTracks.length
+    guiState.selectedTab === "tracks" && tracksSubMenuState.isAddingCurve
+    || guiState.selectedTab === "featureCollections" && featureCollectionsTabPanelState.straightTracks.length
   ))
     return null;
 
@@ -198,9 +178,22 @@ function AddingTracks() {
   </>;
 }
 
+function PointingOnTrack() {
+  const { pointingOnTrack } = useSnapshot(tracksState);
+
+  if (!pointingOnTrack) return null;
+
+  return <FeatureObject centerCoordinate={gameState.tracks[pointingOnTrack.trackId].centerCoordinate}>
+    <mesh position={getPosition(gameState.tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
+      <sphereGeometry />
+      <meshBasicMaterial color={"#f00"} />
+    </mesh>
+  </FeatureObject>;
+}
+
 export default function Tracks() {
-  useSnapshot(gameState)
-  useSnapshot(tracksSubMenuState)
+  const { selectedTab } = useSnapshot(guiState)
+  const tracks = useSnapshot(gameState.tracks)
 
   return (
     <>
@@ -215,29 +208,25 @@ export default function Tracks() {
           })}
         </FeatureObject>
       })*/}
-      {Object.keys(gameState.tracks).map(trackId => {
-        const track = gameState.tracks[trackId];
+      {Object.keys(tracks).map(trackId => {
+        const track = tracks[trackId];
 
-        return guiState.tabState === "switches"
-          ? <TracksOnSwitchMode key={trackId} track={track} trackId={trackId} />
-          : <TracksOnOtherMode key={trackId} track={track} trackId={trackId} />;
+        return selectedTab === "switches"
+          ? <TracksOnSwitchMode key={trackId} track={track as Track} trackId={trackId} />
+          : <TracksOnOtherMode key={trackId} track={track as Track} trackId={trackId} />;
       })}
       <AddingTracks />
-      {
-        guiState.tabState === "trains" && trainsTabPanelState.menuState === "placeAxle" &&
-        tracksState.pointingOnTrack &&
-        <FeatureObject centerCoordinate={gameState.tracks[tracksState.pointingOnTrack.trackId].centerCoordinate}>
-          <mesh position={getPosition(gameState.tracks[tracksState.pointingOnTrack.trackId], tracksState.pointingOnTrack.length)}>
-            <sphereGeometry />
-            <meshBasicMaterial color={"#f00"} />
-          </mesh>
-        </FeatureObject>
-      }
+      <PointingOnTrack />
     </>
   )
 }
 
 function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }) {
+  const { isAddingCurve } = useSnapshot(tracksSubMenuState);
+  useSnapshot(tracksState);
+  useSnapshot(gameState.switches);
+  useSnapshot(trainsTabPanelState);
+
   const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
@@ -282,7 +271,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
     rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
 
   let color: string | undefined;
-  if (tracksSubMenuState.isAddingCurve) color = "#888";
+  if (isAddingCurve) color = "#888";
   else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
   else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
   else if (tracksState.hoveredTracks.length === 1) {
@@ -322,7 +311,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
         />)}
       </React.Fragment>
     })}
-    {guiState.tabState === "tracks" && <>
+    {guiState.selectedTab === "tracks" && <>
       <Line
         points={points}
         lineWidth={48}
@@ -355,55 +344,48 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
         color={color || "#000"}
       />
     </>}
-    {guiState.tabState === "trains" && trainsTabPanelState.menuState === "placeAxle" && <>
-      <Line
-        points={points}
-        lineWidth={48}
-        transparent
-        opacity={0}
-        onPointerMove={e => {
-          const point = e.intersections[0].point
+    {guiState.selectedTab === "trains" &&
+      (trainsTabPanelState.isAddingTrain || trainsTabPanelState.editingTrainId) &&
+      !trainsTabPanelState.pointOnTrack && <>
+        <Line
+          points={points}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onPointerMove={e => {
+            const point = e.intersections[0].point
 
-          tracksState.pointingOnTrack = {
-            trackId,
-            length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+            tracksState.pointingOnTrack = {
+              trackId,
+              length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+            }
+          }}
+          onPointerOut={() => {
+            if (tracksState.pointingOnTrack?.trackId === trackId)
+              tracksState.pointingOnTrack = undefined
+          }}
+          onClick={() => {
+            if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
+              trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
+              tracksState.pointingOnTrack = undefined;
+            }
+          }}
+        />
+        <Line
+          points={points}
+          color={
+            tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
+              "#000"
           }
-        }}
-        onPointerOut={() => {
-          if (tracksState.pointingOnTrack?.trackId === trackId)
-            tracksState.pointingOnTrack = undefined
-        }}
-        onClick={() => {
-          if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
-            const train: SerializableTrain = toSerializableProp(
-              ["trains", uuidv4()],
-              createTestOneAxleCar({
-                gameState,
-                trackId,
-                length: tracksState.pointingOnTrack.length,
-                uiMasterControllerOptionId: (() => {
-                  const k = Object.keys(gameState.uiOneHandleMasterControllerConfigs);
-                  return k.length ? k[0] : undefined;
-                })(),
-              })
-            );
-
-            socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", train]]));
-          }
-        }}
-      />
-      <Line
-        points={points}
-        color={
-          tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-            "#000"
-        }
-      />
-    </>}
+        />
+      </>}
   </FeatureObject>;
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
+  useSnapshot(tracksState);
+  useSnapshot(gameState.switches);
+
   const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
@@ -449,7 +431,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
-  if (guiState.tabState === "switches") {
+  if (guiState.selectedTab === "switches") {
     for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(gameState.switches)) {
       const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
       if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
@@ -469,7 +451,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   }
 
   return <FeatureObject centerCoordinate={centerCoordinate}>
-    {guiState.tabState === "switches" && <>
+    {guiState.selectedTab === "switches" && <>
       <Line
         points={points.slice(0, points.length / 2 + 1)}
         lineWidth={48}

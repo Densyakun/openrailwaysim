@@ -1,4 +1,3 @@
-import * as React from 'react';
 import Box from '@mui/material/Box';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import RouteIcon from '@mui/icons-material/Route';
@@ -6,8 +5,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
-import { SxProps } from '@mui/system';
-import { proxy, useSnapshot } from 'valtio';
+import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
 import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import SyncedChip from '../SyncedChip';
@@ -16,22 +14,11 @@ import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
 import TrainsTabPanel from './TrainsTabPanel';
 import { trainsState } from '@/lib/trains';
-
-const Box_ = Box as (props: {
-  children?: React.ReactNode;
-  component?: React.ElementType;
-  ref?: React.Ref<unknown>;
-  sx?: SxProps;
-}) => JSX.Element;
-
-export const guiState = proxy<{
-  tabState: string;
-}>({
-  tabState: "",
-});
+import { guiState } from '@/lib/client/gui';
+import { useEffect } from 'react';
 
 function TopInfo() {
-  return <Box_ sx={{
+  return <Box sx={{
     width: "100%",
     display: "flex",
     justifyContent: 'center',
@@ -44,49 +31,53 @@ function TopInfo() {
       <TimeChip />
       <SyncedChip />
     </Stack>
-  </Box_>;
+  </Box>;
 }
 
+const menuComponents: {
+  [key: string]: {
+    title: string;
+    icon: JSX.Element;
+    component?: JSX.Element;
+  }
+} = {
+  'terrains': {
+    title: 'Terrains',
+    icon: <TerrainIcon />,
+  },
+  'featureCollections': {
+    title: 'Feature collections',
+    icon: <PlaceIcon />,
+    component: <FeatureCollectionsTabPanel />,
+  },
+  'tracks': {
+    title: 'Tracks',
+    icon: <RouteIcon />,
+    component: <TracksSubMenu />,
+  },
+  'switches': {
+    title: 'Switches',
+    icon: <AltRouteIcon />,
+  },
+  'trains': {
+    title: 'Trains',
+    icon: <TrainIcon />,
+    component: <TrainsTabPanel />,
+  },
+  'settings': {
+    title: 'Settings',
+    icon: <SettingsIcon />,
+    component: <Settings />,
+  },
+};
+
 export default function GUI() {
-  const { tabState } = useSnapshot(guiState);
+  const { selectedTab, alignItems } = useSnapshot(guiState);
   const { activeTrainId } = useSnapshot(trainsState);
 
-  const menuComponents: {
-    [key: string]: {
-      title: string;
-      icon: JSX.Element;
-      component?: JSX.Element;
-    }
-  } = {
-    'terrains': {
-      title: 'Terrains',
-      icon: <TerrainIcon />,
-    },
-    'featureCollections': {
-      title: 'Feature collections',
-      icon: <PlaceIcon />,
-      component: <FeatureCollectionsTabPanel />,
-    },
-    'tracks': {
-      title: 'Tracks',
-      icon: <RouteIcon />,
-      component: <TracksSubMenu />,
-    },
-    'switches': {
-      title: 'Switches',
-      icon: <AltRouteIcon />,
-    },
-    'trains': {
-      title: 'Trains',
-      icon: <TrainIcon />,
-      component: <TrainsTabPanel />,
-    },
-    'settings': {
-      title: 'Settings',
-      icon: <SettingsIcon />,
-      component: <Settings />,
-    },
-  };
+  useEffect(() => {
+    guiState.alignItems = "center";
+  }, [selectedTab]);
 
   return <Stack
     justifyContent="space-between"
@@ -104,35 +95,35 @@ export default function GUI() {
     <TopInfo />
     <Stack
       justifyContent="flex-end"
-      alignItems="center"
+      alignItems={alignItems}
       sx={{
         width: '100%',
         height: '100%',
       }}
     >
-      {tabState && menuComponents[tabState].component && menuComponents[tabState].component}
+      {selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}
     </Stack>
-    {(tabState !== "trains" || !activeTrainId) &&
+    {(selectedTab !== "trains" || !activeTrainId) &&
       <Paper elevation={0} sx={{
         m: 0.5,
         pointerEvents: 'auto',
         userSelect: 'none',
       }}>
         <ToggleButtonGroup
-          value={tabState}
+          value={selectedTab}
           exclusive
           onChange={(
             event: React.MouseEvent<HTMLElement>,
             newValue: string | null,
           ) =>
-            guiState.tabState = newValue || ""
+            guiState.selectedTab = newValue || ""
           }
         >
           {Object.keys(menuComponents).map(id => {
             const { title, icon } = menuComponents[id];
 
             return <Tooltip key={id} title={title} disableInteractive>
-              <ToggleButton value={id} selected={tabState === id}>
+              <ToggleButton value={id} selected={selectedTab === id}>
                 {icon}
               </ToggleButton>
             </Tooltip>
@@ -141,12 +132,4 @@ export default function GUI() {
       </Paper>
     }
   </Stack>;
-}
-
-export function lightingIsForEditing() {
-  return guiState.tabState === "terrains"
-    || guiState.tabState === "featureCollections"
-    || guiState.tabState === "tracks"
-    || guiState.tabState === "switches"
-    || guiState.tabState === "trains";
 }

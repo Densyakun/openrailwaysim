@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, OneHandleMasterController, createTrain, ControlStand } from './trains'
+import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, createTrain, ControlStandType, OneHandleMasterController } from './trains'
 import { GameStateType } from './game'
 import { PointOnTrack } from './tracks'
 
@@ -8,26 +8,31 @@ import { PointOnTrack } from './tracks'
 export function createCarBody(
   pointOnTrack: PointOnTrack, // 列車を設置するときにOtherBodiesを同期する前のCarBodyを設置する線路上の位置。Jointの向きが逆にならないようにするために必要
   weight = 0,
-  controlStands: ControlStand[] = [],
+  controlStands: readonly ControlStandType[] = [],
 ): CarBody {
   return {
     pointOnTrack,
     position: new THREE.Vector3(),
     rotation: new THREE.Euler(),
     weight,
-    controlStands,
+    controlStands: controlStands.map(controlStand => ({
+      directionIsReversed: controlStand.directionIsReversed,
+      reverser: controlStand.reverser,
+      masterController: { ...controlStand.masterController },
+    })),
   }
 }
 
 export function createBogie(
   pointOnTrack: PointOnTrack,
-  axles: {
+  axles: readonly {
     z: number,
     diameter: number,
     hasMotor: boolean,
   }[],
+  directionIsReversed: boolean,
   weight = 0,
-  controlStands: ControlStand[] = [],
+  controlStands: readonly ControlStandType[] = [],
 ): Bogie {
   return {
     ...createCarBody(
@@ -36,14 +41,14 @@ export function createBogie(
       controlStands,
     ),
     axles: axles.map(({ z, diameter, hasMotor }) => ({
-      pointOnTrack: { trackId: pointOnTrack.trackId, length: pointOnTrack.length + z },
+      pointOnTrack: { trackId: pointOnTrack.trackId, length: pointOnTrack.length + z * (directionIsReversed ? -1 : 1) },
       z,
       position: new THREE.Vector3(),
       rotation: new THREE.Euler(),
       diameter,
       rotationX: 0,
       hasMotor,
-      rotationIsReversed: false,
+      rotationIsReversed: directionIsReversed,
     })),
   }
 }
@@ -189,6 +194,14 @@ export function createUIKeiseiAESeriesMasterControllerConfig(): UIOneHandleMaste
   }
 }
 
+export function createControlStand(gameState: GameStateType, uiMasterControllerOptionId: string): ControlStandType {
+  return {
+    directionIsReversed: false,
+    reverser: 0,
+    masterController: createOneHandleMasterController(gameState, uiMasterControllerOptionId),
+  };
+}
+
 export function createOneHandleMasterController(gameState: GameStateType, uiOptionId: string): OneHandleMasterController {
   return {
     uiOptionId,
@@ -196,13 +209,9 @@ export function createOneHandleMasterController(gameState: GameStateType, uiOpti
   }
 }
 
-export function createTestControlStands(gameState: GameStateType, uiMasterControllerOptionId?: string): ControlStand[] {
+export function createTestControlStands(gameState: GameStateType, uiMasterControllerOptionId?: string): ControlStandType[] {
   return uiMasterControllerOptionId
-    ? [{
-      directionIsReversed: false,
-      reverser: 0,
-      masterController: createOneHandleMasterController(gameState, uiMasterControllerOptionId),
-    }]
+    ? [createControlStand(gameState, uiMasterControllerOptionId)]
     : [];
 }
 
@@ -212,10 +221,11 @@ export type TrainProps = {
   gameState: GameStateType;
   trackId: string;
   length: number;
+  directionIsReversed: boolean;
   uiMasterControllerOptionId?: string;
 }
 
-export function createTestOneAxleCar({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestOneAxleCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   return createTrain(gameState,
     [
       createBogie(
@@ -223,6 +233,7 @@ export function createTestOneAxleCar({ gameState, trackId, length, uiMasterContr
         [
           { z: 0, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
         30,
         createTestControlStands(gameState, uiMasterControllerOptionId),
       ),
@@ -230,7 +241,7 @@ export function createTestOneAxleCar({ gameState, trackId, length, uiMasterContr
   )
 }
 
-export function createTestTwoAxlesCar({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoAxlesCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
 
   return createTrain(gameState,
@@ -241,6 +252,7 @@ export function createTestTwoAxlesCar({ gameState, trackId, length, uiMasterCont
           { z: distanceBetweenBogiesHalf, diameter: 0.86, hasMotor: true },
           { z: -distanceBetweenBogiesHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
         30,
         createTestControlStands(gameState, uiMasterControllerOptionId),
       ),
@@ -248,8 +260,8 @@ export function createTestTwoAxlesCar({ gameState, trackId, length, uiMasterCont
   )
 }
 
-export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
-  const distanceBetweenBogiesHalf = 13.8 / 2
+export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
 
   return createTrain(gameState,
     [
@@ -258,12 +270,14 @@ export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, ui
         [
           { z: 0, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - distanceBetweenBogiesHalf },
         [
           { z: 0, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
     ],
     [
@@ -290,8 +304,8 @@ export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, ui
   )
 }
 
-export function createTestTwoBogiesCar({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
-  const distanceBetweenBogiesHalf = 13.8 / 2
+export function createTestTwoBogiesCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
   return createTrain(gameState,
@@ -302,6 +316,7 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, uiMasterCon
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - distanceBetweenBogiesHalf },
@@ -309,6 +324,7 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, uiMasterCon
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
     ],
     [
@@ -335,10 +351,10 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, uiMasterCon
   )
 }
 
-export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
-  const carLengthHalf = 20 / 2
-  const couplerLengthHalf = 0.92
-  const distanceBetweenBogiesHalf = 13.8 / 2
+export function createTestTwoBogiesTwoCars({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  const carLengthHalf = 20 * (directionIsReversed ? -1 : 1) / 2
+  const couplerLengthHalf = 0.92 * (directionIsReversed ? -1 : 1)
+  const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
   return createTrain(gameState,
@@ -349,6 +365,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length + carLengthHalf - distanceBetweenBogiesHalf },
@@ -356,6 +373,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - carLengthHalf + distanceBetweenBogiesHalf },
@@ -363,6 +381,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - carLengthHalf - distanceBetweenBogiesHalf },
@@ -370,6 +389,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
     ],
     [
@@ -428,7 +448,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, uiMaste
   )
 }
 
-export function createJNR103Series({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
+export function createJNR103Series({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const carLength = 20
   const couplerLengthHalf = 0.92
   const distanceBetweenBogiesHalf = 13.8 / 2
@@ -467,7 +487,7 @@ export function createJNR103Series({ gameState, trackId, length, uiMasterControl
 
   cars.forEach((type, index) => {
     const hasMotor = type === 1 || type === 2
-    const length_ = length + carLength * (cars.length - 1) / 2 - carLength * index
+    const length_ = length + (carLength * (cars.length - 1) / 2 - carLength * index) * (directionIsReversed ? -1 : 1)
     const wheelbaseHalf = hasMotor ? wheelbaseHalfM : wheelbaseHalfT
 
     bogies.push(
@@ -477,6 +497,7 @@ export function createJNR103Series({ gameState, trackId, length, uiMasterControl
           { z: wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
           { z: -wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length_ - distanceBetweenBogiesHalf },
@@ -484,6 +505,7 @@ export function createJNR103Series({ gameState, trackId, length, uiMasterControl
           { z: wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
           { z: -wheelbaseHalf, diameter: hasMotor ? axleDiameterM : axleDiameterT, hasMotor },
         ],
+        directionIsReversed,
       )
     )
 
@@ -521,21 +543,21 @@ export function createJNR103Series({ gameState, trackId, length, uiMasterControl
   })
   for (let i = 0; i <= cars.length - 2; i++) {
     otherBodies.push(createCarBody(
-      { trackId, length: length + carLength * (cars.length - 1) / 2 - carLength * i - carLength / 2 }
+      { trackId, length: length + (carLength * (cars.length - 1) / 2 - carLength * i - carLength / 2) * (directionIsReversed ? -1 : 1) }
     ))
 
     otherJoints.push(
       {
         bodyIndexA: bogies.length + cars.length + i,
-        positionA: new THREE.Vector3(0, 0, couplerLengthHalf),
+        positionA: new THREE.Vector3(0, 0, couplerLengthHalf * (directionIsReversed ? -1 : 1)),
         bodyIndexB: bogies.length + i,
-        positionB: new THREE.Vector3(0, 0, couplerLengthHalf - carLength / 2),
+        positionB: new THREE.Vector3(0, 0, (couplerLengthHalf - carLength / 2) * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: bogies.length + cars.length + i,
-        positionA: new THREE.Vector3(0, 0, -couplerLengthHalf),
+        positionA: new THREE.Vector3(0, 0, -couplerLengthHalf * (directionIsReversed ? -1 : 1)),
         bodyIndexB: bogies.length + i + 1,
-        positionB: new THREE.Vector3(0, 0, carLength / 2 - couplerLengthHalf),
+        positionB: new THREE.Vector3(0, 0, (carLength / 2 - couplerLengthHalf) * (directionIsReversed ? -1 : 1)),
       },
     )
   }
@@ -552,10 +574,10 @@ export function createJNR103Series({ gameState, trackId, length, uiMasterControl
   )
 }
 
-export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
-  const carLengthHalf = 20 / 2
-  const couplerLengthHalf = 0.92
-  const distanceBetweenBogiesHalf = 13.8 / 2
+export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  const carLengthHalf = 20 * (directionIsReversed ? -1 : 1) / 2
+  const couplerLengthHalf = 0.92 * (directionIsReversed ? -1 : 1)
+  const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
   return createTrain(gameState,
@@ -566,6 +588,7 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length },
@@ -573,6 +596,7 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - carLengthHalf - distanceBetweenBogiesHalf },
@@ -580,6 +604,7 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: true },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: true },
         ],
+        directionIsReversed,
       ),
     ],
     [
@@ -623,8 +648,8 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
   )
 }
 
-export function createTestMalletLocomotive({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
-  const distanceBetweenBogiesHalf = 13.8 / 2
+export function createTestMalletLocomotive({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
   return createTrain(gameState,
@@ -635,6 +660,7 @@ export function createTestMalletLocomotive({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: false },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
         { trackId, length: length - distanceBetweenBogiesHalf },
@@ -642,6 +668,7 @@ export function createTestMalletLocomotive({ gameState, trackId, length, uiMaste
           { z: wheelbaseHalf, diameter: 0.86, hasMotor: false },
           { z: -wheelbaseHalf, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
     ],
     [
@@ -659,133 +686,142 @@ export function createTestMalletLocomotive({ gameState, trackId, length, uiMaste
   )
 }
 
-export function createTestShikiSeries700({ gameState, trackId, length, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestShikiSeries700({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   return createTrain(gameState,
     [
       createBogie(
-        { trackId, length: length + 12.6 + 1.6 + 4.07 + 2.61 },
+        { trackId, length: length + (12.6 + 1.6 + 4.07 + 2.61) * (directionIsReversed ? -1 : 1) },
         [
           { z: 0.64 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.64, diameter: 0.86, hasMotor: false },
           { z: -0.56, diameter: 0.86, hasMotor: false },
           { z: -0.56 - 1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length + 12.6 + 1.6 + 4.07 - 2.55 },
+        { trackId, length: length + (12.6 + 1.6 + 4.07 - 2.55) * (directionIsReversed ? -1 : 1) },
         [
           { z: 0.6 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.6, diameter: 0.86, hasMotor: false },
           { z: -0.6, diameter: 0.86, hasMotor: false },
           { z: -0.6 - 1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length + 12.6 + 1.6 - 5.48 + 0.8 + 1.2 },
+        { trackId, length: length + (12.6 + 1.6 - 5.48 + 0.8 + 1.2) * (directionIsReversed ? -1 : 1) },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
           { z: -1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length + 12.6 + 1.6 - 5.48 - 0.8 - 1.2 },
+        { trackId, length: length + (12.6 + 1.6 - 5.48 - 0.8 - 1.2) * (directionIsReversed ? -1 : 1) },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
           { z: -1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length - 12.6 - 1.6 + 5.48 + 0.8 + 1.2 },
+        { trackId, length: length - (12.6 - 1.6 + 5.48 + 0.8 + 1.2) * (directionIsReversed ? -1 : 1) },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
           { z: -1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length - 12.6 - 1.6 + 5.48 - 0.8 - 1.2 },
+        { trackId, length: length - (12.6 - 1.6 + 5.48 - 0.8 - 1.2) * (directionIsReversed ? -1 : 1) },
         [
           { z: 1.2, diameter: 0.86, hasMotor: false },
           { z: 0, diameter: 0.86, hasMotor: false },
           { z: -1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length - 12.6 - 1.6 - 4.07 + 2.55 },
+        { trackId, length: length - (12.6 - 1.6 - 4.07 + 2.55) * (directionIsReversed ? -1 : 1) },
         [
           { z: 0.6 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.6, diameter: 0.86, hasMotor: false },
           { z: -0.6, diameter: 0.86, hasMotor: false },
           { z: -0.6 - 1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
       createBogie(
-        { trackId, length: length - 12.6 - 1.6 - 4.07 - 2.61 },
+        { trackId, length: length - (12.6 - 1.6 - 4.07 - 2.61) * (directionIsReversed ? -1 : 1) },
         [
           { z: 0.56 + 1.2, diameter: 0.86, hasMotor: false },
           { z: 0.56, diameter: 0.86, hasMotor: false },
           { z: -0.64, diameter: 0.86, hasMotor: false },
           { z: -0.64 - 1.2, diameter: 0.86, hasMotor: false },
         ],
+        directionIsReversed,
       ),
     ],
     [
-      createCarBody({ trackId, length: length + 12.6 + 1.6 + 4.07 }),
-      createCarBody({ trackId, length: length + 12.6 + 1.6 - 5.48 }),
-      createCarBody({ trackId, length: length - 12.6 - 1.6 + 5.48 }),
-      createCarBody({ trackId, length: length - 12.6 - 1.6 - 4.07 }),
-      createCarBody({ trackId, length: length + 12.6 + 1.6 }),
-      createCarBody({ trackId, length: length + 12.6 + 1.6 }),
+      // TODO
+      createCarBody({ trackId, length: length + (12.6 + 1.6 + 4.07) * (directionIsReversed ? -1 : 1) }),
+      createCarBody({ trackId, length: length + (12.6 + 1.6 - 5.48) * (directionIsReversed ? -1 : 1) }),
+      createCarBody({ trackId, length: length - (12.6 - 1.6 + 5.48) * (directionIsReversed ? -1 : 1) }),
+      createCarBody({ trackId, length: length - (12.6 - 1.6 - 4.07) * (directionIsReversed ? -1 : 1) }),
+      createCarBody({ trackId, length: length + (12.6 + 1.6) * (directionIsReversed ? -1 : 1) }),
+      createCarBody({ trackId, length: length + (12.6 + 1.6) * (directionIsReversed ? -1 : 1) }),
       createCarBody({ trackId, length: length }),
     ],
     [
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
+        otherBodyPosition: new THREE.Vector3(0, -1, 2.61 * (directionIsReversed ? -1 : 1)),
         bogieIndex: 0,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 0,
-        otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
+        otherBodyPosition: new THREE.Vector3(0, -1, -2.55 * (directionIsReversed ? -1 : 1)),
         bogieIndex: 1,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 1,
-        otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+        otherBodyPosition: new THREE.Vector3(0, -1, (0.8 + 1.2) * (directionIsReversed ? -1 : 1)),
         bogieIndex: 2,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 1,
-        otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+        otherBodyPosition: new THREE.Vector3(0, -1, (-0.8 - 1.2) * (directionIsReversed ? -1 : 1)),
         bogieIndex: 3,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 2,
-        otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+        otherBodyPosition: new THREE.Vector3(0, -1, (0.8 + 1.2) * (directionIsReversed ? -1 : 1)),
         bogieIndex: 4,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 2,
-        otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+        otherBodyPosition: new THREE.Vector3(0, -1, (-0.8 - 1.2) * (directionIsReversed ? -1 : 1)),
         bogieIndex: 5,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 3,
-        otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
+        otherBodyPosition: new THREE.Vector3(0, -1, 2.55 * (directionIsReversed ? -1 : 1)),
         bogieIndex: 6,
         bogiePosition: new THREE.Vector3(),
       },
       {
         otherBodyIndex: 3,
-        otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
+        otherBodyPosition: new THREE.Vector3(0, -1, -2.61 * (directionIsReversed ? -1 : 1)),
         bogieIndex: 7,
         bogiePosition: new THREE.Vector3(),
       },
@@ -795,37 +831,37 @@ export function createTestShikiSeries700({ gameState, trackId, length, uiMasterC
         bodyIndexA: 8,
         positionA: new THREE.Vector3(),
         bodyIndexB: 12,
-        positionB: new THREE.Vector3(0, 0, 1.6 + 4.07),
+        positionB: new THREE.Vector3(0, 0, (1.6 + 4.07) * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: 9,
         positionA: new THREE.Vector3(),
         bodyIndexB: 12,
-        positionB: new THREE.Vector3(0, 0, 1.6 - 5.48),
+        positionB: new THREE.Vector3(0, 0, (1.6 - 5.48) * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: 10,
         positionA: new THREE.Vector3(),
         bodyIndexB: 13,
-        positionB: new THREE.Vector3(0, 0, -1.6 + 5.48),
+        positionB: new THREE.Vector3(0, 0, (-1.6 + 5.48) * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: 11,
         positionA: new THREE.Vector3(),
         bodyIndexB: 13,
-        positionB: new THREE.Vector3(0, 0, -1.6 - 4.07),
+        positionB: new THREE.Vector3(0, 0, (-1.6 - 4.07) * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: 12,
         positionA: new THREE.Vector3(),
         bodyIndexB: 14,
-        positionB: new THREE.Vector3(0, 0, 12.6),
+        positionB: new THREE.Vector3(0, 0, 12.6 * (directionIsReversed ? -1 : 1)),
       },
       {
         bodyIndexA: 13,
         positionA: new THREE.Vector3(),
         bodyIndexB: 14,
-        positionB: new THREE.Vector3(0, 0, -12.6),
+        positionB: new THREE.Vector3(0, 0, -12.6 * (directionIsReversed ? -1 : 1)),
       },
     ],
   )

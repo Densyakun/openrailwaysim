@@ -6,7 +6,7 @@ import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
-import { tracksState } from "@/lib/tracks"
+import { tracksState } from "@/lib/client/tracks"
 
 export let socket: WebSocket
 

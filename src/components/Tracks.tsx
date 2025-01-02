@@ -4,7 +4,7 @@ import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation, tracksState } from '@/lib/tracks'
+import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { getRelativePosition } from '@/lib/gis'
 import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
@@ -13,7 +13,7 @@ import GLTFModel from './GLTFModel';
 import { ErrorBoundary } from 'react-error-boundary';
 import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
-import { getNumberOfCurvePoints, getRotationFromTwoPoints } from '@/lib/client/tracks';
+import { getNumberOfCurvePoints, getRotationFromTwoPoints, tracksState } from '@/lib/client/tracks';
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 

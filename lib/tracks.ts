@@ -3,9 +3,9 @@ import { lineString } from '@turf/helpers';
 import * as THREE from 'three'
 import { GameStateType, IdentifiedRecord } from './game';
 import { v4 as uuidv4 } from 'uuid';
-import { proxy } from 'valtio';
 import centroid from '@turf/centroid';
 import { coordinateToEuler, getRelativePosition } from './gis';
+import { tracksState } from './client/tracks';
 
 export type GradientsType = { [key: number]: number };
 
@@ -136,17 +136,6 @@ export function getTransitionCurveData(beginCurvature: number, endCurvature: num
     transitionCurves,
   };
 }
-
-export const tracksState = proxy<{
-  hoveredTracks: string[];
-  selectedTrackIds: string[];
-  pointingOnTrack?: PointOnTrack;
-  hoveredSwitch: string;
-}>({
-  hoveredTracks: [],
-  selectedTrackIds: [],
-  hoveredSwitch: "",
-});
 
 export function getSelectedTracks(gameState: GameStateType) {
   let tracks: Track[] = [];

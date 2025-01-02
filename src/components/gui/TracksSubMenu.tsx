@@ -3,10 +3,11 @@ import { Button, Paper, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { gameState } from '@/lib/client';
-import { areParallel, getSelectedTracks, tracksState } from '@/lib/tracks';
+import { areParallel, getSelectedTracks } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
+import { tracksState } from '@/lib/client/tracks';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;

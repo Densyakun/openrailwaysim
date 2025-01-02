@@ -5,11 +5,12 @@ import { proxy, useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import centroid from '@turf/centroid';
-import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData, tracksState } from '@/lib/tracks';
+import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
+import { tracksState } from '@/lib/client/tracks';
 
 export type NextCurveEditStateType = {
   addingCurves: (Track | undefined)[]; // 単曲線

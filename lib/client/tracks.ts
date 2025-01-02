@@ -1,6 +1,19 @@
 // Fast Refresh のため Tracks.tsx より分離
 
 import * as THREE from "three";
+import { proxy } from "valtio";
+import { PointOnTrack } from "../tracks";
+
+export const tracksState = proxy<{
+  hoveredTracks: string[];
+  selectedTrackIds: string[];
+  pointingOnTrack?: PointOnTrack;
+  hoveredSwitch: string;
+}>({
+  hoveredTracks: [],
+  selectedTrackIds: [],
+  hoveredSwitch: "",
+});
 
 export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
 

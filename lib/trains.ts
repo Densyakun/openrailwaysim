@@ -99,7 +99,7 @@ export type Train = {
   speed: number; // m/s
   weight: number; // ton
   centroidZ: number; // 第一軸から重心に近い軌道上の相対位置
-  motorCars: number;
+  motors: number;
 };
 
 export type SerializableTrain = IdentifiedRecord & {
@@ -108,7 +108,7 @@ export type SerializableTrain = IdentifiedRecord & {
   bodySupporterJoints: SerializableBodySupporterJoint[];
   otherJoints: SerializableJoint[];
   speed: number;
-  motorCars: number;
+  motors: number;
 };
 
 export const trainsState = proxy<{
@@ -127,7 +127,7 @@ export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) 
   return coordinateToEuler(gameState.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
 }
 
-export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motorCars?: number): Train {
+export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motors?: number): Train {
   let weight_ = weight
 
   if (weight_ === undefined) {
@@ -151,12 +151,12 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
   centroidZ /= axleCount
   centroidZ -= bogies[0].axles[0].pointOnTrack.length
 
-  let motorCars_ = motorCars
-  if (motorCars_ === undefined) {
-    motorCars_ = 0
+  let motors_ = motors
+  if (motors_ === undefined) {
+    motors_ = 0
     bogies.forEach(bogie => {
       bogie.axles.forEach(axle => {
-        if (axle.hasMotor) motorCars_!++
+        if (axle.hasMotor) motors_!++
       })
     })
   }
@@ -172,7 +172,7 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
     speed,
     weight: weight_,
     centroidZ,
-    motorCars: motorCars_,
+    motors: motors_,
   }
 
   calcJointsToRotateBody(train)
@@ -593,11 +593,11 @@ export function updateTrainOnTime(gameState: GameStateType, train: Train, delta:
 
   // Accel
   //const fieldCoil = 1 // TODO 界磁 (0-1)
-  const tractiveForce = getTractiveForcePerMotorCars(train.speed/*, fieldCoil*/) // 牽引力 (引張力, kg)
+  const tractiveForce = getTractiveForcePerMotors(train.speed/*, fieldCoil*/) // 牽引力 (引張力, kg)
   const a = 30.9
 
   //const acceleration = 3.0 / 3.6 // 3.0 km/h/s
-  let acceleration = accel * tractiveForce * train.motorCars / train.weight / a / 3.6 // m/s/s
+  let acceleration = accel * tractiveForce * train.motors / train.weight / a / 3.6 // m/s/s
 
   // Braking and resistance
   let deceleration = brake * 4.5 / 3.6 // 4.5 km/h/s
@@ -769,12 +769,12 @@ export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateTyp
   ];
 }
 
-export function getTractiveForcePerMotorCars(speed: number/*, fieldCoil: number*/) {
+export function getTractiveForcePerMotors(speed: number/*, fieldCoil: number*/) {
   // TODO Call different functions depending on the vehicle
-  return getTractiveForcePerMotorCarsJNR103Series(speed)
+  return getTractiveForcePerMotorsJNR103Series(speed)
 }
 
-export function getTractiveForcePerMotorCarsJNR103Series(speed: number/*, fieldCoil: number*/) {
+export function getTractiveForcePerMotorsJNR103Series(speed: number/*, fieldCoil: number*/) {
   // TODO 性能曲線（力行ノッチ曲線）を追加する
-  return 4500
+  return 1125
 }

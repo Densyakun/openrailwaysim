@@ -135,7 +135,7 @@ export function toSerializableProp(path: string[], value: any): any {
     if (path.length === 1)
       return Object.keys(value).map(id => toSerializableProp([path[0], id], value[id]))
     else if (path.length === 2) {
-      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = value as Train
+      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motors } = value as Train
 
       return {
         id: path[1],
@@ -175,7 +175,7 @@ export function toSerializableProp(path: string[], value: any): any {
           positionB: positionB.toArray(),
         })),
         speed,
-        motorCars,
+        motors,
       } as SerializableTrain
     }
   }
@@ -291,7 +291,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
       )
       return prop
     } else if (path.length === 2) {
-      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motorCars } = value as SerializableTrain
+      const { bogies, otherBodies, bodySupporterJoints, otherJoints, speed, motors } = value as SerializableTrain
 
       return createTrain(
         gameState,
@@ -333,7 +333,7 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
         } as Joint)),
         speed,
         undefined,
-        motorCars,
+        motors,
       )
     }
   }

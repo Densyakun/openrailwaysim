@@ -570,7 +570,7 @@ export function createJNR103Series({ gameState, trackId, length, directionIsReve
     otherJoints,
     0,
     trainWeight,
-    motorCars,
+    motorCars * 4,
   )
 }
 

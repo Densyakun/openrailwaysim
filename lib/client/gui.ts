@@ -1,5 +1,5 @@
 import { proxy } from "valtio";
-import { trainsState } from "../trains";
+import { trainsState } from "./trains";
 
 export const guiState = proxy<{
   selectedTab: string;

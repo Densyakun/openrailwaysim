@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import EventEmitter from "events"
 import { proxy } from "valtio"
 import { WebSocket as WebSocketInNode } from "ws"
-import { Axle, BodySupporterJoint, Bogie, CarBody, Joint, SerializableAxle, SerializableBogie, SerializableCarBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTrainOnTime } from "./trains";
+import { Axle, BodySupporterJoint, Bogie, Joint, OtherBody, SerializableAxle, SerializableBogie, SerializableOtherBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTrainOnTime } from "./trains";
 //import { ProjectedLine, SerializableProjectedLine } from "./gis";
 import { FeatureCollection } from "geojson";
 import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, Switch, Track, TransitionCurve } from './tracks';
@@ -139,12 +139,11 @@ export function toSerializableProp(path: string[], value: any): any {
 
       return {
         id: path[1],
-        bogies: bogies.map(({ position, rotation, pointOnTrack, weight, controlStands, axles }) => ({
+        bogies: bogies.map(({ position, rotation, pointOnTrack, weight, axles }) => ({
           position: position.toArray(),
           rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
           pointOnTrack,
           weight,
-          controlStands,
           axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor, rotationIsReversed }) => ({
             pointOnTrack,
             z,
@@ -155,13 +154,13 @@ export function toSerializableProp(path: string[], value: any): any {
             rotationIsReversed,
           } as SerializableAxle)),
         } as SerializableBogie)),
-        otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, controlStands }) => ({
+        otherBodies: otherBodies.map(({ position, rotation, pointOnTrack, weight, controlStand }) => ({
           position: position.toArray(),
           rotation: [rotation.x, rotation.y, rotation.z, rotation.order],
           pointOnTrack,
           weight,
-          controlStands,
-        } as SerializableCarBody)),
+          controlStand,
+        } as SerializableOtherBody)),
         bodySupporterJoints: bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
           otherBodyIndex,
           otherBodyPosition: otherBodyPosition.toArray(),
@@ -295,12 +294,11 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
 
       return createTrain(
         gameState,
-        bogies.map(({ position, rotation, pointOnTrack, weight, controlStands, axles }) => ({
+        bogies.map(({ position, rotation, pointOnTrack, weight, axles }) => ({
           position: new THREE.Vector3(...position),
           rotation: new THREE.Euler(...rotation),
           pointOnTrack,
           weight,
-          controlStands,
           axles: axles.map(({ pointOnTrack, z, position, rotation, diameter, hasMotor, rotationIsReversed }) => ({
             pointOnTrack,
             z,
@@ -312,13 +310,13 @@ export function fromSerializableProp(path: string[], value: any, gameState: Game
             rotationIsReversed,
           } as Axle)),
         } as Bogie)),
-        otherBodies.map(({ position, rotation, pointOnTrack, weight, controlStands }) => ({
+        otherBodies.map(({ position, rotation, pointOnTrack, weight, controlStand }) => ({
           position: new THREE.Vector3(...position),
           rotation: new THREE.Euler(...rotation),
           pointOnTrack,
           weight,
-          controlStands,
-        } as CarBody)),
+          controlStand,
+        } as OtherBody)),
         bodySupporterJoints.map(({ otherBodyIndex, otherBodyPosition, bogieIndex, bogiePosition }) => ({
           otherBodyIndex,
           otherBodyPosition: new THREE.Vector3(...otherBodyPosition),
@@ -393,7 +391,6 @@ export const FROM_CLIENT_DELETE_OBJECT = 4
 export const FROM_CLIENT_SAVE = 5
 export const FROM_CLIENT_SWITCH_TRACK = 6
 export const FROM_CLIENT_GET_HEIGHTMAP = 7
-export const FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE = 8
 export const FROM_CLIENT_SET_PROP = 9
 export const FROM_CLIENT_DELETE_PROP = 10
 export const FROM_CLIENT_SET_TRAIN = 11

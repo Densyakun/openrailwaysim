@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -48,15 +48,12 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
                       push()
                     else if (path[6] === "rotationIsReversed")
                       push()
-                } else if (path[4] === "controlStands")
-                  push()
+                }
               }
             } else if (path[2] === "otherBodies") {
               if (6 <= path.length) {
-                if (path[4] === "masterControllers") {
-                  if (path.length === 7 && path[6] === "value")
-                    push()
-                }
+                if (path[4] === "controlStand")
+                  push()
               }
             }
           } else if (path.length === 2) {
@@ -224,18 +221,6 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE: {
-          const [trainId, bodyIndex, controlStandIndex, newValue] = value;
-
-          const train = gameState.trains[trainId];
-          const carBody = bodyIndex < train.bogies.length ? train.bogies[bodyIndex] : train.otherBodies[bodyIndex - train.bogies.length];
-          const masterController = carBody.controlStands[controlStandIndex].masterController;
-
-          masterController.value = newValue;
-
-          messageEmitter.isInvalidMessage = false;
-          break;
-        }
         case FROM_CLIENT_SET_PROP: {
           const [propPath, newValue, oldPath] = value as [string[], any, string[] | undefined];
 
@@ -278,6 +263,8 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
         }
         case FROM_CLIENT_SET_TRAIN: {
           const [[trainGroupId, trainId], newValue, oldPath] = value as [string[], any, string[] | undefined];
+
+          // TODO データの検証
 
           if (oldPath) {
             if (gameState["trains"][trainId]) break;

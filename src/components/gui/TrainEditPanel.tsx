@@ -7,9 +7,9 @@ import ScreenRotationIcon from '@mui/icons-material/ScreenRotation';
 import TuneIcon from '@mui/icons-material/Tune';
 import { BodySupporterJoint, Bogie, CarBody, createTrain, Joint, OneHandleMasterController, SerializableTrain } from "@/lib/trains";
 import { gameState } from "@/lib/client";
-import { trainsTabPanelState } from "@/lib/client/trains";
+import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
 import { useEffect } from "react";
-import { createBogie, createCarBody } from "@/lib/trainSamples";
+import { createBogie, createOtherBody } from "@/lib/trainSamples";
 import { getPosition, runPointOnTrack } from "@/lib/tracks";
 import { setCameraTargetPosition } from "../cameras-and-controls/CameraControls";
 import { eulerToCoordinate, move, state as gisState } from "@/lib/gis";
@@ -136,20 +136,18 @@ function updateEditingTrain() {
       break;
     }
 
-    otherBodies.push(createCarBody(
+    otherBodies.push(createOtherBody(
       newPointOnTrack,
       otherBodyWeights[otherBodyIndex],
-      controlStands[otherBodyIndex],
+      controlStands[otherBodyIndex] || undefined,
     ));
   }
 
   if (
     !bogies.length
     || trainsTabPanelState.trainIsDeadEnd
-    || controlStands.some(controlStands_ =>
-      controlStands_.some(controlStand =>
-        !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
-      )
+    || controlStands.some(controlStand =>
+      controlStand && !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
     )
   ) return;
 
@@ -220,6 +218,7 @@ function saveEditingTrain() {
   socket.send(JSON.stringify([FROM_CLIENT_SET_TRAIN, [[trainsTabPanelState.selectedTrainGroup, train.id], train]]));
 
   trainsTabPanelState.isAddingTrain = false;
+  resetEditingTrainState();
 }
 
 export default function TrainEditPanel() {
@@ -310,7 +309,7 @@ function AddOtherBodyButton() {
   return <Button variant="contained" onClick={() => {
     trainsTabPanelState.otherBodyOffsets.push(0);
     trainsTabPanelState.otherBodyWeights.push(0);
-    trainsTabPanelState.controlStands.push([]);
+    trainsTabPanelState.controlStands.push(null);
   }}>
     Add otherbody
   </Button>;
@@ -365,10 +364,8 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     formState.newTrainId = newTrainId;
   }, []);
 
-  const invalidControlStandIndex = controlStands.findIndex(controlStands_ =>
-    controlStands_.some(controlStand =>
-      !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
-    )
+  const invalidControlStandIndex = controlStands.findIndex(controlStand =>
+    controlStand && !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
   );
 
   return <Stack spacing={1}>
@@ -641,16 +638,14 @@ function OtherBodiesEditor() {
   }, [selectedCarBodyIndex]);
 
   useEffect(() => {
-    if (controlStand && masterController.uiOptionId) {
-      trainsTabPanelState.controlStands[selectedCarBodyIndex] = [];
-      trainsTabPanelState.controlStands[selectedCarBodyIndex] = [{
-        directionIsReversed,
-        reverser,
-        masterController,
-      }];
-    } else {
-      trainsTabPanelState.controlStands[selectedCarBodyIndex - axleTable.length] = [];
-    }
+    trainsTabPanelState.controlStands[selectedCarBodyIndex - axleTable.length] =
+      controlStand && masterController.uiOptionId
+        ? {
+          directionIsReversed,
+          reverser,
+          masterController,
+        }
+        : null;
   }, [controlStand, directionIsReversed, reverser, masterController]);
 
   return <Stack spacing={1}>

@@ -8,6 +8,7 @@ import { getOriginEuler, state as gisState } from '@/lib/gis'
 import { gameState } from '@/lib/client'
 import { guiState, lightingIsForEditing } from '@/lib/client/gui'
 import { lightingState } from '@/lib/client/lighting'
+import { trainsState } from '@/lib/client/trains'
 
 export const skyDistanceHalf = 149600000000
 
@@ -28,6 +29,7 @@ function getSunPosition() {
 
 export default function SunAndSky() {
   const { selectedTab } = useSnapshot(guiState);
+  useSnapshot(trainsState);
 
   const ambientLightRef = React.useRef<THREE.AmbientLight>(null)
 

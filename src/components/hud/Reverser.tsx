@@ -1,9 +1,9 @@
 import { Paper, Slider } from '@mui/material';
-import { useSnapshot } from 'valtio';
-import { ControlStandType, trainsState as trainsState } from '@/lib/trains';
+import { ControlStandType } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { trainsState } from '@/lib/client/trains';
 
 export function ReverserSlider({ value, setValue }: { value: number, setValue: (newValue: number) => void }) {
   const handleChange = (event: Event, newValue: number | number[]) => {
@@ -40,15 +40,10 @@ export function ReverserSlider({ value, setValue }: { value: number, setValue: (
 }
 
 export default function Reverser({
-  controlStandIndex,
   controlStand,
 }: {
-  controlStandIndex: number;
   controlStand: ControlStandType;
 }) {
-  useSnapshot(gameState);
-  useSnapshot(trainsState);
-
   return (
     <ReverserSlider
       value={controlStand.reverser}
@@ -57,10 +52,9 @@ export default function Reverser({
           [
             "trains",
             trainsState.activeTrainId,
-            trainsState.activeBodyIndex < gameState.trains[trainsState.activeTrainId].bogies.length ? "bogies" : "otherBodies",
-            trainsState.activeBodyIndex,
-            "controlStands",
-            controlStandIndex,
+            "otherBodies",
+            trainsState.activeBodyIndex - gameState.trains[trainsState.activeTrainId].bogies.length,
+            "controlStand",
             "reverser"
           ],
           newValue

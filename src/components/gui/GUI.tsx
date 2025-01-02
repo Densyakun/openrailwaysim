@@ -13,9 +13,9 @@ import Settings from './Settings';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
 import TrainsTabPanel from './TrainsTabPanel';
-import { trainsState } from '@/lib/trains';
 import { guiState } from '@/lib/client/gui';
 import { useEffect } from 'react';
+import { trainsState } from '@/lib/client/trains';
 
 function TopInfo() {
   return <Box sx={{

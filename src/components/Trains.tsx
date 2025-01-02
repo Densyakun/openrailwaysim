@@ -3,12 +3,12 @@ import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
 import { eulerToCoordinate, move, state as gisState } from '@/lib/gis'
-import { trainsState as trainsState, Axle, Bogie, CarBody, Train } from '@/lib/trains'
+import { Axle, Bogie, CarBody, OtherBody, Train } from '@/lib/trains'
 import FeatureObject from './FeatureObject'
 import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
 import { guiState } from '@/lib/client/gui'
-import { trainsTabPanelState } from '@/lib/client/trains'
+import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
 
 function BogieModel({
@@ -41,7 +41,7 @@ function BogieModel({
           onClick={() => {
             if (trainsState.activeTrainId) return;
 
-            if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
+            /*if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
               trainsState.hoveredBodyIndex = -1;
               trainsState.hoveredTrainId = "";
 
@@ -52,7 +52,7 @@ function BogieModel({
                 trainsState.activeBodyIndex = bogieIndex;
                 trainsState.activeTrainId = trainId;
               }
-            }
+            }*/
 
             if (isEditing) {
               if (trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
@@ -77,8 +77,8 @@ function BogieModel({
             if (trainsState.activeTrainId) return;
 
             if (
-              guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
-              || isEditing && (
+              /*guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
+              || */isEditing && (
                 trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint
                 || trainsTabPanelState.isSelectingCarBodyB
               )
@@ -135,7 +135,7 @@ function WheelAndAxleModel({ axle, ...props }: { axle: Axle }) {
 function OtherBodyModel({
   trainId,
   bodyIndex,
-  carBody,
+  otherBody,
   isHovered,
   isActive,
   isEditing = false,
@@ -143,7 +143,7 @@ function OtherBodyModel({
 }: {
   trainId: string;
   bodyIndex: number;
-  carBody: CarBody;
+  otherBody: OtherBody;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
@@ -151,8 +151,8 @@ function OtherBodyModel({
   const meshRef = React.useRef<THREE.Mesh>(null)
 
   useFrame(() => {
-    meshRef.current!.position.copy(carBody.position)
-    meshRef.current!.rotation.copy(carBody.rotation)
+    meshRef.current!.position.copy(otherBody.position)
+    meshRef.current!.rotation.copy(otherBody.rotation)
   })
 
   return (
@@ -255,7 +255,6 @@ export default function Trains() {
 function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: string, train: Train, isEditing?: boolean }) {
   return <FeatureObject centerCoordinate={eulerToCoordinate(train.globalPosition)}>
     {train.bogies.map((bogie, bogieIndex) => {
-      // TODO
       const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
       const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
 
@@ -271,9 +270,8 @@ function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: 
         />
       )
     })}
-    {train.otherBodies.map((carBody, otherBodieIndex) => {
+    {train.otherBodies.map((otherBody, otherBodieIndex) => {
       const bodyIndex = otherBodieIndex + train.bogies.length
-      // TODO
       const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bodyIndex
       const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
 
@@ -282,7 +280,7 @@ function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: 
           key={otherBodieIndex}
           trainId={trainId}
           bodyIndex={bodyIndex}
-          carBody={carBody}
+          otherBody={otherBody}
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}

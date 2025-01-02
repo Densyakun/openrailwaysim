@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { proxy } from "valtio";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { GameStateType, IdentifiedRecord } from "./game";
 import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
@@ -38,7 +37,6 @@ export type CarBody = {
   rotation: THREE.Euler;
   pointOnTrack: PointOnTrack;
   weight: number; // ton
-  controlStands: ControlStandType[];
 }
 
 export type SerializableCarBody = {
@@ -46,7 +44,6 @@ export type SerializableCarBody = {
   rotation: [number, number, number, THREE.EulerOrder];
   pointOnTrack: PointOnTrack;
   weight: number;
-  controlStands: ControlStandType[];
 }
 
 // 台車。CarBodyの一種
@@ -56,6 +53,14 @@ export type Bogie = CarBody & {
 
 export type SerializableBogie = SerializableCarBody & {
   axles: SerializableAxle[];
+};
+
+export type OtherBody = CarBody & {
+  controlStand?: ControlStandType;
+};
+
+export type SerializableOtherBody = SerializableCarBody & {
+  controlStand?: ControlStandType;
 };
 
 // BogieとotherBodyを接続するジョイント
@@ -90,7 +95,7 @@ export type SerializableJoint = {
 // ジョイントで繋いだ複数のCarBody
 export type Train = {
   bogies: Bogie[];
-  otherBodies: CarBody[]; // 台車を除くCarBody
+  otherBodies: OtherBody[]; // 台車を除くCarBody
   bodySupporterJoints: BodySupporterJoint[];
   otherJoints: Joint[]; // CarBody同士を接続するジョイント。連結器や、マレー式機関車の関節、複式ボギーの台車以外の接続に使う
   fromJointIndexes: number[];
@@ -104,24 +109,12 @@ export type Train = {
 
 export type SerializableTrain = IdentifiedRecord & {
   bogies: SerializableBogie[];
-  otherBodies: SerializableCarBody[];
+  otherBodies: SerializableOtherBody[];
   bodySupporterJoints: SerializableBodySupporterJoint[];
   otherJoints: SerializableJoint[];
   speed: number;
   motors: number;
 };
-
-export const trainsState = proxy<{
-  hoveredTrainId: string;
-  hoveredBodyIndex: number;
-  activeTrainId: string;
-  activeBodyIndex: number;
-}>({
-  hoveredTrainId: "",
-  hoveredBodyIndex: -1,
-  activeTrainId: "",
-  activeBodyIndex: -1,
-});
 
 export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) {
   return coordinateToEuler(gameState.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
@@ -569,24 +562,16 @@ export function placeTrain(gameState: GameStateType, train: Train) {
 
 export function updateTrainOnTime(gameState: GameStateType, train: Train, delta: number) {
   // 自動でマスコンと主制御器（Control System）を接続する
-  let accel = 0
-  let brake = 1
-  train.bogies.forEach(bogie => {
-    bogie.controlStands.forEach(controlStand => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, controlStand);
-
-      accel += accel1;
-      brake = Math.min(brake, brake1)
-    })
-  })
+  let accel = 0;
+  let brake = 1;
   train.otherBodies.forEach(body => {
-    body.controlStands.forEach(controlStand => {
-      const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, controlStand);
+    if (!body.controlStand) return;
 
-      accel += accel1;
-      brake = Math.min(brake, brake1)
-    })
-  })
+    const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, body.controlStand);
+
+    accel += accel1;
+    brake = Math.min(brake, brake1)
+  });
   accel = 0 < accel ? Math.min(1, accel) : Math.max(-1, accel);
 
   const speedKMH = train.speed * 3.6

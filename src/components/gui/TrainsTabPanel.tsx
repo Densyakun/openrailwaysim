@@ -1,12 +1,11 @@
 import { useSnapshot } from 'valtio';
 import { Fab, Paper, Stack, Tooltip } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
-import { trainsState } from '@/lib/trains';
 import ControlStand from '../hud/ControlStand';
 import TrainGroupTable from './TrainGroupTable';
 import TrainTable from './TrainTable';
 import TrainEditPanel from './TrainEditPanel';
-import { trainsTabPanelState } from '@/lib/client/trains';
+import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
 

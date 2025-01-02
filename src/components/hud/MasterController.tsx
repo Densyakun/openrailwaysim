@@ -1,17 +1,9 @@
-import * as React from 'react';
-import { Box, Paper, Slider, SxProps } from '@mui/material';
-import { useSnapshot } from 'valtio';
-import { ControlStandType, UIOneHandleMasterControllerConfig, trainsState as trainsState } from '@/lib/trains';
+import { Box, Paper, Slider } from '@mui/material';
+import { ControlStandType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
-import { FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE } from '@/lib/game';
-
-const Box_ = Box as (props: {
-  children?: React.ReactNode;
-  component?: React.ElementType;
-  ref?: React.Ref<unknown>;
-  sx?: SxProps;
-}) => JSX.Element;
+import { FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { trainsState } from '@/lib/client/trains';
 
 export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfig, setValue }: { value: number, uiOneHandleMasterControllerConfig: UIOneHandleMasterControllerConfig, setValue: (newValue: number) => void }) {
   const { marks, maxValue, nValue, stepRangeList, steps } = uiOneHandleMasterControllerConfig;
@@ -48,11 +40,11 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
   const trackColor = value < nValue ? "#00ff00" : "#ffff00"
 
   return (
-    <Box_ sx={{
+    <Box sx={{
       width: "90px",
       height: "320px",
     }}>
-      <Box_ sx={{
+      <Box sx={{
         position: "relative",
         display: "contents",
       }}>
@@ -91,7 +83,7 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
             value={value < nValue ? [value, nValue] : [nValue, value]}
           />
         </Paper>
-        <Box_ sx={{
+        <Box sx={{
           position: "absolute",
           width: "90px",
           height: "320px",
@@ -124,21 +116,17 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
             step={0.1}
             onChange={handleChange}
           />
-        </Box_>
-      </Box_>
-    </Box_>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
 export default function MasterController({
-  controlStandIndex,
   controlStand,
 }: {
-  controlStandIndex: number;
   controlStand: ControlStandType;
 }) {
-  useSnapshot(gameState);
-  useSnapshot(trainsState);
 
   const { uiOptionId, value } = controlStand.masterController;
 
@@ -147,12 +135,18 @@ export default function MasterController({
   return (
     <MasterControllerSlider
       value={value}
-      uiOneHandleMasterControllerConfig={gameState.uiOneHandleMasterControllerConfigs[uiOptionId]}
+      uiOneHandleMasterControllerConfig={gameState.uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
       setValue={newValue =>
-        socket.send(JSON.stringify([FROM_CLIENT_MASTER_CONTOLLER_CHANGE_STATE, [
-          trainsState.activeTrainId,
-          trainsState.activeBodyIndex,
-          controlStandIndex,
+        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+          [
+            "trains",
+            trainsState.activeTrainId,
+            "otherBodies",
+            trainsState.activeBodyIndex - gameState.trains[trainsState.activeTrainId].bogies.length,
+            "controlStand",
+            "masterController",
+            "value"
+          ],
           newValue
         ]]))
       }

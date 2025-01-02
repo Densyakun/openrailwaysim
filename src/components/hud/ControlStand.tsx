@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { SerializableTrain, trainsState as trainsState } from '@/lib/trains';
+import { SerializableTrain } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
 import { Box, Button, Stack, SxProps } from '@mui/material';
@@ -8,6 +8,7 @@ import { socket } from '../Client';
 import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
 import { gameState } from '@/lib/client';
 import Reverser from './Reverser';
+import { trainsState } from '@/lib/client/trains';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -25,10 +26,9 @@ export default function ControlStand() {
   const train = gameState.trains[trainsState.activeTrainId];
   if (!train) return null;
 
-  const { controlStands } = trainsState.activeBodyIndex < train.bogies.length ? train.bogies[trainsState.activeBodyIndex] : train.otherBodies[trainsState.activeBodyIndex - train.bogies.length];
-  // TODO 複数の運転台に対応する
-  const controlStandIndex = 0;
-  const controlStand = controlStands[controlStandIndex];
+  const controlStand = trainsState.activeBodyIndex < train.bogies.length
+    ? null
+    : train.otherBodies[trainsState.activeBodyIndex - train.bogies.length].controlStand;
 
   return <Stack
     direction="row"
@@ -53,8 +53,8 @@ export default function ControlStand() {
         userSelect: 'none',
       }}>
         {controlStand && <>
-          <Reverser controlStandIndex={controlStandIndex} controlStand={controlStand} />
-          <MasterController controlStandIndex={controlStandIndex} controlStand={controlStand} />
+          <Reverser controlStand={controlStand} />
+          <MasterController controlStand={controlStand} />
         </>}
         <Speed />
         <Button variant='contained' startIcon={<CloseIcon />} onClick={() => {

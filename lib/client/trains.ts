@@ -2,6 +2,18 @@ import { proxy } from "valtio";
 import { PointOnTrack } from "../tracks";
 import { BodySupporterJoint, ControlStandType, Joint, Train } from "../trains";
 
+export const trainsState = proxy<{
+  hoveredTrainId: string;
+  hoveredBodyIndex: number;
+  activeTrainId: string;
+  activeBodyIndex: number;
+}>({
+  hoveredTrainId: "",
+  hoveredBodyIndex: -1,
+  activeTrainId: "",
+  activeBodyIndex: -1,
+});
+
 export const trainsTabPanelState = proxy<{
   isShowTable: boolean;
   selectedTrainGroup: string;
@@ -22,7 +34,7 @@ export const trainsTabPanelState = proxy<{
   }[][];
   otherBodyOffsets: number[];
   otherBodyWeights: number[];
-  controlStands: ControlStandType[][];
+  controlStands: (ControlStandType | null)[];
   bodySupporterJoints: BodySupporterJoint[];
   otherJoints: Joint[];
   directionIsReversed: boolean;

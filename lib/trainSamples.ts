@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, createTrain, ControlStandType, OneHandleMasterController } from './trains'
+import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, createTrain, ControlStandType, OneHandleMasterController, OtherBody } from './trains'
 import { GameStateType } from './game'
 import { PointOnTrack } from './tracks'
 
@@ -8,18 +8,12 @@ import { PointOnTrack } from './tracks'
 export function createCarBody(
   pointOnTrack: PointOnTrack, // 列車を設置するときにOtherBodiesを同期する前のCarBodyを設置する線路上の位置。Jointの向きが逆にならないようにするために必要
   weight = 0,
-  controlStands: readonly ControlStandType[] = [],
 ): CarBody {
   return {
     pointOnTrack,
     position: new THREE.Vector3(),
     rotation: new THREE.Euler(),
     weight,
-    controlStands: controlStands.map(controlStand => ({
-      directionIsReversed: controlStand.directionIsReversed,
-      reverser: controlStand.reverser,
-      masterController: { ...controlStand.masterController },
-    })),
   }
 }
 
@@ -32,13 +26,11 @@ export function createBogie(
   }[],
   directionIsReversed: boolean,
   weight = 0,
-  controlStands: readonly ControlStandType[] = [],
 ): Bogie {
   return {
     ...createCarBody(
       pointOnTrack,
       weight,
-      controlStands,
     ),
     axles: axles.map(({ z, diameter, hasMotor }) => ({
       pointOnTrack: { trackId: pointOnTrack.trackId, length: pointOnTrack.length + z * (directionIsReversed ? -1 : 1) },
@@ -50,6 +42,24 @@ export function createBogie(
       hasMotor,
       rotationIsReversed: directionIsReversed,
     })),
+  }
+}
+
+export function createOtherBody(
+  pointOnTrack: PointOnTrack, // 列車を設置するときにOtherBodiesを同期する前のCarBodyを設置する線路上の位置。Jointの向きが逆にならないようにするために必要
+  weight = 0,
+  controlStand?: ControlStandType,
+): OtherBody {
+  return {
+    ...createCarBody(
+      pointOnTrack,
+      weight,
+    ),
+    controlStand: controlStand && {
+      directionIsReversed: controlStand.directionIsReversed,
+      reverser: controlStand.reverser,
+      masterController: { ...controlStand.masterController },
+    },
   }
 }
 
@@ -194,9 +204,9 @@ export function createUIKeiseiAESeriesMasterControllerConfig(): UIOneHandleMaste
   }
 }
 
-export function createControlStand(gameState: GameStateType, uiMasterControllerOptionId: string): ControlStandType {
+export function createControlStand(gameState: GameStateType, directionIsReversed: boolean, uiMasterControllerOptionId: string): ControlStandType {
   return {
-    directionIsReversed: false,
+    directionIsReversed,
     reverser: 0,
     masterController: createOneHandleMasterController(gameState, uiMasterControllerOptionId),
   };
@@ -207,12 +217,6 @@ export function createOneHandleMasterController(gameState: GameStateType, uiOpti
     uiOptionId,
     value: gameState.uiOneHandleMasterControllerConfigs[uiOptionId].maxValue,
   }
-}
-
-export function createTestControlStands(gameState: GameStateType, uiMasterControllerOptionId?: string): ControlStandType[] {
-  return uiMasterControllerOptionId
-    ? [createControlStand(gameState, uiMasterControllerOptionId)]
-    : [];
 }
 
 // Trains
@@ -235,7 +239,7 @@ export function createTestOneAxleCar({ gameState, trackId, length, directionIsRe
         ],
         directionIsReversed,
         30,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        //uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
   )
@@ -254,7 +258,7 @@ export function createTestTwoAxlesCar({ gameState, trackId, length, directionIsR
         ],
         directionIsReversed,
         30,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        //uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
   )
@@ -281,10 +285,10 @@ export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, di
       ),
     ],
     [
-      createCarBody(
+      createOtherBody(
         { trackId, length: length },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [
@@ -328,10 +332,10 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, directionIs
       ),
     ],
     [
-      createCarBody(
+      createOtherBody(
         { trackId, length: length },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [
@@ -393,15 +397,15 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, directi
       ),
     ],
     [
-      createCarBody(
+      createOtherBody(
         { trackId, length: length + carLengthHalf },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
-      createCarBody(
+      createOtherBody(
         { trackId, length: length - carLengthHalf },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined,
       ),
       createCarBody({ trackId, length: length }),
     ],
@@ -518,12 +522,14 @@ export function createJNR103Series({ gameState, trackId, length, directionIsReve
     if (hasMotor)
       motorCars += 1
 
-    otherBodies.push(createCarBody(
+    otherBodies.push(createOtherBody(
       { trackId, length: length_ },
       carWeight,
-      index === 0 || index === cars.length - 1
-        ? createTestControlStands(gameState, uiMasterControllerOptionId)
-        : [],
+      index === 0
+        ? uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined
+        : index === cars.length - 1
+          ? uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined
+          : undefined,
     ))
 
     bodySupporterJoints.push(
@@ -608,15 +614,15 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
       ),
     ],
     [
-      createCarBody(
+      createOtherBody(
         { trackId, length: length + carLengthHalf },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
       ),
-      createCarBody(
+      createOtherBody(
         { trackId, length: length - carLengthHalf },
         undefined,
-        createTestControlStands(gameState, uiMasterControllerOptionId),
+        uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [

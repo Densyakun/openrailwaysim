@@ -6,7 +6,7 @@ import TrainIcon from '@mui/icons-material/Train';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
-import { eulerToCoordinate, move, state as gisState } from '@/lib/gis';
+import { eulerToCoordinate, move, gisState } from '@/lib/gis';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
 import { Train } from '@/lib/trains';

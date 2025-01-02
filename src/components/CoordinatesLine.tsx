@@ -2,7 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { Line } from '@react-three/drei'
 import { Position } from 'geojson'
-import { coordinateToEuler, getRelativePosition, state as gisState } from '@/lib/gis'
+import { coordinateToEuler, getRelativePosition, gisState } from '@/lib/gis'
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel'
 import { useSnapshot } from 'valtio'
 

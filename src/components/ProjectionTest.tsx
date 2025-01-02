@@ -27,7 +27,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { Position } from 'geojson'
-import { state as gisState } from '@/lib/gis'
+import { gisState } from '@/lib/gis'
 import FeatureObject from './FeatureObject'
 
 const c: Position[] = []

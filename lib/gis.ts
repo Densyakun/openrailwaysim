@@ -28,7 +28,7 @@ export function equalFeatureAt(featureAt: FeatureAt, featureAt1: FeatureAt) {
     && featureAt.segmentIndex === featureAt1.segmentIndex;
 }
 
-export const state = proxy<{
+export const gisState = proxy<{
   originTransform: GlobalTransform;
   hoveredFeatures: FeatureAt[];
   selectedFeatures: FeatureAt[];
@@ -38,7 +38,7 @@ export const state = proxy<{
   selectedFeatures: [],
 })
 
-export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = state.originTransform.elevation) {
+export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = gisState.originTransform.elevation) {
   const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
     * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
   const bearing = Math.atan2(-moveZ, moveX) * -180 / Math.PI + 90
@@ -57,9 +57,9 @@ export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: nu
 }
 
 export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.EventDispatcher) {
-  move(state.originTransform.quaternion, mainCamera.position.x, mainCamera.position.z)
+  move(gisState.originTransform.quaternion, mainCamera.position.x, mainCamera.position.z)
 
-  state.originTransform.elevation += mainCamera.position.y;
+  gisState.originTransform.elevation += mainCamera.position.y;
 
   ((mainControls as any).target as THREE.Vector3).sub(mainCamera.position)
 
@@ -68,7 +68,7 @@ export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.Even
 
 export function getOriginEuler() {
   return new THREE.Euler(0, 0, 0, 'YXZ')
-    .setFromQuaternion(state.originTransform.quaternion.clone(), 'YXZ')
+    .setFromQuaternion(gisState.originTransform.quaternion.clone(), 'YXZ')
 }
 
 export function eulerToCoordinate(euler: THREE.Euler): Position {
@@ -89,7 +89,7 @@ export function getBearing(coordinate: Position, originCoordinateEuler?: THREE.E
   return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180 - originCoordinateEuler.z
 }
 
-export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -state.originTransform.elevation) {
+export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -gisState.originTransform.elevation) {
   if (!originCoordinateEuler)
     originCoordinateEuler = getOriginEuler()
 

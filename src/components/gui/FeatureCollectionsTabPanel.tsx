@@ -8,7 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
-import { FeatureAt, SelectAdjoinedLineStringSegments, state as gisState } from '@/lib/gis';
+import { FeatureAt, SelectAdjoinedLineStringSegments, gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import { Feature, LineString, Point, Position } from 'geojson';
 import { lineString } from '@turf/helpers';

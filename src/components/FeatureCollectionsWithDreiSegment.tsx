@@ -3,7 +3,7 @@ import { gameState } from '@/lib/client';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from 'geojson';
-import { FeatureAt, equalFeatureAt, getRelativePosition, state as gisState } from '@/lib/gis';
+import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 
 export default function FeatureCollectionsWithDreiSegment() {

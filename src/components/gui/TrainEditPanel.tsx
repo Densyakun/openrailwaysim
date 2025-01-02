@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { createBogie, createOtherBody } from "@/lib/trainSamples";
 import { getPosition, runPointOnTrack } from "@/lib/tracks";
 import { setCameraTargetPosition } from "../cameras-and-controls/CameraControls";
-import { eulerToCoordinate, move, state as gisState } from "@/lib/gis";
+import { eulerToCoordinate, move, gisState } from "@/lib/gis";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
 import { FROM_CLIENT_SET_TRAIN, toSerializableProp } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';

@@ -26,9 +26,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         }
 
         if (path[0] === "terrains") {
-          if (path.length === 2) {
-            push()
-          }
+          push()
         } else if (path[0] === "nowDate") {
           push()
         } else if (path[0] === "trains") {

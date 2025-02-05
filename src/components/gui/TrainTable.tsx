@@ -14,7 +14,7 @@ import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains
 import { useSnapshot } from 'valtio';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
-  const { trainGroups, trains } = useSnapshot(gameState);
+  const { trainGroups, trains } = useSnapshot(gameState.data);
 
   let trains_: { [key: string]: Train } = {};
   trainGroups[trainGroupId].forEach(trainId =>
@@ -32,7 +32,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
   }}>
     <DataMenu
       defaultValues={{ id: ''/*, trainIds: []*/ }}
-      getValueOnEdit={(newId: string) => ({ id: newId/*, trainIds: gameState.trainGroups[newId]*/ })}
+      getValueOnEdit={(newId: string) => ({ id: newId/*, trainIds: gameState.data.trainGroups[newId]*/ })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
@@ -62,7 +62,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
         {/** TODO Edit button */}
         <Tooltip title="Move camera to object" disableInteractive>
           <IconButton edge="end" onClick={() => {
-            const train = gameState.trains[id]
+            const train = gameState.data.trains[id]
 
             const targetCoordinate = eulerToCoordinate(train.globalPosition)
             const position = train.bogies[0].axles[0].position
@@ -73,16 +73,6 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
           </IconButton>
         </Tooltip>
       </>}
-      /*handleSubmit={((inputs, editingId) =>
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
-          ["trainGroups", inputs.id],
-          inputs.trainIds,
-          ["trainGroups", editingId],
-        ] : [
-          ["trainGroups", inputs.id],
-          inputs.trainIds,
-        ]]))
-      )}*/
       handleDelete={(id => {
         socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["trains", id]]));
       })}

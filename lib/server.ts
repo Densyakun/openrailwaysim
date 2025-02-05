@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_SAVE, FROM_CLIENT_SET_OBJECT, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableProp, getNewState, toSerializableProp, updateTime } from "./game";
+import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_SAVE, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SaveDataType, getNewSaveData, saveDataTypeId, SerializableSaveDataType, getTypeIdByPath } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -7,26 +7,21 @@ import { readFileSync, writeFileSync } from "fs";
 
 export const saveFilePath = "./save.json";
 
-export function loadSave(gameState: GameStateType) {
-  try {
-    const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
-    Object.keys(getNewState()).forEach(key => {
-      if (newState[key] !== undefined)
-        gameState[key] = fromSerializableProp([key], newState[key], gameState);
-    });
-  } catch { }
+export function loadSaveData() {
+  const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
+  return fromSerializableSaveData(saveDataTypeId, newState, getNewSaveData()) as SaveDataType;
 }
 
-export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
+export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
   let messageEmitter = new MessageEmitter();
 
-  const unsubscribe = subscribe(gameState, ops => {
+  const unsubscribe = subscribe(saveData, ops => {
     wss.clients.forEach(client => {
       const ops_: [string, string[], any?][] = []
       ops.forEach(([op_, path, value, prevValue]) => {
         const push = function () {
           ops_.push(op_ === 'delete' ? [op_, path as string[]] :
-            [op_, path as string[], toSerializableProp(path as string[], value)]
+            [op_, path as string[], toSerializableSaveData(getTypeIdByPath(path as string[]), value)]
           )
         }
 
@@ -108,10 +103,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: any = {};
-    Object.keys(gameState).forEach(key =>
-      serializableGameState[key] = toSerializableProp([key], gameState[key])
-    );
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
     ws.send(JSON.stringify([FROM_SERVER_STATE, serializableGameState]));
   });
 
@@ -119,7 +111,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
   const onUpdateTime = function () {
     const newTime = new Date().getTime();
-    updateTime(gameState, (newTime - time) / 1000);
+    updateTime(saveData, (newTime - time) / 1000);
     time = newTime;
   };
 
@@ -131,24 +123,12 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
     try {
       switch (id) {
-        case FROM_CLIENT_SET_OBJECT: {
-          const [objectKey, newValue, oldId] = value as [string, { id: string } & any, string];
-
-          gameState[objectKey][newValue.id] = fromSerializableProp([objectKey, newValue.id], newValue, gameState);
-          if (oldId) {
-            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
-            delete gameState[objectKey][oldId];
-          }
-
-          messageEmitter.isInvalidMessage = false;
-          break;
-        }
         case FROM_CLIENT_DELETE_OBJECT: {
           const [objectKey, id] = value as [string, string];
 
           if (objectKey === "tracks") {
-            Object.keys(gameState.switches).forEach(switchId => {
-              const trackSwitch = gameState.switches[switchId];
+            Object.keys(saveData.switches).forEach(switchId => {
+              const trackSwitch = saveData.switches[switchId];
               const index = trackSwitch.connectedTrackIds.indexOf(id);
               if (index !== -1) {
                 if (trackSwitch.currentConnected === index) trackSwitch.currentConnected = -1;
@@ -157,7 +137,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
                 if (trackSwitch.connectedTrackIds.length === 1) {
                   // Delete switch
-                  Object.values(gameState.tracks).forEach(track => {
+                  Object.values(saveData.tracks).forEach(track => {
                     if (track.idOfTrackOrSwitchConnectedFromStart === switchId) {
                       track.idOfTrackOrSwitchConnectedFromStart = trackSwitch.connectedTrackIds[0];
                       track.connectedFromStartIsTrack = true;
@@ -168,33 +148,30 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
                       track.connectedFromEndIsToEnd = trackSwitch.isConnectedToEnd[0];
                     }
                   })
-                  delete gameState.switches[switchId];
+                  delete saveData.switches[switchId];
                 }
               }
             });
-            Object.keys(gameState.trains).forEach(trainId => {
-              const train = gameState.trains[trainId];
+            Object.keys(saveData.trains).forEach(trainId => {
+              const train = saveData.trains[trainId];
               if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === id)))
-                delete gameState.trains[trainId];
+                delete saveData.trains[trainId];
             });
-            Object.keys(gameState.tracks).forEach(trackId => {
-              const track = gameState.tracks[trackId];
+            Object.keys(saveData.tracks).forEach(trackId => {
+              const track = saveData.tracks[trackId];
               if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === id)
                 track.idOfTrackOrSwitchConnectedFromStart = "";
               else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === id)
                 track.idOfTrackOrSwitchConnectedFromEnd = "";
             });
           }
-          delete gameState[objectKey][id];
+          delete saveData[objectKey][id];
 
           messageEmitter.isInvalidMessage = false;
           break;
         }
         case FROM_CLIENT_SAVE: {
-          const gameState_: any = {};
-          Object.keys(gameState).forEach(key =>
-            gameState_[key] = toSerializableProp([key], gameState[key])
-          );
+          const gameState_: SaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
@@ -204,7 +181,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
         case FROM_CLIENT_SWITCH_TRACK: {
           const [switchId, newCurrentConnected] = value;
 
-          switchTrack(gameState, switchId, newCurrentConnected);
+          switchTrack(saveData, switchId, newCurrentConnected);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -214,7 +191,7 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
           fetchHeightmap(tileX, tileY)
             .then(heightmap =>
-              (gameState.terrains[tileY] || (gameState.terrains[tileY] = {}))
+              (saveData.terrains[tileY] || (saveData.terrains[tileY] = {}))
               [tileX] = heightmap
             );
 
@@ -224,18 +201,18 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
         case FROM_CLIENT_SET_PROP: {
           const [propPath, newValue, oldPath] = value as [string[], any, string[] | undefined];
 
-          let object = gameState;
+          let object = saveData;
           if (oldPath) {
             // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
             for (let n = 0; n < oldPath.length - 1; n++)
               object = object[oldPath[n]];
             delete object[oldPath[oldPath.length - 1]];
 
-            object = gameState;
+            object = saveData;
           }
           for (let n = 0; n < propPath.length - 1; n++)
             object = object[propPath[n]];
-          object[propPath[propPath.length - 1]] = fromSerializableProp(propPath, newValue, gameState);
+          object[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, saveData);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -245,14 +222,14 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
 
           // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
           if (propPath.length == 2 && propPath[0] === "trains") {
-            for (const trainGroupId in Object.keys(gameState["trainGroups"])) {
-              const index = gameState["trainGroups"][trainGroupId].indexOf(propPath[1]);
+            for (const trainGroupId in Object.keys(saveData["trainGroups"])) {
+              const index = saveData["trainGroups"][trainGroupId].indexOf(propPath[1]);
               if (index !== -1)
-                gameState["trainGroups"][trainGroupId].splice(index, 1);
+                saveData["trainGroups"][trainGroupId].splice(index, 1);
             }
-            delete gameState["trains"][propPath[1]];
+            delete saveData["trains"][propPath[1]];
           } else {
-            let object = gameState;
+            let object = saveData;
             for (let n = 0; n < propPath.length - 1; n++)
               object = object[propPath[n]];
             delete object[propPath[propPath.length - 1]];
@@ -267,15 +244,15 @@ export function setupServer(wss: WebSocketServer, gameState: GameStateType) {
           // TODO データの検証
 
           if (oldPath) {
-            if (gameState["trains"][trainId]) break;
+            if (saveData["trains"][trainId]) break;
 
             const [oldTrainGroupId, oldTrainId] = oldPath;
             // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
-            gameState["trainGroups"][oldTrainGroupId].splice(gameState["trainGroups"][oldTrainGroupId].indexOf(oldTrainId), 1);
-            delete gameState["trains"][oldTrainId];
+            saveData["trainGroups"][oldTrainGroupId].splice(saveData["trainGroups"][oldTrainGroupId].indexOf(oldTrainId), 1);
+            delete saveData["trains"][oldTrainId];
           }
-          gameState["trains"][trainId] = fromSerializableProp(["trains", trainId], newValue, gameState);
-          gameState["trainGroups"][trainGroupId].push(trainId);
+          saveData["trains"][trainId] = fromSerializableSaveData(getTypeIdByPath(["trains", trainId]), newValue, saveData);
+          saveData["trainGroups"][trainGroupId].push(trainId);
 
           messageEmitter.isInvalidMessage = false;
           break;

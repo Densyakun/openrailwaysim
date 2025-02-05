@@ -53,7 +53,7 @@ export default function SunAndSky() {
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
 
   useFrame(() => {
-    const nowDate = new Date(gameState.nowDate)
+    const nowDate = new Date(gameState.data.nowDate)
     lightingState.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
       + new THREE.Euler().setFromQuaternion(gisState.originTransform.quaternion, 'YXZ').y

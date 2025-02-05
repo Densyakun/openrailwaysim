@@ -9,8 +9,8 @@ import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPane
 export default function FeatureCollectionsWithDreiSegment() {
   return (
     <>
-      {Object.keys(gameState.featureCollections).map(id =>
-        gameState.visibleFeatureCollections.includes(id)
+      {Object.keys(gameState.data.featureCollections).map(id =>
+        gameState.data.visibleFeatureCollections.includes(id)
           ? <FeatureCollection key={id} id={id} />
           : null
       )}
@@ -21,7 +21,7 @@ export default function FeatureCollectionsWithDreiSegment() {
 function FeatureCollection({ id }: { id: string }) {
   return (
     <>
-      {gameState.featureCollections[id].value.features.map((feature, index) => {
+      {gameState.data.featureCollections[id].value.features.map((feature, index) => {
         switch (feature.geometry.type) {
           case "LineString":
             const lineString = feature.geometry as LineString

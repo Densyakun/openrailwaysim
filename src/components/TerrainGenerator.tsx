@@ -69,7 +69,7 @@ function CoordinateUpdater() {
 const newTerrainWidth = 5;
 
 export default function TerrainGenerator() {
-  useSnapshot(gameState.terrains);
+  const terrains = useSnapshot(gameState.data.terrains);
   const { selectedTab } = useSnapshot(guiState);
   const { currentTileX, currentTileY, hoveredTileX, hoveredTileY } = useSnapshot(state);
 
@@ -85,7 +85,7 @@ export default function TerrainGenerator() {
         if (tileX < 0 || (2 ** terrainZoom <= tileY)) return null;
 
         // 既に地形が存在する場所は作成できないようにする
-        if (gameState.terrains[tileY]?.[tileX]) return null;
+        if (terrains[tileY]?.[tileX]) return null;
 
         return <NewTerrainTile key={index} tileX={tileX} tileY={tileY} isHovered={hoveredTileX === tileX && hoveredTileY === tileY} />;
       })}

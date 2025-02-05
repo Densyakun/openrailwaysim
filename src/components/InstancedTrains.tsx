@@ -12,12 +12,12 @@ export default function InstancedTrains() {
   const axleGroupsRef = React.useRef<(THREE.Group | null)[][]>([])
   const otherBodyGroupsRef = React.useRef<(THREE.Group | null)[]>([])
 
-  useSnapshot(gameState)
+  useSnapshot(gameState.data)
 
   // TODO Correctly display multiple train locations
   useFrame(() => {
-    Object.keys(gameState.trains).forEach(trainId => {
-      const train = gameState.trains[trainId]
+    Object.keys(gameState.data.trains).forEach(trainId => {
+      const train = gameState.data.trains[trainId]
 
       train.bogies.forEach(({ position, rotation, axles }, bogieIndex) => {
         const bogieGroup = bogieGroupsRef.current[bogieIndex]
@@ -42,8 +42,8 @@ export default function InstancedTrains() {
   const axleInstances: JSX.Element[] = []
   const otherBodyInstances: JSX.Element[] = [];
 
-  Object.keys(gameState.trains).forEach(trainId => {
-    const train = gameState.trains[trainId]
+  Object.keys(gameState.data.trains).forEach(trainId => {
+    const train = gameState.data.trains[trainId]
 
     const centerCoordinate = eulerToCoordinate(train.globalPosition)
 

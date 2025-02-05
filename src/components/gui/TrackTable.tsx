@@ -8,7 +8,7 @@ import { IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 
 export default function TrackTable() {
-  useSnapshot(gameState);
+  useSnapshot(gameState.data);
 
   return <DataMenu
     titleElement={(adding: boolean, editingId: string) => (
@@ -17,12 +17,11 @@ export default function TrackTable() {
         <Typography variant="h5" gutterBottom>Tracks</Typography>
       </Stack>
     )}
-    objectKey="tracks"
-    objects={gameState.tracks}
+    objects={gameState.data.tracks}
     listItemButtons={id =>
       <Tooltip title="Move camera to object" disableInteractive>
         <IconButton edge="end" onClick={() => {
-          const track = gameState.tracks[id]
+          const track = gameState.data.tracks[id]
 
           const targetCoordinate = track.centerCoordinate
           setCameraTargetPosition(targetCoordinate, track.position.y)

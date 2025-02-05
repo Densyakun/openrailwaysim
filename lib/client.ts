@@ -1,9 +1,11 @@
 import { proxy } from "valtio";
-import { GameStateType, MessageEmitter, getNewState } from "./game";
+import { GameStateType, MessageEmitter, SaveDataType, getNewSaveData } from "./game";
 import { updateTrainOnTime } from "./trains";
 import { trainsTabPanelState } from "./client/trains";
 
-export const gameState = getNewState();
+export const gameState = proxy<GameStateType>({
+  data: getNewSaveData(),
+});
 
 export const clientState = proxy<{
   isSynced: boolean;
@@ -15,8 +17,8 @@ export const clientState = proxy<{
 
 export const messageEmitter = new MessageEmitter();
 
-export function updateClientOnTime(gameState: GameStateType, delta: number) {
+export function updateClientOnTime(saveData: SaveDataType, delta: number) {
   if (!trainsTabPanelState.editingTrain) return;
 
-  updateTrainOnTime(gameState, trainsTabPanelState.editingTrain, delta);
+  updateTrainOnTime(saveData, trainsTabPanelState.editingTrain, delta);
 }

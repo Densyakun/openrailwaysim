@@ -14,7 +14,7 @@ import { getPosition, runPointOnTrack } from "@/lib/tracks";
 import { setCameraTargetPosition } from "../cameras-and-controls/CameraControls";
 import { eulerToCoordinate, move, gisState } from "@/lib/gis";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { FROM_CLIENT_SET_TRAIN, toSerializableProp } from "@/lib/game";
+import { FROM_CLIENT_SET_TRAIN, toSerializableSaveData, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 
@@ -58,7 +58,7 @@ const formState = proxy<{
 });
 
 function focusCamera() {
-  if (!Object.keys(gameState.tracks).length) return;
+  if (!Object.keys(gameState.data.tracks).length) return;
   if (!trainsTabPanelState.editingTrain) return;
 
   if (0 <= trainsTabPanelState.selectedCarBodyIndex) {
@@ -70,7 +70,7 @@ function focusCamera() {
     move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z);
   } else if (trainsTabPanelState.pointOnTrack) {
     // To train
-    const track = gameState.tracks[trainsTabPanelState.pointOnTrack.trackId];
+    const track = gameState.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
     const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
     setCameraTargetPosition(track.centerCoordinate, position.y);
     move(gisState.originTransform.quaternion, position.x, position.z);
@@ -91,14 +91,14 @@ function updateEditingTrain() {
     otherJoints,
   } = trainsTabPanelState;
 
-  if (!Object.keys(gameState.tracks).length) return;
+  if (!Object.keys(gameState.data.tracks).length) return;
   if (!pointOnTrack) return;
 
   const bogies: Bogie[] = [];
   for (let bogieIndex = 0; bogieIndex < axleTable.length; bogieIndex++) {
     const axles = axleTable[bogieIndex];
     const { newPointOnTrack, isDeadEnd } = runPointOnTrack(
-      gameState,
+      gameState.data,
       pointOnTrack,
       directionIsReversed,
       bogieOffsets[bogieIndex],
@@ -125,7 +125,7 @@ function updateEditingTrain() {
   const otherBodies: CarBody[] = [];
   for (let otherBodyIndex = 0; otherBodyIndex < otherBodyOffsets.length; otherBodyIndex++) {
     const { newPointOnTrack, isDeadEnd } = runPointOnTrack(
-      gameState,
+      gameState.data,
       pointOnTrack,
       directionIsReversed,
       otherBodyOffsets[otherBodyIndex],
@@ -147,7 +147,7 @@ function updateEditingTrain() {
     !bogies.length
     || trainsTabPanelState.trainIsDeadEnd
     || controlStands.some(controlStand =>
-      controlStand && !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
+      controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
     )
   ) return;
 
@@ -192,7 +192,7 @@ function updateEditingTrain() {
   });
 
   return trainsTabPanelState.editingTrain = createTrain(
-    gameState,
+    gameState.data,
     bogies,
     otherBodies,
     bodySupporterJoints_,
@@ -207,15 +207,13 @@ function saveEditingTrain() {
   }
 
   // Add new train
-  if (Object.keys(gameState.trains).includes(trainsTabPanelState.newTrainId))
+  if (Object.keys(gameState.data.trains).includes(trainsTabPanelState.newTrainId))
     return;
 
-  const train: SerializableTrain = toSerializableProp(
-    ["trains", trainsTabPanelState.newTrainId || uuidv4()],
-    updateEditingTrain()
-  );
+  const trainId = trainsTabPanelState.newTrainId || uuidv4();
+  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
 
-  socket.send(JSON.stringify([FROM_CLIENT_SET_TRAIN, [[trainsTabPanelState.selectedTrainGroup, train.id], train]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_TRAIN, [[trainsTabPanelState.selectedTrainGroup, trainId], train]]));
 
   trainsTabPanelState.isAddingTrain = false;
   resetEditingTrainState();
@@ -365,7 +363,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   }, []);
 
   const invalidControlStandIndex = controlStands.findIndex(controlStand =>
-    controlStand && !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
+    controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
   );
 
   return <Stack spacing={1}>
@@ -382,7 +380,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         : `Edit a train "${editingTrainId}"`
       }</Typography>
     </Stack>
-    {isAddingTrain && Object.keys(gameState.trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
+    {isAddingTrain && Object.keys(gameState.data.trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
       IDが重複しています
     </Alert>
     }
@@ -701,7 +699,7 @@ function OtherBodiesEditor() {
       }}
     />
     <Typography variant="h6">Control stand</Typography>
-    {controlStand && !Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId) && <Alert
+    {controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId) && <Alert
       severity="error"
     >
       マスコンの形式IDが間違っています
@@ -722,9 +720,9 @@ function OtherBodiesEditor() {
           value={masterController.uiOptionId}
           label="Master controller type ID"
           onChange={event => formState.masterController.uiOptionId = event.target.value}
-          error={!Object.keys(gameState.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId)}
+          error={!Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId)}
         >
-          {Object.keys(gameState.uiOneHandleMasterControllerConfigs).map(id =>
+          {Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).map(id =>
             <MenuItem key={id} value={id}>{id}</MenuItem>
           )}
         </Select>

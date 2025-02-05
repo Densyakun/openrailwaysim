@@ -5,10 +5,10 @@ import { proxy, useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import centroid from '@turf/centroid';
-import { SerializableSwitch, SerializableTrack, SerializableTransitionCurve, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
+import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
+import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
 import { tracksState } from '@/lib/client/tracks';
 
@@ -373,6 +373,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     curve.endRotationX,
     AB.modelPaths,
   );
+  const sCurveId = uuidv4();
 
   const sTransitionCurveAB: SerializableTransitionCurve | undefined = transitionCurveAB && applyTransitionCurveToSerializableTrack(
     createSerializableTrackBasedOnTrack(
@@ -385,6 +386,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     ),
     transitionCurveAB
   );
+  const sTransitionCurveABId = uuidv4();
 
   const sTransitionCurveCD: SerializableTransitionCurve | undefined = transitionCurveCD && applyTransitionCurveToSerializableTrack(
     createSerializableTrackBasedOnTrack(
@@ -397,6 +399,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     ),
     transitionCurveCD
   );
+  const sTransitionCurveCDId = uuidv4();
 
   const s_ = s * AB.length;
   const t_ = t * CD.length;
@@ -407,17 +410,17 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     let track0IsChanged = false;
 
     if (curveIndex < 4) {
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "switches",
-        {
-          id: uuidv4(),
-          connectedTrackIds: [ABId, sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id],
-          isConnectedToEnd: [false, false],
-          currentConnected: 0,
-        } as SerializableSwitch
+      const railroadSwitch: Switch = {
+        connectedTrackIds: [ABId, sTransitionCurveAB ? sTransitionCurveABId : sCurveId],
+        isConnectedToEnd: [false, false],
+        currentConnected: 0,
+      };
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", uuidv4()],
+        railroadSwitch
       ]]));
     } else {
-      AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id;
+      AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
       AB.connectedFromStartIsTrack = true;
       AB.connectedFromStartIsToEnd = false;
       const connectedTrack = sTransitionCurveAB || sCurve;
@@ -436,16 +439,16 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     }
 
     if (track0IsChanged)
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "tracks",
-        toSerializableProp(["tracks", ABId], AB)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", ABId],
+        toSerializableSaveData(trackTypeId, AB)
       ]]));
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= s_ - AB.length) {
     // ABの終点と接続する場合
     let track0IsChanged = false;
 
     if (curveIndex < 4) {
-      AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id;
+      AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
       AB.connectedFromEndIsTrack = true;
       AB.connectedFromEndIsToEnd = false;
       const connectedTrack = sTransitionCurveAB || sCurve;
@@ -455,14 +458,14 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
       track0IsChanged = true;
     } else {
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "switches",
-        {
-          id: uuidv4(),
-          connectedTrackIds: [ABId, sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id],
-          isConnectedToEnd: [true, false],
-          currentConnected: 0,
-        } as SerializableSwitch
+      const railroadSwitch: Switch = {
+        connectedTrackIds: [ABId, sTransitionCurveAB ? sTransitionCurveABId : sCurveId],
+        isConnectedToEnd: [true, false],
+        currentConnected: 0,
+      };
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", uuidv4()],
+        railroadSwitch
       ]]));
     }
 
@@ -473,19 +476,20 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     }
 
     if (track0IsChanged)
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "tracks",
-        toSerializableProp(["tracks", ABId], AB)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", ABId],
+        toSerializableSaveData(trackTypeId, AB)
       ]]));
   } else {
     // ABの中間と接続する場合
 
     if (createSwitch) {
       // 分岐器を作成する場合
+      const trackBId = uuidv4();
       let trackB: SerializableTrack; // 分岐器の直進側
 
-      const railroadSwitch: SerializableSwitch = {
-        id: uuidv4(),
+      const switchId = uuidv4();
+      const railroadSwitch: Switch = {
         connectedTrackIds: [],
         isConnectedToEnd: [],
         currentConnected: -1,
@@ -504,7 +508,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         AB.length *= s;
 
         // 直進側を開通する
-        railroadSwitch.connectedTrackIds = [trackB.id, sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id];
+        railroadSwitch.connectedTrackIds = [trackBId, sTransitionCurveAB ? sTransitionCurveABId : sCurveId];
         railroadSwitch.isConnectedToEnd = [false, false];
         railroadSwitch.currentConnected = 0;
 
@@ -512,7 +516,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         trackB.connectedFromEndIsTrack = AB.connectedFromEndIsTrack;
         trackB.connectedFromEndIsToEnd = AB.connectedFromEndIsToEnd;
 
-        AB.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+        AB.idOfTrackOrSwitchConnectedFromEnd = switchId;
         AB.connectedFromEndIsTrack = false;
         trackB.idOfTrackOrSwitchConnectedFromStart = ABId;
         trackB.connectedFromStartIsTrack = true;
@@ -530,7 +534,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         AB.position = getPosition(AB, AB.length * s);
         AB.length *= (1 - s);
 
-        railroadSwitch.connectedTrackIds = [trackB.id, sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id];
+        railroadSwitch.connectedTrackIds = [trackBId, sTransitionCurveAB ? sTransitionCurveABId : sCurveId];
         railroadSwitch.isConnectedToEnd = [true, false];
         railroadSwitch.currentConnected = 0;
 
@@ -541,20 +545,26 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         trackB.idOfTrackOrSwitchConnectedFromEnd = ABId;
         trackB.connectedFromEndIsTrack = true;
         trackB.connectedFromEndIsToEnd = false;
-        AB.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+        AB.idOfTrackOrSwitchConnectedFromStart = switchId;
         AB.connectedFromStartIsTrack = false;
       }
 
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", trackBId],
+        trackB
+      ]]));
 
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", switchId],
+        railroadSwitch
+      ]]));
     } else {
       // 分岐器を作成しない場合
       const connectedTrack = sTransitionCurveAB || sCurve;
       if (curveIndex < 4) {
         AB.length *= s;
 
-        AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id;
+        AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
         AB.connectedFromEndIsTrack = true;
         AB.connectedFromEndIsToEnd = false;
         connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
@@ -567,15 +577,15 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         connectedTrack.idOfTrackOrSwitchConnectedFromEnd = ABId;
         connectedTrack.connectedFromEndIsTrack = true;
         connectedTrack.connectedFromEndIsToEnd = false;
-        AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveAB.id : sCurve.id;
+        AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
         AB.connectedFromStartIsTrack = true;
         AB.connectedFromStartIsToEnd = false;
       }
     }
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", ABId], AB)
+    socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+      ["tracks", ABId],
+      toSerializableSaveData(trackTypeId, AB)
     ]]));
   }
 
@@ -584,17 +594,17 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     let track1IsChanged = false;
 
     if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "switches",
-        {
-          id: uuidv4(),
-          connectedTrackIds: [CDId, sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id],
-          isConnectedToEnd: [false, false],
-          currentConnected: 0,
-        } as SerializableSwitch
+      const railroadSwitch: Switch = {
+        connectedTrackIds: [CDId, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId],
+        isConnectedToEnd: [false, false],
+        currentConnected: 0,
+      };
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", uuidv4()],
+        railroadSwitch
       ]]));
     } else {
-      CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id;
+      CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
       CD.connectedFromStartIsTrack = true;
       CD.connectedFromStartIsToEnd = sTransitionCurveCD ? false : true;
       if (sTransitionCurveCD) {
@@ -618,15 +628,15 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     }
 
     if (track1IsChanged)
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "tracks",
-        toSerializableProp(["tracks", CDId], CD)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", CDId],
+        toSerializableSaveData(trackTypeId, CD)
       ]]));
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= t_ - CD.length) {
     let track1IsChanged = false;
 
     if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
-      CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id;
+      CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
       CD.connectedFromEndIsTrack = true;
       CD.connectedFromEndIsToEnd = sTransitionCurveCD ? false : true;
       if (sTransitionCurveCD) {
@@ -641,14 +651,14 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
       track1IsChanged = true;
     } else {
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "switches",
-        {
-          id: uuidv4(),
-          connectedTrackIds: [CDId, sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id],
-          isConnectedToEnd: [true, sTransitionCurveCD ? false : true],
-          currentConnected: 0,
-        } as SerializableSwitch
+      const railroadSwitch: Switch = {
+        connectedTrackIds: [CDId, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId],
+        isConnectedToEnd: [true, sTransitionCurveCD ? false : true],
+        currentConnected: 0,
+      };
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", uuidv4()],
+        railroadSwitch
       ]]));
     }
 
@@ -659,16 +669,17 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     }
 
     if (track1IsChanged)
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-        "tracks",
-        toSerializableProp(["tracks", CDId], CD)
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", CDId],
+        toSerializableSaveData(trackTypeId, CD)
       ]]));
   } else {
     if (createSwitch) {
+      const trackBId = uuidv4();
       let trackB: SerializableTrack;
 
-      const railroadSwitch: SerializableSwitch = {
-        id: uuidv4(),
+      const switchId = uuidv4();
+      const railroadSwitch: Switch = {
         connectedTrackIds: [],
         isConnectedToEnd: [],
         currentConnected: -1,
@@ -686,7 +697,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
         CD.length *= t;
 
-        railroadSwitch.connectedTrackIds = [trackB.id, sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id];
+        railroadSwitch.connectedTrackIds = [trackBId, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId];
         railroadSwitch.isConnectedToEnd = [false, sTransitionCurveCD ? false : true];
         railroadSwitch.currentConnected = 0;
 
@@ -694,7 +705,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         trackB.connectedFromEndIsTrack = CD.connectedFromEndIsTrack;
         trackB.connectedFromEndIsToEnd = CD.connectedFromEndIsToEnd;
 
-        CD.idOfTrackOrSwitchConnectedFromEnd = railroadSwitch.id;
+        CD.idOfTrackOrSwitchConnectedFromEnd = switchId;
         CD.connectedFromEndIsTrack = false;
         trackB.idOfTrackOrSwitchConnectedFromStart = CDId;
         trackB.connectedFromStartIsTrack = true;
@@ -712,7 +723,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         CD.position = getPosition(CD, CD.length * t);
         CD.length *= (1 - t);
 
-        railroadSwitch.connectedTrackIds = [trackB.id, sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id];
+        railroadSwitch.connectedTrackIds = [trackBId, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId];
         railroadSwitch.isConnectedToEnd = [true, sTransitionCurveCD ? false : true];
         railroadSwitch.currentConnected = 0;
 
@@ -720,22 +731,28 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         trackB.connectedFromStartIsTrack = CD.connectedFromStartIsTrack;
         trackB.connectedFromStartIsToEnd = CD.connectedFromStartIsToEnd;
 
-        CD.idOfTrackOrSwitchConnectedFromStart = railroadSwitch.id;
+        CD.idOfTrackOrSwitchConnectedFromStart = switchId;
         CD.connectedFromStartIsTrack = false;
         trackB.idOfTrackOrSwitchConnectedFromEnd = CDId;
         trackB.connectedFromEndIsTrack = true;
         trackB.connectedFromEndIsToEnd = false;
       }
 
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", trackB]]));
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["tracks", trackBId],
+        trackB
+      ]]));
 
-      socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["switches", railroadSwitch]]));
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        ["switches", switchId],
+        railroadSwitch
+      ]]));
     } else {
       const connectedTrack = sTransitionCurveCD || sCurve;
       if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
         CD.length *= t;
 
-        CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id;
+        CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
         CD.connectedFromEndIsTrack = true;
         CD.connectedFromEndIsToEnd = sTransitionCurveCD ? false : true;
         connectedTrack.idOfTrackOrSwitchConnectedFromStart = CDId;
@@ -745,7 +762,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         CD.position = getPosition(CD, CD.length * t);
         CD.length *= (1 - t);
 
-        CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCD.id : sCurve.id;
+        CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
         CD.connectedFromStartIsTrack = true;
         CD.connectedFromStartIsToEnd = sTransitionCurveCD ? false : true;
         connectedTrack.idOfTrackOrSwitchConnectedFromEnd = CDId;
@@ -754,33 +771,42 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       }
     }
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(["tracks", CDId], CD)
+    socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+      ["tracks", CDId],
+      toSerializableSaveData(trackTypeId, CD)
     ]]));
   }
 
   // 緩和曲線と単曲線を接続する
   if (sTransitionCurveAB) {
-    sTransitionCurveAB.idOfTrackOrSwitchConnectedFromEnd = sCurve.id;
+    sTransitionCurveAB.idOfTrackOrSwitchConnectedFromEnd = sCurveId;
     sTransitionCurveAB.connectedFromEndIsTrack = true;
     sTransitionCurveAB.connectedFromEndIsToEnd = false;
-    sCurve.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB.id;
+    sCurve.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveABId;
     sCurve.connectedFromStartIsTrack = true;
     sCurve.connectedFromStartIsToEnd = true;
   }
   if (sTransitionCurveCD) {
-    sTransitionCurveCD.idOfTrackOrSwitchConnectedFromEnd = sCurve.id;
+    sTransitionCurveCD.idOfTrackOrSwitchConnectedFromEnd = sCurveId;
     sTransitionCurveCD.connectedFromEndIsTrack = true;
     sTransitionCurveCD.connectedFromEndIsToEnd = true;
-    sCurve.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD.id;
+    sCurve.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCDId;
     sCurve.connectedFromEndIsTrack = true;
     sCurve.connectedFromEndIsToEnd = true;
   }
 
-  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", sCurve]]));
-  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", sTransitionCurveAB]]));
-  socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", sTransitionCurveCD]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+    ["tracks", sCurveId],
+    sCurve
+  ]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+    ["tracks", sTransitionCurveABId],
+    sTransitionCurveAB
+  ]]));
+  socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+    ["tracks", sTransitionCurveCDId],
+    sTransitionCurveCD
+  ]]));
 
   updateAddingTracks();
 }

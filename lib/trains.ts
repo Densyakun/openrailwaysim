@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
-import { GameStateType, IdentifiedRecord } from "./game";
+import { SaveDataType, SerializableEuler } from "./game";
 import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 
 // Resistances
@@ -41,7 +41,7 @@ export type CarBody = {
 
 export type SerializableCarBody = {
   position: THREE.Vector3Tuple;
-  rotation: [number, number, number, THREE.EulerOrder];
+  rotation: SerializableEuler;
   pointOnTrack: PointOnTrack;
   weight: number;
 }
@@ -107,7 +107,7 @@ export type Train = {
   motors: number;
 };
 
-export type SerializableTrain = IdentifiedRecord & {
+export type SerializableTrain = {
   bogies: SerializableBogie[];
   otherBodies: SerializableOtherBody[];
   bodySupporterJoints: SerializableBodySupporterJoint[];
@@ -116,11 +116,11 @@ export type SerializableTrain = IdentifiedRecord & {
   motors: number;
 };
 
-export function getGlobalEulerOfFirstAxle(gameState: GameStateType, axle: Axle) {
-  return coordinateToEuler(gameState.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
+export function getGlobalEulerOfFirstAxle(saveData: SaveDataType, axle: Axle) {
+  return coordinateToEuler(saveData.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
 }
 
-export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motors?: number): Train {
+export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motors?: number): Train {
   let weight_ = weight
 
   if (weight_ === undefined) {
@@ -161,7 +161,7 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
     otherJoints,
     fromJointIndexes: [],
     toJointIndexes: [],
-    globalPosition: getGlobalEulerOfFirstAxle(gameState, bogies[0].axles[0]),
+    globalPosition: getGlobalEulerOfFirstAxle(saveData, bogies[0].axles[0]),
     speed,
     weight: weight_,
     centroidZ,
@@ -170,7 +170,7 @@ export function createTrain(gameState: GameStateType, bogies: Bogie[], otherBodi
 
   calcJointsToRotateBody(train)
 
-  placeTrain(gameState, train)
+  placeTrain(saveData, train)
 
   return train
 }
@@ -198,10 +198,10 @@ export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler
   train.globalPosition = newPosition;
 }
 
-export function getAxlePosition(gameState: GameStateType, train: Train, axle: Axle) {
+export function getAxlePosition(saveData: SaveDataType, train: Train, axle: Axle) {
   const { pointOnTrack: { length } } = axle;
 
-  const track = gameState.tracks[axle.pointOnTrack.trackId];
+  const track = saveData.tracks[axle.pointOnTrack.trackId];
   const axleRelativePosition = getPosition(track, length);
 
   const globalTrackRelativePosition = getRelativePosition(
@@ -214,8 +214,8 @@ export function getAxlePosition(gameState: GameStateType, train: Train, axle: Ax
   return globalTrackRelativePosition.add(axleRelativePosition);
 }
 
-export function getAxleRotation(gameState: GameStateType, train: Train, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
-  const track = gameState.tracks[pointOnTrack.trackId];
+export function getAxleRotation(saveData: SaveDataType, train: Train, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
+  const track = saveData.tracks[pointOnTrack.trackId];
   const axleRelativeRotation = getRotation(track, pointOnTrack.length);
 
   if (rotationIsReversed) {
@@ -233,7 +233,7 @@ export function getAxleRotation(gameState: GameStateType, train: Train, pointOnT
   );
 }
 
-export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogie) {
+export function bogieToAxles(saveData: SaveDataType, train: Train, bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
@@ -244,11 +244,11 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
       lastAxlePosition.copy(
-        getAxlePosition(gameState, train, bogie.axles[index])
+        getAxlePosition(saveData, train, bogie.axles[index])
       )
     );
 
-    const axleRotation = getAxleRotation(gameState, train, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
+    const axleRotation = getAxleRotation(saveData, train, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
     rotationX += axleRotation.x;
     rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
     rotationZ += axleRotation.z;
@@ -269,8 +269,8 @@ export function bogieToAxles(gameState: GameStateType, train: Train, bogie: Bogi
   );
 }
 
-export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: PointOnTrack, globalPosition: THREE.Euler, position: THREE.Vector3) {
-  const track = gameState.tracks[pointOnTrack.trackId];
+export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, globalPosition: THREE.Euler, position: THREE.Vector3) {
+  const track = saveData.tracks[pointOnTrack.trackId];
 
   // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
   // 計算量が多いため緩和曲線では省く
@@ -287,7 +287,7 @@ export function pointOnTrackToTrack(gameState: GameStateType, pointOnTrack: Poin
   pointOnTrack.length = getLength(position.clone().sub(globalTrackRelativePosition), track);
 }
 
-export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogie) {
+export function axlesToBogie(saveData: SaveDataType, train: Train, bogie: Bogie) {
   bogie.axles.forEach(axle => {
     // axles to bogie
     axle.position.copy(new THREE.Vector3(0, 0, axle.z)
@@ -297,7 +297,7 @@ export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogi
 
     // axle.pointOnTrack to track
     pointOnTrackToTrack(
-      gameState,
+      saveData,
       axle.pointOnTrack,
       train.globalPosition,
       axle.position,
@@ -305,8 +305,8 @@ export function axlesToBogie(gameState: GameStateType, train: Train, bogie: Bogi
   });
 }
 
-export function axlesToBogies(gameState: GameStateType, train: Train) {
-  train.bogies.forEach(bogie => axlesToBogie(gameState, train, bogie));
+export function axlesToBogies(saveData: SaveDataType, train: Train) {
+  train.bogies.forEach(bogie => axlesToBogie(saveData, train, bogie));
 
   return train;
 }
@@ -406,9 +406,9 @@ export function calcJointsToRotateBody(train: Train) {
   })
 }
 
-export function placeOtherBodies(gameState: GameStateType, train: Train) {
+export function placeOtherBodies(saveData: SaveDataType, train: Train) {
   train.otherBodies.forEach(otherBody => {
-    const track = gameState.tracks[otherBody.pointOnTrack.trackId];
+    const track = saveData.tracks[otherBody.pointOnTrack.trackId];
     const axleRelativePosition = getPosition(track, otherBody.pointOnTrack.length);
 
     const globalTrackRelativePosition = getRelativePosition(
@@ -420,11 +420,11 @@ export function placeOtherBodies(gameState: GameStateType, train: Train) {
 
     otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
 
-    otherBody.rotation.copy(getAxleRotation(gameState, train, otherBody.pointOnTrack, false));
+    otherBody.rotation.copy(getAxleRotation(saveData, train, otherBody.pointOnTrack, false));
   });
 }
 
-export function syncOtherBodies(gameState: GameStateType, train: Train) {
+export function syncOtherBodies(saveData: SaveDataType, train: Train) {
   // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
     const position = new THREE.Vector3();
@@ -474,7 +474,7 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
 
     // Update pointOnTrack of other body
     pointOnTrackToTrack(
-      gameState,
+      saveData,
       fromBody.pointOnTrack,
       train.globalPosition,
       fromBody.position,
@@ -549,25 +549,25 @@ export function syncOtherBodies(gameState: GameStateType, train: Train) {
   });
 }
 
-export function placeTrain(gameState: GameStateType, train: Train) {
+export function placeTrain(saveData: SaveDataType, train: Train) {
   // 連結器の向きを反転させないため
-  placeOtherBodies(gameState, train);
+  placeOtherBodies(saveData, train);
 
-  train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(saveData, train, bogie));
 
-  syncOtherBodies(gameState, train);
+  syncOtherBodies(saveData, train);
 
-  train.bogies.forEach(fromBogie => axlesToBogie(gameState, train, fromBogie));
+  train.bogies.forEach(fromBogie => axlesToBogie(saveData, train, fromBogie));
 }
 
-export function updateTrainOnTime(gameState: GameStateType, train: Train, delta: number) {
+export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: number) {
   // 自動でマスコンと主制御器（Control System）を接続する
   let accel = 0;
   let brake = 1;
   train.otherBodies.forEach(body => {
     if (!body.controlStand) return;
 
-    const [accel1, brake1] = getOneHandleMasterControllerOutput(gameState, body.controlStand);
+    const [accel1, brake1] = getOneHandleMasterControllerOutput(saveData, body.controlStand);
 
     accel += accel1;
     brake = Math.min(brake, brake1)
@@ -601,7 +601,7 @@ export function updateTrainOnTime(gameState: GameStateType, train: Train, delta:
   // 勾配抵抗を計算する。計算を単純化するため、重心に近い地点の勾配から抵抗を計算する
   // TODO grade
   // TODO train.bogies[0].axles[0].rotationIsReversed
-  /*const track = gameState.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
+  /*const track = saveData.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
   const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
   const distance = point.distanceTo(nextPoint)
   acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight*/
@@ -616,10 +616,10 @@ export function updateTrainOnTime(gameState: GameStateType, train: Train, delta:
       : Math.min(0, train.speed + deceleration * delta)
 
   // Run a trains
-  rollAxles(gameState, train, train.speed * delta)
+  rollAxles(saveData, train, train.speed * delta)
 }
 
-export function rollAxles(gameState: GameStateType, train: Train, distance: number) {
+export function rollAxles(saveData: SaveDataType, train: Train, distance: number) {
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
   const center = new THREE.Vector3();
@@ -629,7 +629,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
 
     // 輪軸を転がす
     bogie.axles.forEach(axle => {
-      const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(gameState, axle.pointOnTrack, axle.rotationIsReversed, distance);
+      const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(saveData, axle.pointOnTrack, axle.rotationIsReversed, distance);
 
       axle.pointOnTrack = newPointOnTrack;
       axle.rotationIsReversed = newDirectionIsReversed;
@@ -639,7 +639,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
     });
 
     // ボギーを輪軸に合わせる
-    bogieToAxles(gameState, train, bogie);
+    bogieToAxles(saveData, train, bogie);
 
     newCenter.add(bogie.position);
   });
@@ -663,7 +663,7 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
   });
 
   // ボギーを含むCarBodyの位置と向きをジョイントに合わせる
-  syncOtherBodies(gameState, train);
+  syncOtherBodies(saveData, train);
 
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();
@@ -711,10 +711,10 @@ export function rollAxles(gameState: GameStateType, train: Train, distance: numb
       fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
-    axlesToBogie(gameState, train, fromBogie);
+    axlesToBogie(saveData, train, fromBogie);
   });
 
-  train.bogies.forEach(bogie => bogieToAxles(gameState, train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(saveData, train, bogie));
 }
 
 export type ControlStandType = {
@@ -739,13 +739,13 @@ export type OneHandleMasterController = {
   uiOptionId: string;
 };
 
-export function getOneHandleMasterControllerOutput(gameState: GameStateType, controlStand: ControlStandType) {
+export function getOneHandleMasterControllerOutput(saveData: SaveDataType, controlStand: ControlStandType) {
   // TODO Call different functions depending on the vehicle
-  return getOneHandleMasterControllerSimpleOutput(gameState, controlStand);
+  return getOneHandleMasterControllerSimpleOutput(saveData, controlStand);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(gameState: GameStateType, controlStand: ControlStandType) {
-  const config = gameState.uiOneHandleMasterControllerConfigs[controlStand.masterController.uiOptionId];
+export function getOneHandleMasterControllerSimpleOutput(saveData: SaveDataType, controlStand: ControlStandType) {
+  const config = saveData.uiOneHandleMasterControllerConfigs[controlStand.masterController.uiOptionId];
   if (!config) return [0, 0];
 
   return [

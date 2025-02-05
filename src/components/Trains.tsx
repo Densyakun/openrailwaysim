@@ -229,7 +229,7 @@ function OtherBodyModel({
 export function onFrame() {
   // Track the camera to the selected car body
   if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
-    const selectedTrain = gameState.trains[trainsState.activeTrainId]
+    const selectedTrain = gameState.data.trains[trainsState.activeTrainId]
     const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
     setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
     move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
@@ -237,16 +237,16 @@ export function onFrame() {
 }
 
 export default function Trains() {
-  useSnapshot(gameState);
+  const { trains } = useSnapshot(gameState.data);
   useSnapshot(trainsState);
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrain } = useSnapshot(trainsTabPanelState);
 
   return <>
-    {Object.keys(gameState.trains).map(trainId => {
-      const train = gameState.trains[trainId];
+    {Object.keys(trains).map(trainId => {
+      const train = trains[trainId];
 
-      return <TrainComponent key={trainId} trainId={trainId} train={train} />;
+      return <TrainComponent key={trainId} trainId={trainId} train={train as Train} />;
     })}
     {selectedTab === "trains" && editingTrain && <TrainComponent train={editingTrain as Train} isEditing />}
   </>;

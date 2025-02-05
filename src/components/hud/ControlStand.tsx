@@ -5,7 +5,7 @@ import Speed from './Speed';
 import { Box, Button, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
+import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trainTypeId } from '@/lib/game';
 import { gameState } from '@/lib/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
@@ -18,12 +18,12 @@ const Box_ = Box as (props: {
 }) => JSX.Element;
 
 export default function ControlStand() {
-  useSnapshot(gameState);
+  const { data } = useSnapshot(gameState.data);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;
 
-  const train = gameState.trains[trainsState.activeTrainId];
+  const train = data.trains[trainsState.activeTrainId];
   if (!train) return null;
 
   const controlStand = trainsState.activeBodyIndex < train.bogies.length
@@ -64,29 +64,35 @@ export default function ControlStand() {
           Back
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.trains[trainsState.activeTrainId].speed = -16
-          socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", toSerializableProp(
+          gameState.data.trains[trainsState.activeTrainId].speed = -16
+          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            gameState.trains[trainsState.activeTrainId]
-          ) as SerializableTrain]]))
+            toSerializableSaveData(
+              trainTypeId,
+              gameState.data.trains[trainsState.activeTrainId]
+            ) as SerializableTrain]]))
         }}>
           {`<`}
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.trains[trainsState.activeTrainId].speed = 0
-          socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", toSerializableProp(
+          gameState.data.trains[trainsState.activeTrainId].speed = 0
+          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            gameState.trains[trainsState.activeTrainId]
-          ) as SerializableTrain]]))
+            toSerializableSaveData(
+              trainTypeId,
+              gameState.data.trains[trainsState.activeTrainId]
+            ) as SerializableTrain]]))
         }}>
           {`o`}
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.trains[trainsState.activeTrainId].speed = 16
-          socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["trains", toSerializableProp(
+          gameState.data.trains[trainsState.activeTrainId].speed = 16
+          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            gameState.trains[trainsState.activeTrainId]
-          ) as SerializableTrain]]))
+            toSerializableSaveData(
+              trainTypeId,
+              gameState.data.trains[trainsState.activeTrainId]
+            ) as SerializableTrain]]))
         }}>
           {`>`}
         </Button>

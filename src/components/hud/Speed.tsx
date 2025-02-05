@@ -4,9 +4,9 @@ import { gameState } from '@/lib/client';
 import { trainsState } from '@/lib/client/trains';
 
 export default function Speed() {
-  useSnapshot(gameState);
+  const { data } = useSnapshot(gameState.data);
 
-  const train = gameState.trains[trainsState.activeTrainId];
+  const train = data.trains[trainsState.activeTrainId];
 
   return (
     <Paper sx={{

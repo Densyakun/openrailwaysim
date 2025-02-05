@@ -130,19 +130,19 @@ export default function MasterController({
 
   const { uiOptionId, value } = controlStand.masterController;
 
-  if (!gameState.uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
+  if (!gameState.data.uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
 
   return (
     <MasterControllerSlider
       value={value}
-      uiOneHandleMasterControllerConfig={gameState.uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
+      uiOneHandleMasterControllerConfig={gameState.data.uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
       setValue={newValue =>
         socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
           [
             "trains",
             trainsState.activeTrainId,
             "otherBodies",
-            trainsState.activeBodyIndex - gameState.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
             "controlStand",
             "masterController",
             "value"

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { BodySupporterJoint, Bogie, CarBody, Joint, Train, UIOneHandleMasterControllerConfig, createTrain, ControlStandType, OneHandleMasterController, OtherBody } from './trains'
-import { GameStateType } from './game'
+import { SaveDataType } from './game'
 import { PointOnTrack } from './tracks'
 
 // Commons
@@ -204,33 +204,33 @@ export function createUIKeiseiAESeriesMasterControllerConfig(): UIOneHandleMaste
   }
 }
 
-export function createControlStand(gameState: GameStateType, directionIsReversed: boolean, uiMasterControllerOptionId: string): ControlStandType {
+export function createControlStand(data: SaveDataType, directionIsReversed: boolean, uiMasterControllerOptionId: string): ControlStandType {
   return {
     directionIsReversed,
     reverser: 0,
-    masterController: createOneHandleMasterController(gameState, uiMasterControllerOptionId),
+    masterController: createOneHandleMasterController(data, uiMasterControllerOptionId),
   };
 }
 
-export function createOneHandleMasterController(gameState: GameStateType, uiOptionId: string): OneHandleMasterController {
+export function createOneHandleMasterController(data: SaveDataType, uiOptionId: string): OneHandleMasterController {
   return {
     uiOptionId,
-    value: gameState.uiOneHandleMasterControllerConfigs[uiOptionId].maxValue,
+    value: data.uiOneHandleMasterControllerConfigs[uiOptionId].maxValue,
   }
 }
 
 // Trains
 
 export type TrainProps = {
-  gameState: GameStateType;
+  data: SaveDataType;
   trackId: string;
   length: number;
   directionIsReversed: boolean;
   uiMasterControllerOptionId?: string;
 }
 
-export function createTestOneAxleCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
-  return createTrain(gameState,
+export function createTestOneAxleCar({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length },
@@ -239,16 +239,16 @@ export function createTestOneAxleCar({ gameState, trackId, length, directionIsRe
         ],
         directionIsReversed,
         30,
-        //uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        //uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
   )
 }
 
-export function createTestTwoAxlesCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoAxlesCar({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const distanceBetweenBogiesHalf = 13.8 / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length },
@@ -258,16 +258,16 @@ export function createTestTwoAxlesCar({ gameState, trackId, length, directionIsR
         ],
         directionIsReversed,
         30,
-        //uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        //uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
   )
 }
 
-export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoAxlesCarWithBogies({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + distanceBetweenBogiesHalf },
@@ -288,7 +288,7 @@ export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, di
       createOtherBody(
         { trackId, length: length },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [
@@ -308,11 +308,11 @@ export function createTestTwoAxlesCarWithBogies({ gameState, trackId, length, di
   )
 }
 
-export function createTestTwoBogiesCar({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoBogiesCar({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + distanceBetweenBogiesHalf },
@@ -335,7 +335,7 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, directionIs
       createOtherBody(
         { trackId, length: length },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [
@@ -355,13 +355,13 @@ export function createTestTwoBogiesCar({ gameState, trackId, length, directionIs
   )
 }
 
-export function createTestTwoBogiesTwoCars({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoBogiesTwoCars({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const carLengthHalf = 20 * (directionIsReversed ? -1 : 1) / 2
   const couplerLengthHalf = 0.92 * (directionIsReversed ? -1 : 1)
   const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + carLengthHalf + distanceBetweenBogiesHalf },
@@ -400,12 +400,12 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, directi
       createOtherBody(
         { trackId, length: length + carLengthHalf },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
       createOtherBody(
         { trackId, length: length - carLengthHalf },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, true, uiMasterControllerOptionId) : undefined,
       ),
       createCarBody({ trackId, length: length }),
     ],
@@ -452,7 +452,7 @@ export function createTestTwoBogiesTwoCars({ gameState, trackId, length, directi
   )
 }
 
-export function createJNR103Series({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createJNR103Series({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const carLength = 20
   const couplerLengthHalf = 0.92
   const distanceBetweenBogiesHalf = 13.8 / 2
@@ -526,9 +526,9 @@ export function createJNR103Series({ gameState, trackId, length, directionIsReve
       { trackId, length: length_ },
       carWeight,
       index === 0
-        ? uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined
+        ? uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined
         : index === cars.length - 1
-          ? uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined
+          ? uiMasterControllerOptionId ? createControlStand(data, true, uiMasterControllerOptionId) : undefined
           : undefined,
     ))
 
@@ -569,7 +569,7 @@ export function createJNR103Series({ gameState, trackId, length, directionIsReve
   }
 
   return createTrain(
-    gameState,
+    data,
     bogies,
     otherBodies,
     bodySupporterJoints,
@@ -580,13 +580,13 @@ export function createJNR103Series({ gameState, trackId, length, directionIsReve
   )
 }
 
-export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestTwoCarsWithJacobsBogies({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const carLengthHalf = 20 * (directionIsReversed ? -1 : 1) / 2
   const couplerLengthHalf = 0.92 * (directionIsReversed ? -1 : 1)
   const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + carLengthHalf + distanceBetweenBogiesHalf },
@@ -617,12 +617,12 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
       createOtherBody(
         { trackId, length: length + carLengthHalf },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, false, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, false, uiMasterControllerOptionId) : undefined,
       ),
       createOtherBody(
         { trackId, length: length - carLengthHalf },
         undefined,
-        uiMasterControllerOptionId ? createControlStand(gameState, true, uiMasterControllerOptionId) : undefined,
+        uiMasterControllerOptionId ? createControlStand(data, true, uiMasterControllerOptionId) : undefined,
       ),
     ],
     [
@@ -654,11 +654,11 @@ export function createTestTwoCarsWithJacobsBogies({ gameState, trackId, length, 
   )
 }
 
-export function createTestMalletLocomotive({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+export function createTestMalletLocomotive({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
   const distanceBetweenBogiesHalf = 13.8 * (directionIsReversed ? -1 : 1) / 2
   const wheelbaseHalf = 2.1 / 2
 
-  return createTrain(gameState,
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + distanceBetweenBogiesHalf },
@@ -692,8 +692,8 @@ export function createTestMalletLocomotive({ gameState, trackId, length, directi
   )
 }
 
-export function createTestShikiSeries700({ gameState, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
-  return createTrain(gameState,
+export function createTestShikiSeries700({ data, trackId, length, directionIsReversed, uiMasterControllerOptionId }: TrainProps): Train {
+  return createTrain(data,
     [
       createBogie(
         { trackId, length: length + (12.6 + 1.6 + 4.07 + 2.61) * (directionIsReversed ? -1 : 1) },

@@ -171,12 +171,12 @@ function TerrainTile({
 
 export default function Terrains() {
   useSnapshot(clientState);
-  useSnapshot(gameState.terrains);
+  const terrains = useSnapshot(gameState.data.terrains);
 
   return <>
-    {Object.keys(gameState.terrains).map(tileY_ =>
+    {Object.keys(terrains).map(tileY_ =>
       <React.Fragment key={tileY_}>
-        {Object.keys(gameState.terrains[tileY_]).map(tileX_ => {
+        {Object.keys(terrains[tileY_]).map(tileX_ => {
           const tileX = parseInt(tileX_);
           const tileY = parseInt(tileY_);
 
@@ -184,10 +184,10 @@ export default function Terrains() {
             key={tileX_}
             tileX={tileX}
             tileY={tileY}
-            heightmap={gameState.terrains[tileY_][tileX_]}
-            eastHeightmap={gameState.terrains[tileY_]?.[tileX + 1]}
-            southHeightmap={gameState.terrains[tileY + 1]?.[tileX_]}
-            southeastHeightmap={gameState.terrains[tileY + 1]?.[tileX + 1]}
+            heightmap={terrains[tileY_][tileX_] as HeightmapType}
+            eastHeightmap={terrains[tileY_]?.[tileX + 1] as HeightmapType}
+            southHeightmap={terrains[tileY + 1]?.[tileX_] as HeightmapType}
+            southeastHeightmap={terrains[tileY + 1]?.[tileX + 1] as HeightmapType}
           />;
         })}
       </React.Fragment>

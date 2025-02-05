@@ -14,7 +14,7 @@ export default function FeatureCollectionComponent({
 }) {
   return (
     <>
-      {gameState.featureCollections[featureCollectionId].value.features.map((feature, index) => {
+      {gameState.data.featureCollections[featureCollectionId].value.features.map((feature, index) => {
         switch (feature.geometry.type) {
           case "LineString":
             const lineString = feature.geometry as LineString

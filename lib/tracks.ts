@@ -1,8 +1,7 @@
 import { Position } from 'geojson';
 import { lineString } from '@turf/helpers';
 import * as THREE from 'three'
-import { GameStateType, IdentifiedRecord } from './game';
-import { v4 as uuidv4 } from 'uuid';
+import { SaveDataType } from './game';
 import centroid from '@turf/centroid';
 import { coordinateToEuler, getRelativePosition } from './gis';
 import { tracksState } from './client/tracks';
@@ -14,6 +13,14 @@ export type TrackShape = {
   rotationY: number;
   length: number;
   radius: number; // 正の値が右曲がり
+  gradients: GradientsType;
+};
+
+export type SerializableTrackShape = {
+  position: THREE.Vector3Tuple;
+  rotationY: number;
+  length: number;
+  radius: number;
   gradients: GradientsType;
 };
 
@@ -30,12 +37,8 @@ export type Track = TrackShape & {
   modelPaths: string[];
 };
 
-export type SerializableTrack = IdentifiedRecord & {
+export type SerializableTrack = SerializableTrackShape & {
   centerCoordinate: Position;
-  position: THREE.Vector3Tuple;
-  rotationY: number;
-  length: number;
-  radius: number;
   idOfTrackOrSwitchConnectedFromStart: string;
   idOfTrackOrSwitchConnectedFromEnd: string;
   connectedFromStartIsTrack: boolean;
@@ -45,7 +48,6 @@ export type SerializableTrack = IdentifiedRecord & {
   beginRotationX: number;
   endRotationX: number;
   modelPaths: string[];
-  gradients: GradientsType;
 };
 
 export type PointOnTrack = {
@@ -137,12 +139,12 @@ export function getTransitionCurveData(beginCurvature: number, endCurvature: num
   };
 }
 
-export function getSelectedTracks(gameState: GameStateType) {
+export function getSelectedTracks(saveData: SaveDataType) {
   let tracks: Track[] = [];
 
   tracksState.selectedTrackIds
     .forEach(trackId => {
-      tracks.push(gameState.tracks[trackId]);
+      tracks.push(saveData.tracks[trackId]);
     });
 
   return tracks;
@@ -308,15 +310,15 @@ export function getLength(point: THREE.Vector3, track: Track): number {
   }
 }
 
-export function switchTrack(gameState: GameStateType, switchId: number, newCurrentConnected: number) {
-  const railroadSwitch = gameState.switches[switchId];
+export function switchTrack(saveData: SaveDataType, switchId: number, newCurrentConnected: number) {
+  const railroadSwitch = saveData.switches[switchId];
 
   let connectedTo = "";
   let isConnectedToTrack = true;
   let connectedIsToEnd = false;
 
   if (railroadSwitch.currentConnected !== -1) {
-    const track = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+    const track = saveData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
 
     if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
       connectedTo = track.idOfTrackOrSwitchConnectedFromEnd;
@@ -334,7 +336,7 @@ export function switchTrack(gameState: GameStateType, switchId: number, newCurre
   railroadSwitch.currentConnected = newCurrentConnected;
 
   if (railroadSwitch.currentConnected !== -1) {
-    const track = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+    const track = saveData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
 
     if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
       track.idOfTrackOrSwitchConnectedFromEnd = connectedTo;
@@ -423,8 +425,6 @@ export type Switch = {
   currentConnected: number;
 };
 
-export type SerializableSwitch = IdentifiedRecord & Switch;
-
 export const TOLERANCE_FOR_TRACK_CONNECTIONS = 0.1;
 
 /**
@@ -446,7 +446,6 @@ export function createSerializableTrackBasedOnTrack(
   modelPaths = baseTrack.modelPaths,
 ) {
   const serializableTrack: SerializableTrack = {
-    id: uuidv4(),
     centerCoordinate: baseTrack.centerCoordinate,
     position: getPosition(baseTrack, baseTrack.length * startLengthS).toArray(),
     length: baseTrack.length * (endLengthS - startLengthS),
@@ -483,7 +482,7 @@ export function applyTransitionCurveToSerializableTrack(serializableTrack: Seria
   } as SerializableTransitionCurve;
 }
 
-export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
+export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
   let newPointOnTrack: PointOnTrack = { ...pointOnTrack };
   let newDirectionIsReversed = directionIsReversed;
   let isDeadEnd = false;
@@ -494,10 +493,10 @@ export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnT
 
   if (pointOnTrack.length < 0) {
     // 輪軸が軌道の始点より外に進入した場合
-    const track = gameState.tracks[pointOnTrack.trackId];
+    const track = saveData.tracks[pointOnTrack.trackId];
     if (track.idOfTrackOrSwitchConnectedFromStart) {
       if (track.connectedFromStartIsTrack) {
-        const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromStart];
+        const connectedTo = saveData.tracks[track.idOfTrackOrSwitchConnectedFromStart];
         if (track.connectedFromStartIsToEnd) {
           newPointOnTrack = {
             trackId: track.idOfTrackOrSwitchConnectedFromStart,
@@ -514,13 +513,13 @@ export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnT
         }
       } else {
         // 分岐器が接続している軌道を取得する
-        const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromStart];
+        const railroadSwitch = saveData.switches[track.idOfTrackOrSwitchConnectedFromStart];
         if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
           // 接続先がない場合
           isDeadEnd = true;
           newPointOnTrack.length = 0;
         } else {
-          const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+          const connectedTo = saveData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
           if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
             newPointOnTrack = {
               trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
@@ -541,12 +540,12 @@ export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnT
       newPointOnTrack.length = 0;
     }
   } else {
-    const track = gameState.tracks[pointOnTrack.trackId];
+    const track = saveData.tracks[pointOnTrack.trackId];
     if (track.length < pointOnTrack.length) {
       // 輪軸が軌道の終点より外に進入した場合
       if (track.idOfTrackOrSwitchConnectedFromEnd) {
         if (track.connectedFromEndIsTrack) {
-          const connectedTo = gameState.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
+          const connectedTo = saveData.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
           if (track.connectedFromEndIsToEnd) {
             newPointOnTrack = {
               trackId: track.idOfTrackOrSwitchConnectedFromEnd,
@@ -560,13 +559,13 @@ export function runPointOnTrack(gameState: GameStateType, pointOnTrack: PointOnT
             };
           }
         } else {
-          const railroadSwitch = gameState.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          const railroadSwitch = saveData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
           if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
             // 接続先がない場合
             isDeadEnd = true;
             newPointOnTrack.length = track.length;
           } else {
-            const connectedTo = gameState.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+            const connectedTo = saveData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
             if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
               newPointOnTrack = {
                 trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],

@@ -5,7 +5,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { gameState } from '@/lib/client';
 import { areParallel, getSelectedTracks } from '@/lib/tracks';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
 import { tracksState } from '@/lib/client/tracks';
 
@@ -52,7 +52,7 @@ export default function TracksSubMenu() {
             Delete tracks
           </Button>
           <Button variant='contained' disabled={tracksState.selectedTrackIds.length !== 2} onClick={() => {
-            const tracks = getSelectedTracks(gameState);
+            const tracks = getSelectedTracks(gameState.data);
 
             // 平行の場合
             if (areParallel(tracks[0], tracks[1])) return;
@@ -65,8 +65,11 @@ export default function TracksSubMenu() {
           </Button>
           <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId => {
-              gameState.tracks[trackId].modelPaths = ["https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf"];
-              socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, ["tracks", toSerializableProp(["tracks", trackId], gameState.tracks[trackId])]]));
+              gameState.data.tracks[trackId].modelPaths = ["https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf"];
+              socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+                ["tracks", trackId],
+                toSerializableSaveData(trackTypeId, gameState.data.tracks[trackId])
+              ]]));
             })
           }>
             Test model

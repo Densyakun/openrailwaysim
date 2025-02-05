@@ -7,7 +7,7 @@ import { Button, IconButton, List, ListItem, ListItemText, Stack, TextField, Too
 import * as React from 'react';
 import { Control, Controller, DefaultValues, FieldErrors, UseFormReturn, useForm } from 'react-hook-form';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_OBJECT } from '@/lib/game';
+import { FROM_CLIENT_DELETE_OBJECT } from '@/lib/game';
 
 export default function DataMenu<FormValues extends { id: string }>({
   defaultValues,
@@ -74,16 +74,6 @@ export default function DataMenu<FormValues extends { id: string }>({
 
               if (handleSubmit_)
                 handleSubmit_(inputs, editingId);
-              else {
-                socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, adding || editingId === id ? [
-                  objectKey,
-                  getSaveValueOnEdit ? getSaveValueOnEdit(inputs) : inputs,
-                ] : [
-                  objectKey,
-                  getSaveValueOnEdit ? getSaveValueOnEdit(inputs) : inputs,
-                  editingId,
-                ]]));
-              }
 
               if (adding)
                 reset(undefined, {

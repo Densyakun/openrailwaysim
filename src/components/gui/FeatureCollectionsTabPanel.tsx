@@ -16,7 +16,7 @@ import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings } from '@/lib/tracks';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_OBJECT, toSerializableProp } from '@/lib/game';
+import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
@@ -86,11 +86,13 @@ function ModelPaths() {
 }
 
 function onUpdateSegmentList() {
+  const featureCollections = gameState.data.featureCollections;
+
   // 隣接するセグメントの一覧を取得する
   const lastFeatureAt = featureCollectionsTabPanelState.segmentList[featureCollectionsTabPanelState.segmentList.length - 1];
   if (lastFeatureAt.segmentIndex === undefined) return;
 
-  const featureCollection = gameState.featureCollections[lastFeatureAt.featureCollectionId].value;
+  const featureCollection = featureCollections[lastFeatureAt.featureCollectionId].value;
 
   const geometry = featureCollection.features[lastFeatureAt.featureIndex].geometry;
   const point = turfPoint((geometry as LineString).coordinates[lastFeatureAt.segmentIndex]);
@@ -108,15 +110,15 @@ function onUpdateSegmentList() {
     for (let i = 0; i < featureCollectionsTabPanelState.segmentList.length; i++) {
       const segment = featureCollectionsTabPanelState.segmentList[i];
 
-      if (booleanEqual(point, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
-        || booleanEqual(point, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
+      if (booleanEqual(point, turfPoint((featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
+        || booleanEqual(point, turfPoint((featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
         a++;
         if (a === 2)
           break;
       }
 
-      if (booleanEqual(point1, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
-        || booleanEqual(point1, turfPoint((gameState.featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
+      if (booleanEqual(point1, turfPoint((featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex!]))
+        || booleanEqual(point1, turfPoint((featureCollections[segment.featureCollectionId].value.features[segment.featureIndex].geometry as LineString).coordinates[segment.segmentIndex! + 1]))) {
         b++;
         if (b === 2)
           break;
@@ -165,7 +167,7 @@ function focusingNextSegmentIndex() {
   const nextFeatureAt = featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex];
   if (nextFeatureAt.segmentIndex === undefined) return;
 
-  const nextFeatureCollection = gameState.featureCollections[nextFeatureAt.featureCollectionId].value;
+  const nextFeatureCollection = gameState.data.featureCollections[nextFeatureAt.featureCollectionId].value;
   const nextGeometry = nextFeatureCollection.features[nextFeatureAt.featureIndex].geometry;
 
   const coordinate = (nextGeometry as LineString).coordinates[nextFeatureAt.segmentIndex];
@@ -192,7 +194,7 @@ function startCurveEditing() {
       const segment = featureCollectionsTabPanelState.segmentList[index];
 
       const lineString =
-        gameState.featureCollections[segment.featureCollectionId].value
+        gameState.data.featureCollections[segment.featureCollectionId].value
           .features[segment.featureIndex]
           .geometry as LineString;
 
@@ -255,10 +257,10 @@ export function finishCreateTracks() {
 
     const CDId = uuidv4();
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-      "tracks",
-      toSerializableProp(
-        ["tracks", CDId],
+    socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+      ["tracks", CDId],
+      toSerializableSaveData(
+        trackTypeId,
         CD
       ) as SerializableTrack
     ]]));
@@ -347,7 +349,7 @@ function MainMenu() {
       </Button>
       <Button variant='contained' disabled={gisState.selectedFeatures.length !== 1} onClick={() => {
         const startFeatureAt = gisState.selectedFeatures[0];
-        const featureCollection = gameState.featureCollections[startFeatureAt.featureCollectionId].value;
+        const featureCollection = gameState.data.featureCollections[startFeatureAt.featureCollectionId].value;
         const geometry = featureCollection.features[startFeatureAt.featureIndex].geometry;
         if (geometry.type !== 'LineString') return;
 
@@ -367,7 +369,7 @@ function MainMenu() {
               if (featureAt.segmentIndex === undefined) return
 
               const geometry =
-                gameState.featureCollections[featureAt.featureCollectionId].value
+                gameState.data.featureCollections[featureAt.featureCollectionId].value
                   .features[featureAt.featureIndex]
                   .geometry
               if (geometry.type === 'LineString') {
@@ -376,16 +378,17 @@ function MainMenu() {
               }
             });
 
-          const track: SerializableTrack = toSerializableProp(
-            ["tracks", uuidv4()],
+          const trackId = uuidv4();
+          const track: SerializableTrack = toSerializableSaveData(
+            trackTypeId,
             createStraightTrackFromLineStrings(
               coordinatePairs,
               featureCollectionsTabPanelState.modelPaths
             )
           );
 
-          socket.send(JSON.stringify([FROM_CLIENT_SET_OBJECT, [
-            "tracks",
+          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+            ["tracks", trackId],
             track
           ]]));
         }}>

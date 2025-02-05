@@ -183,8 +183,8 @@ function PointingOnTrack() {
 
   if (!pointingOnTrack) return null;
 
-  return <FeatureObject centerCoordinate={gameState.tracks[pointingOnTrack.trackId].centerCoordinate}>
-    <mesh position={getPosition(gameState.tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
+  return <FeatureObject centerCoordinate={gameState.data.tracks[pointingOnTrack.trackId].centerCoordinate}>
+    <mesh position={getPosition(gameState.data.tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
       <sphereGeometry />
       <meshBasicMaterial color={"#f00"} />
     </mesh>
@@ -193,7 +193,7 @@ function PointingOnTrack() {
 
 export default function Tracks() {
   const { selectedTab } = useSnapshot(guiState)
-  const tracks = useSnapshot(gameState.tracks)
+  const tracks = useSnapshot(gameState.data.tracks)
 
   return (
     <>
@@ -224,7 +224,7 @@ export default function Tracks() {
 function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }) {
   const { isAddingCurve } = useSnapshot(tracksSubMenuState);
   useSnapshot(tracksState);
-  useSnapshot(gameState.switches);
+  const switches = useSnapshot(gameState.data.switches);
   useSnapshot(trainsTabPanelState);
 
   const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
@@ -275,13 +275,13 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
   else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
   else if (tracksState.hoveredTracks.length === 1) {
-    const hoveredTrack = gameState.tracks[tracksState.hoveredTracks[0]];
+    const hoveredTrack = gameState.data.tracks[tracksState.hoveredTracks[0]];
 
     if (hoveredTrack.idOfTrackOrSwitchConnectedFromStart) {
       if (hoveredTrack.connectedFromStartIsTrack) {
         if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromStart) color = "#00f";
       } else {
-        const trackSwitch = gameState.switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
+        const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
         if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
       }
     }
@@ -290,7 +290,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       if (hoveredTrack.connectedFromEndIsTrack) {
         if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) color = "#00f";
       } else {
-        const trackSwitch = gameState.switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
+        const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
         if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
       }
     }
@@ -384,7 +384,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
   useSnapshot(tracksState);
-  useSnapshot(gameState.switches);
+  const switches = useSnapshot(gameState.data.switches);
 
   const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
@@ -432,7 +432,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
   if (guiState.selectedTab === "switches") {
-    for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(gameState.switches)) {
+    for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(switches)) {
       const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
       if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
         if (isConnectedToEnd[connectedIndex])
@@ -458,8 +458,8 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         transparent
         opacity={0}
         onPointerOver={() => {
-          Object.keys(gameState.switches).forEach(switchId => {
-            const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+          Object.keys(switches).forEach(switchId => {
+            const { connectedTrackIds, isConnectedToEnd } = switches[switchId];
             for (let i = 0; i < connectedTrackIds.length; i++) {
               if (connectedTrackIds[i] === trackId && !isConnectedToEnd[i]) {
                 // 分岐器が見つかったとき
@@ -471,14 +471,14 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         }}
         onPointerOut={() => {
           if (!tracksState.hoveredSwitch) return;
-          const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+          const railroadSwitch = switches[tracksState.hoveredSwitch];
           const index = railroadSwitch.connectedTrackIds.indexOf(trackId);
           if (0 <= index && !railroadSwitch.isConnectedToEnd[index])
             tracksState.hoveredSwitch = "";
         }}
         onClick={() => {
           if (tracksState.hoveredSwitch) {
-            const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+            const railroadSwitch = switches[tracksState.hoveredSwitch];
 
             let newCurrentConnected = railroadSwitch.currentConnected + 1;
             if (railroadSwitch.connectedTrackIds.length <= newCurrentConnected) newCurrentConnected = -1;
@@ -497,8 +497,8 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         transparent
         opacity={0}
         onPointerOver={() => {
-          Object.keys(gameState.switches).forEach(switchId => {
-            const { connectedTrackIds, isConnectedToEnd } = gameState.switches[switchId];
+          Object.keys(switches).forEach(switchId => {
+            const { connectedTrackIds, isConnectedToEnd } = switches[switchId];
             for (let i = 0; i < connectedTrackIds.length; i++) {
               if (connectedTrackIds[i] === trackId && isConnectedToEnd[i]) {
                 tracksState.hoveredSwitch = switchId;
@@ -509,14 +509,14 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         }}
         onPointerOut={() => {
           if (!tracksState.hoveredSwitch) return;
-          const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+          const railroadSwitch = switches[tracksState.hoveredSwitch];
           const index = railroadSwitch.connectedTrackIds.indexOf(trackId);
           if (0 <= index && railroadSwitch.isConnectedToEnd[index])
             tracksState.hoveredSwitch = "";
         }}
         onClick={() => {
           if (tracksState.hoveredSwitch) {
-            const railroadSwitch = gameState.switches[tracksState.hoveredSwitch];
+            const railroadSwitch = switches[tracksState.hoveredSwitch];
 
             let newCurrentConnected = railroadSwitch.currentConnected + 1;
             if (railroadSwitch.connectedTrackIds.length <= newCurrentConnected) newCurrentConnected = -1;

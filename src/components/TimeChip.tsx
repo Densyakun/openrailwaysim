@@ -12,10 +12,10 @@ export const state = proxy<{
 })
 
 export default function TimeChip() {
-  const [date, setDate] = React.useState(new Date(gameState.nowDate + state.timeZoneOffset));
+  const [date, setDate] = React.useState(new Date(gameState.data.nowDate + state.timeZoneOffset));
 
   React.useEffect(() => subscribe(gameState, () => {
-    const newDate = new Date(gameState.nowDate + state.timeZoneOffset);
+    const newDate = new Date(gameState.data.nowDate + state.timeZoneOffset);
 
     if (!(
       date.getUTCSeconds() === newDate.getUTCSeconds()

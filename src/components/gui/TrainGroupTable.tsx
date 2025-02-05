@@ -10,7 +10,7 @@ import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { trainsTabPanelState } from '@/lib/client/trains';
 
 export default function TrainGroupTable() {
-  useSnapshot(gameState);
+  useSnapshot(gameState.data);
 
   return <Paper square sx={{
     width: "100%",
@@ -23,7 +23,7 @@ export default function TrainGroupTable() {
   }}>
     <DataMenu
       defaultValues={{ id: '', trainIds: [] }}
-      getValueOnEdit={(newId: string) => ({ id: newId, trainIds: gameState.trainGroups[newId] })}
+      getValueOnEdit={(newId: string) => ({ id: newId, trainIds: gameState.data.trainGroups[newId] })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
@@ -37,7 +37,7 @@ export default function TrainGroupTable() {
               "Train groups"}</Typography>
         </Stack>
       )}
-      objects={gameState.trainGroups}
+      objects={gameState.data.trainGroups}
       listItemButtons={id => <>
         <Tooltip title="Open train list" disableInteractive>
           <IconButton edge="end" onClick={() => trainsTabPanelState.selectedTrainGroup = id}>

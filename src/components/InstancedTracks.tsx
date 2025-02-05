@@ -32,7 +32,7 @@ export default function InstancedTracks() {
 
   const instancedMeshesRef = React.useRef<(THREE.InstancedMesh | null)[]>([])
 
-  useSnapshot(gameState)
+  useSnapshot(gameState.data)
 
   return (
     <>

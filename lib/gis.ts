@@ -5,7 +5,7 @@ import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
 import { point as turfPoint } from '@turf/helpers'
 import { proxy } from 'valtio'
-import { GameStateType, IdentifiedRecord } from './game'
+import { GameStateType } from './game'
 import pointOnFeature from '@turf/point-on-feature'
 import booleanEqual from '@turf/boolean-equal'
 
@@ -125,7 +125,7 @@ export type ProjectedLine = {
   points: THREE.Vector3[];
 }
 
-export type SerializableProjectedLine = IdentifiedRecord & {
+export type SerializableProjectedLine = {
   centerCoordinate: Position;
   points: THREE.Vector3Tuple[];
 }
@@ -165,7 +165,7 @@ export type ProjectedLineAndLength = {
 export function SelectAdjoinedLineStringSegments(gameState: GameStateType, points: Feature<Point>[], featureCollectionId1: string, selectedFeatures: FeatureAt[]) {
   const adjoinedSegments: FeatureAt[] = [];
 
-  const featureCollection1 = gameState.featureCollections[featureCollectionId1].value;
+  const featureCollection1 = gameState.data.featureCollections[featureCollectionId1].value;
   featureCollection1.features.forEach((feature1, featureIndex1) => {
     const geometry1 = feature1.geometry;
     if (geometry1.type !== 'LineString') return;

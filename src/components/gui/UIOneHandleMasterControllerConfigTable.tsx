@@ -6,11 +6,13 @@ import { useSnapshot } from 'valtio';
 import { gameState } from '@/lib/client';
 import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
-import { IdentifiedRecord } from '@/lib/game';
 import { MasterControllerSlider } from '../hud/MasterController';
 import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainSamples';
+import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { socket } from '../Client';
 
-type UIOneHandleMasterControllerConfigFormValues = IdentifiedRecord & {
+type UIOneHandleMasterControllerConfigFormValues = {
+  id: string;
   steps: number[];
   marks: {
     label: string;
@@ -195,7 +197,7 @@ function Controllers({
 }
 
 export default function UIOneHandleMasterControllerConfigTable() {
-  useSnapshot(gameState);
+  useSnapshot(gameState.data);
 
   return <DataMenu
     defaultValues={{
@@ -208,11 +210,11 @@ export default function UIOneHandleMasterControllerConfigTable() {
     }}
     getValueOnEdit={(newId: string) => ({
       id: newId,
-      steps: gameState.uiOneHandleMasterControllerConfigs[newId].steps,
-      marks: gameState.uiOneHandleMasterControllerConfigs[newId].marks,
-      maxValue: gameState.uiOneHandleMasterControllerConfigs[newId].maxValue,
-      nValue: gameState.uiOneHandleMasterControllerConfigs[newId].nValue,
-      stepRangeList: JSON.stringify(gameState.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
+      steps: gameState.data.uiOneHandleMasterControllerConfigs[newId].steps,
+      marks: gameState.data.uiOneHandleMasterControllerConfigs[newId].marks,
+      maxValue: gameState.data.uiOneHandleMasterControllerConfigs[newId].maxValue,
+      nValue: gameState.data.uiOneHandleMasterControllerConfigs[newId].nValue,
+      stepRangeList: JSON.stringify(gameState.data.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
     })}
     titleElement={(adding: boolean, editingId: string) => (
       <Stack spacing={1} direction={'row'} alignItems={'center'}>
@@ -224,9 +226,33 @@ export default function UIOneHandleMasterControllerConfigTable() {
         </Typography>
       </Stack>
     )}
-    objectKey="uiOneHandleMasterControllerConfigs"
     getSaveValueOnEdit={getSaveValueOnEdit}
-    objects={gameState.uiOneHandleMasterControllerConfigs}
+    objects={gameState.data.uiOneHandleMasterControllerConfigs}
     valueControllers={(control, errors, form) => <Controllers control={control} errors={errors} form={form} />}
+    handleSubmit={((inputs, editingId) =>
+      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
+        ["uiOneHandleMasterControllerConfigs", inputs.id],
+        {
+          steps: inputs.steps,
+          marks: inputs.marks,
+          maxValue: inputs.maxValue,
+          nValue: inputs.nValue,
+          stepRangeList: JSON.parse(inputs.stepRangeList),
+        } as UIOneHandleMasterControllerConfig,
+        ["uiOneHandleMasterControllerConfigs", editingId],
+      ] : [
+        ["trainGroups", inputs.id],
+        {
+          steps: inputs.steps,
+          marks: inputs.marks,
+          maxValue: inputs.maxValue,
+          nValue: inputs.nValue,
+          stepRangeList: JSON.parse(inputs.stepRangeList),
+        } as UIOneHandleMasterControllerConfig,
+      ]]))
+    )}
+    handleDelete={(id =>
+      socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["uiOneHandleMasterControllerConfigs", id]]))
+    )}
   />
 }

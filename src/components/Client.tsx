@@ -1,7 +1,7 @@
 'use client'
 
 import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client"
-import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableProp, updateTime } from "@/lib/game"
+import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableSaveData, getTypeIdByPath, saveDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
@@ -14,7 +14,7 @@ export default function Client() {
   const onMessage: OnMessageInClient = (id, value, ws) => {
     switch (id) {
       case FROM_SERVER_STATE:
-        Object.keys(gameState).forEach(key => (gameState as any)[key] = fromSerializableProp([key], value[key], gameState))
+        gameState.data = fromSerializableSaveData(saveDataTypeId, value, gameState.data)
 
         clientState.isSynced = true
 
@@ -28,11 +28,11 @@ export default function Client() {
             case "set":
               const setObj = function (obj: any, path: string[], value: any, n = 0) {
                 if (n + 1 === path.length)
-                  obj[path[n]] = fromSerializableProp(path, value, gameState)
+                  obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, gameState.data)
                 else
                   setObj(obj[path[n]], path, value, n + 1)
               }
-              setObj(gameState, path, op[2])
+              setObj(gameState.data, path, op[2])
 
               break
             case "delete":
@@ -47,7 +47,7 @@ export default function Client() {
                 else
                   deleteObj(obj[path[n]], path, n + 1)
               }
-              deleteObj(gameState, path)
+              deleteObj(gameState.data, path)
 
               break
             /*case "resolve":
@@ -71,8 +71,8 @@ export default function Client() {
   }
 
   useFrame(({ }, delta) => {
-    updateTime(gameState, delta)
-    updateClientOnTime(gameState, delta)
+    updateTime(gameState.data, delta)
+    updateClientOnTime(gameState.data, delta)
 
     onFrameTrains()
   })

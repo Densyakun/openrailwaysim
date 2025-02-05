@@ -6,12 +6,12 @@ import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000Serie
 
 export function createTestScene(gameState: GameStateType, featureCollection: FeatureCollection) {
   [featureCollection].forEach((value, index) =>
-    gameState.featureCollections[index] = { value }
+    gameState.data.featureCollections[index] = { value }
   );
 
   // Create projected lines
   /*getProjectedLines(featureCollection).forEach((projectedLine, index) =>
-    gameState.projectedLines[index] = projectedLine
+    gameState.data.projectedLines[index] = projectedLine
   );*/
 
   // Loop line test
@@ -27,8 +27,8 @@ export function createTestScene(gameState: GameStateType, featureCollection: Fea
       Math.sin(Math.PI * 2 * i / pointCount) * radius
     ).applyEuler(euler);
   }
-  gameState.projectedLines["1"].points = points;*/
+  gameState.data.projectedLines["1"].points = points;*/
 
-  gameState.uiOneHandleMasterControllerConfigs["Sotetsu20000"] = createUISotetsu20000SeriesMasterControllerConfig();
-  gameState.uiOneHandleMasterControllerConfigs["KseiAE"] = createUIKeiseiAESeriesMasterControllerConfig();
+  gameState.data.uiOneHandleMasterControllerConfigs["Sotetsu20000"] = createUISotetsu20000SeriesMasterControllerConfig();
+  gameState.data.uiOneHandleMasterControllerConfigs["KseiAE"] = createUIKeiseiAESeriesMasterControllerConfig();
 }

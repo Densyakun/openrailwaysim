@@ -53,7 +53,7 @@ export default function Reverser({
             "trains",
             trainsState.activeTrainId,
             "otherBodies",
-            trainsState.activeBodyIndex - gameState.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
             "controlStand",
             "reverser"
           ],

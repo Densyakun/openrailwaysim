@@ -3,7 +3,7 @@ import { gameState } from '@/lib/client'
 import centroid from '@turf/centroid'
 
 export function setCameraToTestLine() {
-  const targetFeatureCollection = gameState.featureCollections["0"]
+  const targetFeatureCollection = gameState.data.featureCollections["0"]
   if (!targetFeatureCollection) return
 
   // Setting up the camera

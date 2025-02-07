@@ -1,4 +1,4 @@
-import { gameState } from '@/lib/client';
+import { clientState, gameState } from '@/lib/client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -78,13 +78,13 @@ export default function FeatureCollectionTable() {
         <>
           <Tooltip title="Change visibility">
             <IconButton edge="end" onClick={() => {
-              const index = gameState.data.visibleFeatureCollections.indexOf(id);
+              const index = clientState.visibleFeatureCollections.indexOf(id);
               if (index === -1)
-                gameState.data.visibleFeatureCollections.push(id);
+                clientState.visibleFeatureCollections.push(id);
               else
-                gameState.data.visibleFeatureCollections.splice(index, 1);
+                clientState.visibleFeatureCollections.splice(index, 1);
             }}>
-              {gameState.data.visibleFeatureCollections.includes(id) ? <VisibilityIcon /> : <VisibilityOffIcon />}
+              {clientState.visibleFeatureCollections.includes(id) ? <VisibilityIcon /> : <VisibilityOffIcon />}
             </IconButton>
           </Tooltip>
           <Tooltip title="Move camera to object">

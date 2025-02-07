@@ -10,9 +10,11 @@ export const gameState = proxy<GameStateType>({
 export const clientState = proxy<{
   isSynced: boolean;
   cameraFar: number;
+  visibleFeatureCollections: string[];
 }>({
   isSynced: false,
   cameraFar: 200000,
+  visibleFeatureCollections: [],
 });
 
 export const messageEmitter = new MessageEmitter();

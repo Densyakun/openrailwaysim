@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { gameState } from '@/lib/client';
+import { clientState, gameState } from '@/lib/client';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from 'geojson';
@@ -10,7 +10,7 @@ export default function FeatureCollectionsWithDreiSegment() {
   return (
     <>
       {Object.keys(gameState.data.featureCollections).map(id =>
-        gameState.data.visibleFeatureCollections.includes(id)
+        clientState.visibleFeatureCollections.includes(id)
           ? <FeatureCollection key={id} id={id} />
           : null
       )}

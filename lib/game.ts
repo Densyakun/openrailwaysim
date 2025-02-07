@@ -10,7 +10,7 @@ export type GameStateType = {
   data: SaveDataType;
 };
 
-export type SaveDataType = { [key: string]: any } & {
+export type SaveDataType = /*{ [key: string]: any } & */{
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: Track | TransitionCurve };
@@ -20,7 +20,6 @@ export type SaveDataType = { [key: string]: any } & {
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
-  visibleFeatureCollections: string[];
 };
 
 export type SerializableSaveDataType = { [key: string]: any } & {
@@ -32,7 +31,6 @@ export type SerializableSaveDataType = { [key: string]: any } & {
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
-  visibleFeatureCollections: string[];
 };
 
 export type SerializableEuler = [number, number, number, THREE.EulerOrder];
@@ -47,7 +45,6 @@ export function getNewSaveData() {
     trainGroups: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
-    visibleFeatureCollections: [],
   };
 
   return data;
@@ -362,7 +359,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       trainGroups,
       uiOneHandleMasterControllerConfigs,
       nowDate,
-      visibleFeatureCollections,
     }: SerializableSaveDataType = value;
     const newData = getNewSaveData();
 
@@ -373,7 +369,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
     newData.trainGroups = trainGroups;
     newData.uiOneHandleMasterControllerConfigs = uiOneHandleMasterControllerConfigs;
     newData.nowDate = nowDate;
-    newData.visibleFeatureCollections = visibleFeatureCollections;
 
     // 他のデータを参照するため、後からデシリアライズする
     newData.trains = fromSerializableSaveData(trainsObjectTypeId, trains, newData) as { [key: string]: Train };

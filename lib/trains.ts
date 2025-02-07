@@ -120,17 +120,13 @@ export function getGlobalEulerOfFirstAxle(saveData: SaveDataType, axle: Axle) {
   return coordinateToEuler(saveData.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
 }
 
-export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, weight?: number, motors?: number): Train {
-  let weight_ = weight
+export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, motors?: number): Train {
+  let weight_ = 0
+  bogies.forEach(bogie => weight_! += bogie.weight)
+  otherBodies.forEach(body => weight_! += body.weight)
 
-  if (weight_ === undefined) {
-    weight_ = 0
-    bogies.forEach(bogie => weight_! += bogie.weight)
-    otherBodies.forEach(body => weight_! += body.weight)
-
-    if (weight_ === 0)
-      weight_ = 30
-  }
+  if (weight_ === 0)
+    weight_ = 30
 
   // 重心を計算
   // TODO CarBodyなどの重量を含め、列車の重心を計算する

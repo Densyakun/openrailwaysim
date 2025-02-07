@@ -486,7 +486,6 @@ export function createJNR103Series({ data, trackId, length, directionIsReversed,
     0,
   ]
 
-  let trainWeight = 0
   let motorCars = 0
 
   cars.forEach((type, index) => {
@@ -517,7 +516,6 @@ export function createJNR103Series({ data, trackId, length, directionIsReversed,
       type === 1 ? massMoha102 :
         type === 2 ? massMoha103 :
           massSaha
-    trainWeight += carWeight
 
     if (hasMotor)
       motorCars += 1
@@ -575,7 +573,6 @@ export function createJNR103Series({ data, trackId, length, directionIsReversed,
     bodySupporterJoints,
     otherJoints,
     0,
-    trainWeight,
     motorCars * 4,
   )
 }

@@ -492,7 +492,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       fromSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as BodySupporterJoint[],
       fromSerializableSaveData(jointArrayTypeId, otherJoints, data) as Joint[],
       speed,
-      undefined,
       motors,
     );
   } else if (type === bogieArrayTypeId) {

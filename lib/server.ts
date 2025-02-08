@@ -163,7 +163,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
                 track.idOfTrackOrSwitchConnectedFromEnd = "";
             });
           }
-          delete saveData[objectKey][id];
+          delete (saveData as any)[objectKey][id];
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -203,14 +203,14 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           if (oldPath) {
             // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
             for (let n = 0; n < oldPath.length - 1; n++)
-              object = object[oldPath[n]];
-            delete object[oldPath[oldPath.length - 1]];
+              object = (object as any)[oldPath[n]];
+            delete (object as any)[oldPath[oldPath.length - 1]];
 
             object = saveData;
           }
           for (let n = 0; n < propPath.length - 1; n++)
-            object = object[propPath[n]];
-          object[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, saveData);
+            object = (object as any)[propPath[n]];
+          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, saveData);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -229,8 +229,8 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           } else {
             let object = saveData;
             for (let n = 0; n < propPath.length - 1; n++)
-              object = object[propPath[n]];
-            delete object[propPath[propPath.length - 1]];
+              object = (object as any)[propPath[n]];
+            delete (object as any)[propPath[propPath.length - 1]];
           }
 
           messageEmitter.isInvalidMessage = false;

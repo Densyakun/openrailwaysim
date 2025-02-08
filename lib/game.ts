@@ -10,7 +10,7 @@ export type GameStateType = {
   data: SaveDataType;
 };
 
-export type SaveDataType = /*{ [key: string]: any } & */{
+export type SaveDataType = {
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: Track | TransitionCurve };

@@ -18,7 +18,7 @@ const Box_ = Box as (props: {
 }) => JSX.Element;
 
 export default function ControlStand() {
-  const { data } = useSnapshot(gameState.data);
+  const data = useSnapshot(gameState.data);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;

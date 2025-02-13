@@ -1,12 +1,11 @@
 import * as THREE from 'three'
-import { Feature, FeatureCollection, LineString, Point, Position } from 'geojson'
+import { Feature, LineString, Point, Position } from 'geojson'
 import { default as turfBearing } from '@turf/bearing'
 import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
 import { point as turfPoint } from '@turf/helpers'
 import { proxy } from 'valtio'
 import { GameStateType } from './game'
-import pointOnFeature from '@turf/point-on-feature'
 import booleanEqual from '@turf/boolean-equal'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
@@ -118,42 +117,6 @@ export function getMeridianAngle(coordinate: Position, originCoordinateEuler?: T
     .sub(getRelativePosition(coordinate, originCoordinateEuler, originCoordinate))
 
   return Math.atan2(-vector.x, -vector.z)
-}
-
-export type ProjectedLine = {
-  centerCoordinate: Position;
-  points: THREE.Vector3[];
-}
-
-export type SerializableProjectedLine = {
-  centerCoordinate: Position;
-  points: THREE.Vector3Tuple[];
-}
-
-export function getProjectedLine(lineString: LineString): ProjectedLine {
-  const centerCoordinate = pointOnFeature(lineString).geometry.coordinates
-  const centerCoordinateEuler = coordinateToEuler(centerCoordinate)
-
-  return {
-    centerCoordinate,
-    points: lineString.coordinates.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0))
-  }
-}
-
-export function getProjectedLines(featureCollection: FeatureCollection): ProjectedLine[] {
-  return featureCollection.features.map(feature => {
-    switch (feature.geometry.type) {
-      case "LineString":
-        return getProjectedLine(feature.geometry as LineString)
-      default:
-        return undefined
-    }
-  }).filter(Boolean) as ProjectedLine[]
-}
-
-export type ProjectedLineAndLength = {
-  projectedLineId: string;
-  length: number;
 }
 
 /**

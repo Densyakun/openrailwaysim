@@ -197,17 +197,6 @@ export default function Tracks() {
 
   return (
     <>
-      {/*Object.keys(gameState.projectedLines).map(projectedLineId => {
-        const { centerCoordinate, points } = gameState.projectedLines[projectedLineId]
-
-        return <FeatureObject key={projectedLineId} centerCoordinate={centerCoordinate}>
-          {points.map((nextPoint, index, array) => {
-            if (index === 0) return null
-
-            return <LineTrack key={index} from={array[index - 1]} to={nextPoint} object={scene} />
-          })}
-        </FeatureObject>
-      })*/}
       {Object.keys(tracks).map(trackId => {
         const track = tracks[trackId];
 

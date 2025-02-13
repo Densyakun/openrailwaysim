@@ -71,11 +71,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           )) {
             push()
           }
-        }/* else if (path[0] === "projectedLines") {
-          if (path.length === 2) {
-            push()
-          }
-        }*/ else if (path[0] === "switches") {
+        } else if (path[0] === "switches") {
           if (path.length === 2) {
             push()
           } else if (path.length === 3 && path[2] === "currentConnected") {

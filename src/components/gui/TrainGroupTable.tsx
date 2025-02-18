@@ -22,8 +22,8 @@ export default function TrainGroupTable() {
     backgroundColor: '#000b',
   }}>
     <DataMenu
-      defaultValues={{ id: '', trainIds: [] }}
-      getValueOnEdit={(newId: string) => ({ id: newId, trainIds: gameState.data.trainGroups[newId] })}
+      defaultValues={{ id: '' }}
+      getValueOnEdit={(newId: string) => ({ id: newId })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
@@ -48,11 +48,11 @@ export default function TrainGroupTable() {
       handleSubmit={((inputs, editingId) =>
         socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["trainGroups", inputs.id],
-          inputs.trainIds,
+          gameState.data.trainGroups[editingId],
           ["trainGroups", editingId],
         ] : [
           ["trainGroups", inputs.id],
-          inputs.trainIds,
+          gameState.data.trainGroups[inputs.id] || [],
         ]]))
       )}
       handleDelete={(id =>

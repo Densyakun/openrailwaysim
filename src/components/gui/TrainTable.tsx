@@ -31,8 +31,8 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
     backgroundColor: '#000b',
   }}>
     <DataMenu
-      defaultValues={{ id: ''/*, trainIds: []*/ }}
-      getValueOnEdit={(newId: string) => ({ id: newId/*, trainIds: gameState.data.trainGroups[newId]*/ })}
+      defaultValues={{ id: '' }}
+      getValueOnEdit={(newId: string) => ({ id: newId })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>

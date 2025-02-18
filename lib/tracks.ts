@@ -596,6 +596,40 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
 }
 
 /**
+ * track と接続され selectedTrackIds に含まれない軌道のIDのリストを返す。リスト内のセグメントは重複しない。
+ * @param track 対象の軌道
+ * @param selectedTrackIds 既に選択している軌道
+ */
+export function selectConnectedTracks(data: SaveDataType, track: Track, selectedTrackIds: string[]) {
+  const connectedTracks: string[] = [];
+
+  if (track.idOfTrackOrSwitchConnectedFromStart)
+    if (track.connectedFromStartIsTrack) {
+      if (!selectedTrackIds.includes(track.idOfTrackOrSwitchConnectedFromStart))
+        connectedTracks.push(track.idOfTrackOrSwitchConnectedFromStart);
+    } else {
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromStart];
+      railroadSwitch.connectedTrackIds.forEach(trackId => {
+        if (!selectedTrackIds.includes(trackId))
+          connectedTracks.push(trackId);
+      });
+    }
+  if (track.idOfTrackOrSwitchConnectedFromEnd)
+    if (track.connectedFromEndIsTrack) {
+      if (!selectedTrackIds.includes(track.idOfTrackOrSwitchConnectedFromEnd))
+        connectedTracks.push(track.idOfTrackOrSwitchConnectedFromEnd);
+    } else {
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+      railroadSwitch.connectedTrackIds.forEach(trackId => {
+        if (!selectedTrackIds.includes(trackId))
+          connectedTracks.push(trackId);
+      });
+    }
+
+  return connectedTracks;
+}
+
+/**
  * 2つの軌道を接続する
  */
 export function connectTwoTracks(AB: Track | SerializableTrack, ABId: string, isABFromEnd: boolean, CD: Track | SerializableTrack, CDId: string, isCDFromEnd: boolean) {

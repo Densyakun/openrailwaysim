@@ -5,6 +5,7 @@ import { Axle, BodySupporterJoint, Bogie, Joint, OtherBody, SerializableAxle, Se
 import { FeatureCollection } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
+import { Diagram } from './diagram';
 
 export type GameStateType = {
   data: SaveDataType;
@@ -16,10 +17,16 @@ export type SaveDataType = {
   tracks: { [key: string]: Track | TransitionCurve };
   switches: { [key: string]: Switch };
   trains: { [key: string]: Train };
-  /** Trainを文字列で分類する */
+  /**
+   * Trainを文字列で分類する。
+   * 運行系統と車両基地毎にまとめるのが望ましい。
+   * 車種毎に停止位置と許容範囲を設定するために必要。
+   * 行路を自動生成するために必要。
+   */
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
+  diagrams: { [key: string]: Diagram };
 };
 
 export type SerializableSaveDataType = { [key: string]: any } & {
@@ -31,6 +38,7 @@ export type SerializableSaveDataType = { [key: string]: any } & {
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
+  diagrams: { [key: string]: Diagram };
 };
 
 export type SerializableEuler = [number, number, number, THREE.EulerOrder];
@@ -45,6 +53,7 @@ export function getNewSaveData() {
     trainGroups: {},
     uiOneHandleMasterControllerConfigs: {},
     nowDate: Date.now(),
+    diagrams: {},
   };
 
   return data;
@@ -125,12 +134,12 @@ export const threeEulerTypeId = "THREE.Euler";
 
 export function toSerializableSaveData(type: string, value: any): any {
   if (type === saveDataTypeId) {
-    const gameData: SaveDataType = value;
+    const saveData: SaveDataType = value;
 
     return {
-      ...gameData,
-      tracks: toSerializableSaveData(tracksObjectTypeId, gameData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
-      trains: toSerializableSaveData(trainsObjectTypeId, gameData.trains) as { [key: string]: SerializableTrain },
+      ...saveData,
+      tracks: toSerializableSaveData(tracksObjectTypeId, saveData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
+      trains: toSerializableSaveData(trainsObjectTypeId, saveData.trains) as { [key: string]: SerializableTrain },
     } as SerializableSaveDataType;
   } else if (type === tracksObjectTypeId) {
     const tracks: { [key: string]: Track | TransitionCurve } = value;
@@ -350,30 +359,18 @@ export function toSerializableSaveData(type: string, value: any): any {
 
 export function fromSerializableSaveData(type: string, value: any, data: SaveDataType): any {
   if (type === saveDataTypeId) {
-    const {
-      terrains,
-      featureCollections,
-      tracks,
-      switches,
-      trains,
-      trainGroups,
-      uiOneHandleMasterControllerConfigs,
-      nowDate,
-    }: SerializableSaveDataType = value;
-    const newData = getNewSaveData();
+    const serializableSaveData: SerializableSaveDataType = value;
 
-    newData.terrains = terrains;
-    newData.featureCollections = featureCollections;
-    newData.tracks = fromSerializableSaveData(tracksObjectTypeId, tracks, newData) as { [key: string]: Track };
-    newData.switches = switches;
-    newData.trainGroups = trainGroups;
-    newData.uiOneHandleMasterControllerConfigs = uiOneHandleMasterControllerConfigs;
-    newData.nowDate = nowDate;
+    const saveData: SaveDataType = {
+      ...getNewSaveData(),
+      ...value,
+      tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks, data) as { [key: string]: Track },
+    };
 
     // 他のデータを参照するため、後からデシリアライズする
-    newData.trains = fromSerializableSaveData(trainsObjectTypeId, trains, newData) as { [key: string]: Train };
+    saveData.trains = fromSerializableSaveData(trainsObjectTypeId, serializableSaveData.trains, saveData) as { [key: string]: Train };
 
-    return newData;
+    return saveData;
   } else if (type === tracksObjectTypeId) {
     const serializableTracks: { [key: string]: SerializableTrack } = value;
     const tracks: { [key: string]: Track } = {};

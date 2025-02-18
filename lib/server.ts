@@ -81,6 +81,8 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           if (path.length === 2) {
             push()
           }
+        } else if (path[0] === "diagrams") {
+          push()
         }
       })
 

@@ -16,6 +16,8 @@ import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPane
 import { getNumberOfCurvePoints, getRotationFromTwoPoints, tracksState } from '@/lib/client/tracks';
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
+import { diagramsTabPanelState } from '@/lib/client/diagrams'
+import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
 
 function RailModel({
   from,
@@ -215,6 +217,8 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   useSnapshot(tracksState);
   const switches = useSnapshot(gameState.data.switches);
   useSnapshot(trainsTabPanelState);
+  useSnapshot(diagramsTabPanelState);
+  useSnapshot(editTracksInDiagramState);
 
   const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
@@ -261,9 +265,13 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
   let color: string | undefined;
   if (isAddingCurve) color = "#888";
-  else if (0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)) color = "#ff0";
+  else if (
+    0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)
+    || tracksState.pointingOnTrack?.trackId === trackId
+  )
+    color = "#ff0";
   else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
-  else if (tracksState.hoveredTracks.length === 1) {
+  else if (guiState.selectedTab === "tracks" && tracksState.hoveredTracks.length === 1) {
     const hoveredTrack = gameState.data.tracks[tracksState.hoveredTracks[0]];
 
     if (hoveredTrack.idOfTrackOrSwitchConnectedFromStart) {
@@ -281,6 +289,27 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       } else {
         const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
         if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
+      }
+    }
+  } else if (diagramsTabPanelState.routeMap.length) {
+    const trackRoutes = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex];
+
+    for (let i = 0; i < trackRoutes.length; i++) {
+      if (diagramsTabPanelState.selectingRouteIndex < 0 || i === diagramsTabPanelState.selectingRouteIndex) {
+        const trackRoute = trackRoutes[i];
+
+        if (trackRoute.trackIds.includes(trackId)) color = "#f0f";
+
+        if (diagramsTabPanelState.tracksIsEditing) {
+          if (editTracksInDiagramState.nextTrackIds.length) {
+            if (0 <= editTracksInDiagramState.focusedNextTrackIndex
+              && trackId === editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex])
+              color = "#f00";
+            else if (editTracksInDiagramState.nextTrackIds.includes(trackId))
+              color = "#ff0";
+          }
+        } else if (trackId === trackRoute.trackIds[trackRoute.trackIds.length - 1])
+          color = "#f00";
       }
     }
   }
@@ -354,18 +383,82 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
               tracksState.pointingOnTrack = undefined
           }}
           onClick={() => {
-            if (tracksState.pointingOnTrack && trackId === tracksState.pointingOnTrack.trackId) {
-              trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
-              tracksState.pointingOnTrack = undefined;
-            }
+            if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+
+            trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
+            tracksState.pointingOnTrack = undefined;
           }}
         />
         <Line
           points={points}
-          color={
-            tracksState.pointingOnTrack?.trackId === trackId ? "#ff0" :
-              "#000"
-          }
+          color={color || "#000"}
+        />
+      </>}
+    {guiState.selectedTab === "diagrams" &&
+      diagramsTabPanelState.editingRouteMapsInDiagramId &&
+      0 <= diagramsTabPanelState.selectingRoutesIndex && <>
+        <Line
+          points={points}
+          lineWidth={48}
+          transparent
+          opacity={0}
+          onPointerOver={() => {
+            if (!diagramsTabPanelState.tracksIsEditing) return;
+
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            if (trackRoute.trackIds.length) return;
+
+            tracksState.hoveredTracks.push(trackId);
+          }}
+          onPointerMove={e => {
+            if (!diagramsTabPanelState.routeMap || diagramsTabPanelState.selectingRouteIndex < 0) return;
+
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            if (diagramsTabPanelState.tracksIsEditing
+              ? trackRoute.trackIds.length
+              : trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
+            ) return;
+
+            const point = e.intersections[0].point;
+
+            tracksState.pointingOnTrack = {
+              trackId,
+              length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+            };
+          }}
+          onPointerOut={() => {
+            const index = tracksState.hoveredTracks.findIndex(value => value === trackId);
+
+            if (0 <= index)
+              tracksState.hoveredTracks.splice(index, 1);
+
+            if (tracksState.pointingOnTrack?.trackId === trackId)
+              tracksState.pointingOnTrack = undefined;
+          }}
+          onClick={() => {
+            if (!diagramsTabPanelState.routeMap || diagramsTabPanelState.selectingRouteIndex < 0) return;
+
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            if (diagramsTabPanelState.tracksIsEditing) {
+              if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+
+              trackRoute.trackIds.push(tracksState.pointingOnTrack.trackId);
+              trackRoute.stopOffset = tracksState.pointingOnTrack.length;
+              onUpdateTrackList();
+              return;
+            }
+
+            if (
+              !tracksState.pointingOnTrack
+              || trackId !== tracksState.pointingOnTrack.trackId
+              || trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
+            ) return;
+            trackRoute.stopOffset = tracksState.pointingOnTrack.length;
+          }}
+        />
+        <Line
+          points={points}
+          color={color || "#000"}
         />
       </>}
   </FeatureObject>;

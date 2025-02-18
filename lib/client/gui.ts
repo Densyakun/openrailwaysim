@@ -1,5 +1,6 @@
 import { proxy } from "valtio";
 import { trainsState } from "./trains";
+import { diagramsTabPanelState } from "./diagrams";
 
 export const guiState = proxy<{
   selectedTab: string;
@@ -14,5 +15,6 @@ export function lightingIsForEditing(selectedTab: string) {
     || selectedTab === "featureCollections"
     || selectedTab === "tracks"
     || selectedTab === "switches"
-    || selectedTab === "trains" && trainsState.activeBodyIndex === -1;
+    || selectedTab === "trains" && trainsState.activeBodyIndex === -1
+    || selectedTab === "diagrams" && diagramsTabPanelState.editingRouteMapsInDiagramId;
 }

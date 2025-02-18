@@ -91,23 +91,25 @@ function LineStringSegment({
         value
         && equalFeatureAt(segment, value)
       );
+
       if (i !== -1) {
         if (featureCollectionsTabPanelState.isStraightList[i])
           ref.current.color.setRGB(1, 0, 1);
         else
           ref.current.color.setRGB(0, 0, 0);
         return;
-      } else if (featureCollectionsTabPanelState.nextSegmentList.length) {
-        if ((featureCollectionsTabPanelState.focusedNextSegmentIndex === -1 || !featureCollectionsTabPanelState.nextSegmentList.length
-          ? false
-          : equalFeatureAt(segment, featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]))) {
-          ref.current.color.setRGB(1, 1, 0);
+      }
+
+      if (featureCollectionsTabPanelState.nextSegmentList.length) {
+        if (0 <= featureCollectionsTabPanelState.focusedNextSegmentIndex
+          && equalFeatureAt(segment, featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex])) {
+          ref.current.color.setRGB(1, 0, 0);
           return;
         } else if (featureCollectionsTabPanelState.nextSegmentList.find(value =>
           value
           && equalFeatureAt(segment, value)
         )) {
-          ref.current.color.setRGB(1, 0, 0);
+          ref.current.color.setRGB(1, 1, 0);
           return;
         }
       }

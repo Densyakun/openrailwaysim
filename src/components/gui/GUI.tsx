@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -16,6 +17,7 @@ import TrainsTabPanel from './TrainsTabPanel';
 import { guiState } from '@/lib/client/gui';
 import { useEffect } from 'react';
 import { trainsState } from '@/lib/client/trains';
+import DiagramsTabPanel from './DiagramsTabPanel';
 
 function TopInfo() {
   return <Box sx={{
@@ -63,6 +65,11 @@ const menuComponents: {
     title: 'Trains',
     icon: <TrainIcon />,
     component: <TrainsTabPanel />,
+  },
+  'diagrams': {
+    title: 'Diagrams',
+    icon: <DepartureBoardIcon />,
+    component: <DiagramsTabPanel />,
   },
   'settings': {
     title: 'Settings',

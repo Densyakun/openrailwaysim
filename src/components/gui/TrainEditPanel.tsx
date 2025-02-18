@@ -401,10 +401,10 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       列車が軌道の外に出ています
     </Alert>
     }
-    {invalidControlStandIndex !== -1 && <Alert
+    {0 <= invalidControlStandIndex && <Alert
       severity="error"
     >
-      {`Otherbody ${invalidControlStandIndex} のマスコンの形式IDが間違っています`}
+      {`Otherbody ${invalidControlStandIndex + 1} のマスコンの形式IDが間違っています`}
     </Alert>
     }
     <TextField

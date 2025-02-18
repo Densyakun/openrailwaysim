@@ -358,7 +358,7 @@ function MainMenu() {
 
         onUpdateSegmentList();
       }}>
-        Create track （選択された軌道を直線として平面曲線を作成する）
+        Create continuous tracks （選択された軌道を直線として平面曲線を作成する）
       </Button>
       <ButtonGroup variant="contained">
         <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {

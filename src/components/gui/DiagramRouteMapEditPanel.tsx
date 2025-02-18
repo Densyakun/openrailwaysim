@@ -184,7 +184,6 @@ function RoutesEditor() {
           </Button>
         </ButtonGroup>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography>Routes: {routeMap[selectingRoutesIndex].length}</Typography>
           <AddRouteButton />
           <Button variant="contained" startIcon={<RouteIcon />} disabled={!routeMap[selectingRoutesIndex].length} onClick={() => {
             diagramsTabPanelState.tracksIsEditing = true;

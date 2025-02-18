@@ -28,6 +28,18 @@ export type Diagram = {
    */
   trainGroups: string[],
   diagramCurves: TrainDiagramCurve[];
+  /**
+   * 祝日を求めるため
+   */
+  country: string;
+  /**
+   * 祝日を求めるため
+   */
+  state: string;
+  /**
+   * 祝日を求めるため
+   */
+  region: string;
 };
 
 /**
@@ -57,16 +69,4 @@ export type TrainDiagramCurve = {
    */
   stopTime: number[];
   isPasses: boolean[];
-  /**
-   * 祝日を求めるため
-   */
-  country: string;
-  /**
-   * 祝日を求めるため
-   */
-  state: string;
-  /**
-   * 祝日を求めるため
-   */
-  region: string;
 };

@@ -63,7 +63,10 @@ export default function DiagramTable() {
           </IconButton>
         </Tooltip>
         <Tooltip title="Edit diagram curves" disableInteractive>
-          <IconButton edge="end" onClick={() => diagramsTabPanelState.editingDiagramCurvesInDiagramId = id}>
+          <IconButton edge="end" onClick={() => {
+            diagramsTabPanelState.editingDiagramCurvesInDiagramId = id;
+            diagramsTabPanelState.diagramCurves = JSON.parse(JSON.stringify(gameState.data.diagrams[id].diagramCurves));
+          }}>
             <DepartureBoardIcon />
           </IconButton>
         </Tooltip>
@@ -79,6 +82,9 @@ export default function DiagramTable() {
             routeMap: [],
             trainGroups: [],
             diagramCurves: [],
+            country: "",
+            state: "",
+            region: "",
           } as Diagram,
         ]]));
       })}

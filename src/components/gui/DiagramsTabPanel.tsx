@@ -4,6 +4,7 @@ import TableViewIcon from '@mui/icons-material/TableView';
 import DiagramTable from './DiagramTable';
 import { diagramsTabPanelState } from '@/lib/client/diagrams';
 import DiagramRouteMapEditPanel from './DiagramRouteMapEditPanel';
+import DiagramCurveEditPanel from './DiagramCurveEditPanel';
 
 function DiagramsMenu() {
   return <Paper sx={{
@@ -28,11 +29,14 @@ export default function DiagramsTabPanel() {
   const {
     isShowTable,
     editingRouteMapsInDiagramId,
+    editingDiagramCurvesInDiagramId,
   } = useSnapshot(diagramsTabPanelState);
 
   return isShowTable
-    ? editingRouteMapsInDiagramId
-      ? <DiagramRouteMapEditPanel />
-      : <DiagramTable />
+    ? editingDiagramCurvesInDiagramId
+      ? <DiagramCurveEditPanel />
+      : editingRouteMapsInDiagramId
+        ? <DiagramRouteMapEditPanel />
+        : <DiagramTable />
     : <DiagramsMenu />;
 }

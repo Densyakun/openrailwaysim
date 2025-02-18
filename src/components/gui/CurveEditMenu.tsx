@@ -5,7 +5,7 @@ import { proxy, useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
 import centroid from '@turf/centroid';
-import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
+import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, connectTwoTracks, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
@@ -420,13 +420,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         railroadSwitch
       ]]));
     } else {
-      AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
-      AB.connectedFromStartIsTrack = true;
-      AB.connectedFromStartIsToEnd = false;
-      const connectedTrack = sTransitionCurveAB || sCurve;
-      connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
-      connectedTrack.connectedFromStartIsTrack = true;
-      connectedTrack.connectedFromStartIsToEnd = false;
+      connectTwoTracks(AB, ABId, false, sTransitionCurveAB || sCurve, sTransitionCurveAB ? sTransitionCurveABId : sCurveId, false);
 
       track0IsChanged = true;
     }
@@ -448,13 +442,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     let track0IsChanged = false;
 
     if (curveIndex < 4) {
-      AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
-      AB.connectedFromEndIsTrack = true;
-      AB.connectedFromEndIsToEnd = false;
-      const connectedTrack = sTransitionCurveAB || sCurve;
-      connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
-      connectedTrack.connectedFromStartIsTrack = true;
-      connectedTrack.connectedFromStartIsToEnd = true;
+      connectTwoTracks(AB, ABId, true, sTransitionCurveAB || sCurve, sTransitionCurveAB ? sTransitionCurveABId : sCurveId, false);
 
       track0IsChanged = true;
     } else {
@@ -560,26 +548,15 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       ]]));
     } else {
       // 分岐器を作成しない場合
-      const connectedTrack = sTransitionCurveAB || sCurve;
       if (curveIndex < 4) {
         AB.length *= s;
 
-        AB.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
-        AB.connectedFromEndIsTrack = true;
-        AB.connectedFromEndIsToEnd = false;
-        connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
-        connectedTrack.connectedFromStartIsTrack = true;
-        connectedTrack.connectedFromStartIsToEnd = true;
+        connectTwoTracks(AB, ABId, true, sTransitionCurveAB || sCurve, sTransitionCurveAB ? sTransitionCurveABId : sCurveId, false);
       } else {
         AB.position = getPosition(AB, AB.length * s);
         AB.length *= (1 - s);
 
-        AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
-        AB.connectedFromStartIsTrack = true;
-        AB.connectedFromStartIsToEnd = false;
-        connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
-        connectedTrack.connectedFromStartIsTrack = true;
-        connectedTrack.connectedFromStartIsToEnd = false;
+        connectTwoTracks(AB, ABId, false, sTransitionCurveAB || sCurve, sTransitionCurveAB ? sTransitionCurveABId : sCurveId, false);
       }
     }
 
@@ -604,18 +581,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         railroadSwitch
       ]]));
     } else {
-      CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
-      CD.connectedFromStartIsTrack = true;
-      CD.connectedFromStartIsToEnd = sTransitionCurveCD ? false : true;
-      if (sTransitionCurveCD) {
-        sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
-        sTransitionCurveCD.connectedFromStartIsTrack = true;
-        sTransitionCurveCD.connectedFromStartIsToEnd = false;
-      } else {
-        sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
-        sCurve.connectedFromEndIsTrack = true;
-        sCurve.connectedFromEndIsToEnd = false;
-      }
+      connectTwoTracks(sTransitionCurveCD || sCurve, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId, !sTransitionCurveCD, CD, CDId, false);
 
       track1IsChanged = true;
     }
@@ -636,18 +602,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     let track1IsChanged = false;
 
     if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
-      CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
-      CD.connectedFromEndIsTrack = true;
-      CD.connectedFromEndIsToEnd = sTransitionCurveCD ? false : true;
-      if (sTransitionCurveCD) {
-        sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
-        sTransitionCurveCD.connectedFromStartIsTrack = true;
-        sTransitionCurveCD.connectedFromStartIsToEnd = true;
-      } else {
-        sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
-        sCurve.connectedFromEndIsTrack = true;
-        sCurve.connectedFromEndIsToEnd = true;
-      }
+      connectTwoTracks(sTransitionCurveCD || sCurve, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId, !sTransitionCurveCD, CD, CDId, true);
 
       track1IsChanged = true;
     } else {
@@ -751,34 +706,12 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
         CD.length *= t;
 
-        CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
-        CD.connectedFromEndIsTrack = true;
-        CD.connectedFromEndIsToEnd = sTransitionCurveCD ? false : true;
-        if (sTransitionCurveCD) {
-          sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
-          sTransitionCurveCD.connectedFromStartIsTrack = true;
-          sTransitionCurveCD.connectedFromStartIsToEnd = true;
-        } else {
-          sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
-          sCurve.connectedFromEndIsTrack = true;
-          sCurve.connectedFromEndIsToEnd = true;
-        }
+        connectTwoTracks(sTransitionCurveCD || sCurve, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId, !sTransitionCurveCD, CD, CDId, true);
       } else {
         CD.position = getPosition(CD, CD.length * t);
         CD.length *= (1 - t);
 
-        CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
-        CD.connectedFromStartIsTrack = true;
-        CD.connectedFromStartIsToEnd = sTransitionCurveCD ? false : true;
-        if (sTransitionCurveCD) {
-          sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
-          sTransitionCurveCD.connectedFromStartIsTrack = true;
-          sTransitionCurveCD.connectedFromStartIsToEnd = false;
-        } else {
-          sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
-          sCurve.connectedFromEndIsTrack = true;
-          sCurve.connectedFromEndIsToEnd = false;
-        }
+        connectTwoTracks(sTransitionCurveCD || sCurve, sTransitionCurveCD ? sTransitionCurveCDId : sCurveId, !sTransitionCurveCD, CD, CDId, false);
       }
     }
 
@@ -789,22 +722,10 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
   }
 
   // 緩和曲線と単曲線を接続する
-  if (sTransitionCurveAB) {
-    sTransitionCurveAB.idOfTrackOrSwitchConnectedFromEnd = sCurveId;
-    sTransitionCurveAB.connectedFromEndIsTrack = true;
-    sTransitionCurveAB.connectedFromEndIsToEnd = false;
-    sCurve.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveABId;
-    sCurve.connectedFromStartIsTrack = true;
-    sCurve.connectedFromStartIsToEnd = true;
-  }
-  if (sTransitionCurveCD) {
-    sTransitionCurveCD.idOfTrackOrSwitchConnectedFromEnd = sCurveId;
-    sTransitionCurveCD.connectedFromEndIsTrack = true;
-    sTransitionCurveCD.connectedFromEndIsToEnd = true;
-    sCurve.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCDId;
-    sCurve.connectedFromEndIsTrack = true;
-    sCurve.connectedFromEndIsToEnd = true;
-  }
+  if (sTransitionCurveAB)
+    connectTwoTracks(sTransitionCurveAB, sTransitionCurveABId, true, sCurve, sCurveId, false);
+  if (sTransitionCurveCD)
+    connectTwoTracks(sCurve, sCurveId, true, sTransitionCurveCD, sTransitionCurveCDId, true);
 
   socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
     ["tracks", sCurveId],

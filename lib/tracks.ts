@@ -594,3 +594,28 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
     isDeadEnd,
   };
 }
+
+/**
+ * 2つの軌道を接続する
+ */
+export function connectTwoTracks(AB: Track | SerializableTrack, ABId: string, isABFromEnd: boolean, CD: Track | SerializableTrack, CDId: string, isCDFromEnd: boolean) {
+  if (isABFromEnd) {
+    AB.idOfTrackOrSwitchConnectedFromEnd = CDId;
+    AB.connectedFromEndIsTrack = true;
+    AB.connectedFromEndIsToEnd = isCDFromEnd;
+  } else {
+    AB.idOfTrackOrSwitchConnectedFromStart = CDId;
+    AB.connectedFromStartIsTrack = true;
+    AB.connectedFromStartIsToEnd = isCDFromEnd;
+  }
+
+  if (isCDFromEnd) {
+    CD.idOfTrackOrSwitchConnectedFromEnd = ABId;
+    CD.connectedFromEndIsTrack = true;
+    CD.connectedFromEndIsToEnd = isABFromEnd;
+  } else {
+    CD.idOfTrackOrSwitchConnectedFromStart = ABId;
+    CD.connectedFromStartIsTrack = true;
+    CD.connectedFromStartIsToEnd = isABFromEnd;
+  }
+}

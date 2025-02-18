@@ -241,7 +241,7 @@ export default function UIOneHandleMasterControllerConfigTable() {
         } as UIOneHandleMasterControllerConfig,
         ["uiOneHandleMasterControllerConfigs", editingId],
       ] : [
-        ["trainGroups", inputs.id],
+        ["uiOneHandleMasterControllerConfigs", inputs.id],
         {
           steps: inputs.steps,
           marks: inputs.marks,

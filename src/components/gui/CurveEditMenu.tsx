@@ -574,12 +574,12 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         AB.position = getPosition(AB, AB.length * s);
         AB.length *= (1 - s);
 
-        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = ABId;
-        connectedTrack.connectedFromEndIsTrack = true;
-        connectedTrack.connectedFromEndIsToEnd = false;
         AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
         AB.connectedFromStartIsTrack = true;
         AB.connectedFromStartIsToEnd = false;
+        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = ABId;
+        connectedTrack.connectedFromEndIsTrack = true;
+        connectedTrack.connectedFromEndIsToEnd = false;
       }
     }
 
@@ -748,16 +748,21 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         railroadSwitch
       ]]));
     } else {
-      const connectedTrack = sTransitionCurveCD || sCurve;
       if (curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7) {
         CD.length *= t;
 
         CD.idOfTrackOrSwitchConnectedFromEnd = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
         CD.connectedFromEndIsTrack = true;
         CD.connectedFromEndIsToEnd = sTransitionCurveCD ? false : true;
-        connectedTrack.idOfTrackOrSwitchConnectedFromStart = CDId;
-        connectedTrack.connectedFromStartIsTrack = true;
-        connectedTrack.connectedFromStartIsToEnd = true;
+        if (sTransitionCurveCD) {
+          sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
+          sTransitionCurveCD.connectedFromStartIsTrack = true;
+          sTransitionCurveCD.connectedFromStartIsToEnd = true;
+        } else {
+          sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
+          sCurve.connectedFromEndIsTrack = true;
+          sCurve.connectedFromEndIsToEnd = true;
+        }
       } else {
         CD.position = getPosition(CD, CD.length * t);
         CD.length *= (1 - t);
@@ -765,9 +770,15 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         CD.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveCD ? sTransitionCurveCDId : sCurveId;
         CD.connectedFromStartIsTrack = true;
         CD.connectedFromStartIsToEnd = sTransitionCurveCD ? false : true;
-        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = CDId;
-        connectedTrack.connectedFromEndIsTrack = true;
-        connectedTrack.connectedFromEndIsToEnd = false;
+        if (sTransitionCurveCD) {
+          sTransitionCurveCD.idOfTrackOrSwitchConnectedFromStart = CDId;
+          sTransitionCurveCD.connectedFromStartIsTrack = true;
+          sTransitionCurveCD.connectedFromStartIsToEnd = false;
+        } else {
+          sCurve.idOfTrackOrSwitchConnectedFromEnd = CDId;
+          sCurve.connectedFromEndIsTrack = true;
+          sCurve.connectedFromEndIsToEnd = false;
+        }
       }
     }
 

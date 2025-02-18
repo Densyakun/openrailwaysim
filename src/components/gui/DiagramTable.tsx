@@ -9,7 +9,7 @@ import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/mate
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { diagramsTabPanelState, resetEditingDiagramState } from '@/lib/client/diagrams';
-import { Diagram } from '@/lib/diagram';
+import { Diagram, DiagramTrackRoute } from '@/lib/diagram';
 
 export default function DiagramTable() {
   useSnapshot(gameState.data);
@@ -44,7 +44,7 @@ export default function DiagramTable() {
           <IconButton edge="end" onClick={() => {
             resetEditingDiagramState();
             diagramsTabPanelState.editingRouteMapsInDiagramId = id;
-            diagramsTabPanelState.routeMap = gameState.data.diagrams[id].routeMap;
+            diagramsTabPanelState.routeMap = JSON.parse(JSON.stringify(gameState.data.diagrams[id].routeMap)) as DiagramTrackRoute[][];
             if (!diagramsTabPanelState.routeMap.length) {
               diagramsTabPanelState.routeMap = [[{
                 toDisplayName: "",

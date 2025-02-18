@@ -577,9 +577,9 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
         AB.idOfTrackOrSwitchConnectedFromStart = sTransitionCurveAB ? sTransitionCurveABId : sCurveId;
         AB.connectedFromStartIsTrack = true;
         AB.connectedFromStartIsToEnd = false;
-        connectedTrack.idOfTrackOrSwitchConnectedFromEnd = ABId;
-        connectedTrack.connectedFromEndIsTrack = true;
-        connectedTrack.connectedFromEndIsToEnd = false;
+        connectedTrack.idOfTrackOrSwitchConnectedFromStart = ABId;
+        connectedTrack.connectedFromStartIsTrack = true;
+        connectedTrack.connectedFromStartIsToEnd = false;
       }
     }
 

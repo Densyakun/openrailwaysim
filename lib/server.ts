@@ -216,7 +216,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
           // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
           if (propPath.length == 2 && propPath[0] === "trains") {
-            for (const trainGroupId in Object.keys(saveData["trainGroups"])) {
+            for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
               const index = saveData["trainGroups"][trainGroupId].indexOf(propPath[1]);
               if (index !== -1)
                 saveData["trainGroups"][trainGroupId].splice(index, 1);

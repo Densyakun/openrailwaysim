@@ -21,7 +21,7 @@ export type SaveDataType = {
    * Trainを文字列で分類する。
    * 運行系統と車両基地毎にまとめるのが望ましい。
    * 車種毎に停止位置と許容範囲を設定するために必要。
-   * 行路を自動生成するために必要。
+   * 列車にダイヤを自動で割り当てるために必要。
    */
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
@@ -234,6 +234,10 @@ export function toSerializableSaveData(type: string, value: any): any {
       otherJoints,
       speed,
       motors,
+      currentDiagramId,
+      currentDiagramCurveIndex,
+      currentRoutesIndex,
+      currentRouteIndex,
     }: Train = value;
 
     return {
@@ -243,6 +247,10 @@ export function toSerializableSaveData(type: string, value: any): any {
       otherJoints: toSerializableSaveData(jointArrayTypeId, otherJoints) as SerializableJoint[],
       speed,
       motors,
+      currentDiagramId,
+      currentDiagramCurveIndex,
+      currentRoutesIndex,
+      currentRouteIndex,
     } as SerializableTrain;
   } else if (type === bogieArrayTypeId) {
     const bogies: Bogie[] = value;
@@ -480,9 +488,13 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       otherJoints,
       speed,
       motors,
+      currentDiagramId,
+      currentDiagramCurveIndex,
+      currentRoutesIndex,
+      currentRouteIndex,
     }: SerializableTrain = value;
 
-    return createTrain(
+    const train = createTrain(
       data,
       fromSerializableSaveData(bogieArrayTypeId, bogies, data) as Bogie[],
       fromSerializableSaveData(otherBodyArrayTypeId, otherBodies, data) as OtherBody[],
@@ -491,6 +503,13 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       speed,
       motors,
     );
+
+    train.currentDiagramId = currentDiagramId;
+    train.currentDiagramCurveIndex = currentDiagramCurveIndex;
+    train.currentRoutesIndex = currentRoutesIndex;
+    train.currentRouteIndex = currentRouteIndex;
+
+    return train;
   } else if (type === bogieArrayTypeId) {
     const serializableBogies: SerializableBogie[] = value;
 

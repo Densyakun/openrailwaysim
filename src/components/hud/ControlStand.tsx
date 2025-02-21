@@ -2,7 +2,7 @@ import { useSnapshot } from 'valtio';
 import { SerializableTrain } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
-import { Box, Button, Stack, SxProps } from '@mui/material';
+import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trainTypeId } from '@/lib/game';
@@ -57,6 +57,12 @@ export default function ControlStand() {
           <MasterController controlStand={controlStand} />
         </>}
         <Speed />
+        <Paper>
+          {train.currentDiagramId
+            ? `列車ダイヤ: ${train.currentDiagramId}, ${train.currentDiagramCurveIndex}, 次は: ${data.diagrams[train.currentDiagramId].routeMap[train.currentRoutesIndex][train.currentRouteIndex].toDisplayName || `(${train.currentRoutesIndex}, ${train.currentRouteIndex})`}`
+            : "列車ダイヤ未設定"
+          }
+        </Paper>
         <Button variant='contained' startIcon={<CloseIcon />} onClick={() => {
           trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""
@@ -98,7 +104,7 @@ export default function ControlStand() {
         </Button>
       </Box_>
     </Box_>
-    <Box_ sx={{
+    {/*<Box_ sx={{
       width: "100%",
       height: "100%",
       display: "flex",
@@ -113,6 +119,6 @@ export default function ControlStand() {
       justifyContent: 'flex-end',
       alignItems: 'flex-end',
     }}>
-    </Box_>
+    </Box_>*/}
   </Stack>;
 }

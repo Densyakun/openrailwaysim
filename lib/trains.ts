@@ -105,6 +105,10 @@ export type Train = {
   weight: number; // ton
   centroidZ: number; // 第一軸から重心に近い軌道上の相対位置
   motors: number;
+  currentDiagramId: string;
+  currentDiagramCurveIndex: number;
+  currentRoutesIndex: number;
+  currentRouteIndex: number;
 };
 
 export type SerializableTrain = {
@@ -114,6 +118,10 @@ export type SerializableTrain = {
   otherJoints: SerializableJoint[];
   speed: number;
   motors: number;
+  currentDiagramId: string;
+  currentDiagramCurveIndex: number;
+  currentRoutesIndex: number;
+  currentRouteIndex: number;
 };
 
 export function getGlobalEulerOfFirstAxle(saveData: SaveDataType, axle: Axle) {
@@ -162,6 +170,10 @@ export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies
     weight: weight_,
     centroidZ,
     motors: motors_,
+    currentDiagramId: "",
+    currentDiagramCurveIndex: -1,
+    currentRoutesIndex: 0,
+    currentRouteIndex: 0,
   }
 
   calcJointsToRotateBody(train)

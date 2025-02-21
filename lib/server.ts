@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
 import { readFileSync, writeFileSync } from "fs";
+import { assignSchedulesToTrains } from "./diagram";
 
 export const saveFilePath = "./save.json";
 
@@ -25,15 +26,14 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           )
         }
 
+        // 変更されたステートをクライアントに同期する
         if (path[0] === "terrains") {
           push()
         } else if (path[0] === "nowDate") {
           push()
         } else if (path[0] === "trains") {
           if (3 <= path.length) {
-            if (path[2] === "speed") {
-              push()
-            } else if (path[2] === "bogies") {
+            if (path[2] === "bogies") {
               if (6 <= path.length) {
                 if (path[4] === "axles") {
                   if (7 <= path.length)
@@ -48,9 +48,21 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
                 if (path[4] === "controlStand")
                   push()
               }
+            } else if (path[2] === "speed") {
+              push()
+            } else if (path[2] === "currentDiagramId") {
+              push()
+            } else if (path[2] === "currentDiagramCurveIndex") {
+              push()
+            } else if (path[2] === "currentRoutesIndex") {
+              push()
+            } else if (path[2] === "currentRouteIndex") {
+              push()
             }
           } else if (path.length === 2) {
             push()
+            // 追加または削除された列車にダイヤを割り当てる
+            assignSchedulesToTrains(saveData)
           }
         } else if (path[0] === "trainGroups") {
           push()
@@ -83,6 +95,10 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           }
         } else if (path[0] === "diagrams") {
           push()
+
+          // 追加または削除された列車にダイヤを割り当てる
+          if (path.length === 2)
+            assignSchedulesToTrains(saveData)
         }
       })
 

@@ -653,3 +653,71 @@ export function connectTwoTracks(AB: Track | SerializableTrack, ABId: string, is
     CD.connectedFromStartIsToEnd = isABFromEnd;
   }
 }
+
+export function getDistance(data: SaveDataType, trackIds: string[], toLength: number, fromLength: number, i = 0): number | undefined {
+  const trackId = trackIds[i];
+  if (i + 1 === trackIds.length)
+    return toLength - fromLength;
+  else {
+    const track = data.tracks[trackId];
+    const nextTrackId = trackIds[i + 1];
+    if (track.connectedFromStartIsTrack) {
+      if (track.idOfTrackOrSwitchConnectedFromStart === nextTrackId) {
+        if (track.connectedFromStartIsToEnd) {
+          const nextTrack = data.tracks[nextTrackId];
+          const d = getDistance(data, trackIds, toLength, nextTrack.length, i + 1);
+          if (d !== undefined)
+            return d - fromLength;
+        } else {
+          const d = getDistance(data, trackIds, toLength, 0, i + 1);
+          if (d !== undefined)
+            return -d - fromLength;
+        }
+      }
+    } else {
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromStart];
+      const i1 = railroadSwitch.connectedTrackIds.indexOf(nextTrackId);
+      if (0 <= i1) {
+        if (railroadSwitch.isConnectedToEnd[i1]) {
+          const nextTrack = data.tracks[nextTrackId];
+          const d = getDistance(data, trackIds, toLength, nextTrack.length, i + 1);
+          if (d !== undefined)
+            return d - fromLength;
+        } else {
+          const d = getDistance(data, trackIds, toLength, 0, i + 1);
+          if (d !== undefined)
+            return -d - fromLength;
+        }
+      }
+    }
+    if (track.connectedFromEndIsTrack) {
+      if (track.idOfTrackOrSwitchConnectedFromEnd === nextTrackId) {
+        if (track.connectedFromEndIsToEnd) {
+          const nextTrack = data.tracks[nextTrackId];
+          const d = getDistance(data, trackIds, toLength, nextTrack.length, i + 1);
+          if (d !== undefined)
+            return track.length - fromLength - d;
+        } else {
+          const d = getDistance(data, trackIds, toLength, 0, i + 1);
+          if (d !== undefined)
+            return track.length - fromLength + d;
+        }
+      }
+    } else {
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+      const i1 = railroadSwitch.connectedTrackIds.indexOf(nextTrackId);
+      if (0 <= i1) {
+        if (railroadSwitch.isConnectedToEnd[i1]) {
+          const nextTrack = data.tracks[nextTrackId];
+          const d = getDistance(data, trackIds, toLength, nextTrack.length, i + 1);
+          if (d !== undefined)
+            return track.length - fromLength - d;
+        } else {
+          const d = getDistance(data, trackIds, toLength, 0, i + 1);
+          if (d !== undefined)
+            return track.length - fromLength + d;
+        }
+      }
+    }
+  }
+}

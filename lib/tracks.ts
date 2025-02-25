@@ -491,22 +491,22 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
     ? newPointOnTrack.length -= distance
     : newPointOnTrack.length += distance;
 
-  if (pointOnTrack.length < 0) {
+  if (newPointOnTrack.length < 0) {
     // 輪軸が軌道の始点より外に進入した場合
-    const track = saveData.tracks[pointOnTrack.trackId];
+    const track = saveData.tracks[newPointOnTrack.trackId];
     if (track.idOfTrackOrSwitchConnectedFromStart) {
       if (track.connectedFromStartIsTrack) {
         const connectedTo = saveData.tracks[track.idOfTrackOrSwitchConnectedFromStart];
         if (track.connectedFromStartIsToEnd) {
           newPointOnTrack = {
             trackId: track.idOfTrackOrSwitchConnectedFromStart,
-            length: connectedTo.length + pointOnTrack.length,
+            length: connectedTo.length + newPointOnTrack.length,
           };
         } else {
           // 軌道の始点側に進入する場合
           newPointOnTrack = {
             trackId: track.idOfTrackOrSwitchConnectedFromStart,
-            length: -pointOnTrack.length,
+            length: -newPointOnTrack.length,
           };
           // 軌道に対する輪軸の進行方向を反転する
           newDirectionIsReversed = !directionIsReversed;
@@ -523,12 +523,12 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
           if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
             newPointOnTrack = {
               trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-              length: connectedTo.length + pointOnTrack.length,
+              length: connectedTo.length + newPointOnTrack.length,
             };
           } else {
             newPointOnTrack = {
               trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-              length: -pointOnTrack.length,
+              length: -newPointOnTrack.length,
             };
             newDirectionIsReversed = !directionIsReversed;
           }
@@ -540,8 +540,8 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
       newPointOnTrack.length = 0;
     }
   } else {
-    const track = saveData.tracks[pointOnTrack.trackId];
-    if (track.length < pointOnTrack.length) {
+    const track = saveData.tracks[newPointOnTrack.trackId];
+    if (track.length < newPointOnTrack.length) {
       // 輪軸が軌道の終点より外に進入した場合
       if (track.idOfTrackOrSwitchConnectedFromEnd) {
         if (track.connectedFromEndIsTrack) {
@@ -549,13 +549,13 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
           if (track.connectedFromEndIsToEnd) {
             newPointOnTrack = {
               trackId: track.idOfTrackOrSwitchConnectedFromEnd,
-              length: connectedTo.length + track.length - pointOnTrack.length,
+              length: connectedTo.length + track.length - newPointOnTrack.length,
             };
-            directionIsReversed = !directionIsReversed;
+            newDirectionIsReversed = !directionIsReversed;
           } else {
             newPointOnTrack = {
               trackId: track.idOfTrackOrSwitchConnectedFromEnd,
-              length: pointOnTrack.length - track.length,
+              length: newPointOnTrack.length - track.length,
             };
           }
         } else {
@@ -569,13 +569,13 @@ export function runPointOnTrack(saveData: SaveDataType, pointOnTrack: PointOnTra
             if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
               newPointOnTrack = {
                 trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                length: connectedTo.length + track.length - pointOnTrack.length,
+                length: connectedTo.length + track.length - newPointOnTrack.length,
               };
-              directionIsReversed = !directionIsReversed;
+              newDirectionIsReversed = !directionIsReversed;
             } else {
               newPointOnTrack = {
                 trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
-                length: pointOnTrack.length - track.length,
+                length: newPointOnTrack.length - track.length,
               };
             }
           }

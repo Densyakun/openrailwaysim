@@ -93,14 +93,14 @@ function DiagramCurveEditor() {
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography variant="h6" gutterBottom>Editing diagram curves {selectingDiagramCurveIndex + 1} / {diagramCurves.length}</Typography>
         <ButtonGroup variant="contained">
-          <Button variant='contained' onClick={() =>
+          <Button variant='contained' disabled={!diagramCurves.length} onClick={() =>
             diagramsTabPanelState.selectingDiagramCurveIndex = selectingDiagramCurveIndex <= 0
               ? diagramCurves.length - 1
               : selectingDiagramCurveIndex - 1
           }>
             {"<"}
           </Button>
-          <Button variant='contained' onClick={() =>
+          <Button variant='contained' disabled={!diagramCurves.length} onClick={() =>
             diagramsTabPanelState.selectingDiagramCurveIndex = diagramCurves.length - 1 <= selectingDiagramCurveIndex
               ? 0
               : selectingDiagramCurveIndex + 1
@@ -109,7 +109,7 @@ function DiagramCurveEditor() {
           </Button>
         </ButtonGroup>
         <AddCurveButton />
-        <Button variant="contained" onClick={() =>
+        <Button variant="contained" disabled={!diagramCurves.length} onClick={() =>
           diagramsTabPanelState.selectingStationIndex = 0
         }>
           Edit
@@ -167,10 +167,10 @@ function StationEditor() {
         </Button>
       </ButtonGroup>
     </Stack>
-    {selectingStationIndex !== diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes.length && <TextField
+    {selectingStationIndex !== diagramCurves[selectingDiagramCurveIndex].passTime.length && <TextField
       label="Pass time"
       value={passTime}
-      disabled={selectingStationIndex === diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes.length}
+      disabled={selectingStationIndex === diagramCurves[selectingDiagramCurveIndex].passTime.length}
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.passTime = event.target.value;
         const value = parseInt(event.target.value);

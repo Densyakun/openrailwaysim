@@ -109,7 +109,7 @@ function DiagramRouteMapEditor() {
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           <AddRouteListButton />
-          <Button variant="contained" onClick={() =>
+          <Button variant="contained" disabled={!routeMap.length} onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = 0
           }>
             Edit
@@ -168,14 +168,14 @@ function RouteListEditor() {
       {Boolean(routeMap[selectingRouteListIndex].length) && <>
         <Typography variant="h6" gutterBottom>Editing route {selectingRouteIndex + 1} / {routeMap[selectingRouteListIndex].length} in {selectingRouteListIndex + 1}</Typography>
         <ButtonGroup variant="contained">
-          <Button variant='contained' onClick={() =>
+          <Button variant='contained' disabled={!routeMap[selectingRouteListIndex].length} onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = selectingRouteIndex === 0
               ? routeMap[selectingRouteListIndex].length - 1
               : selectingRouteIndex - 1
           }>
             {"<"}
           </Button>
-          <Button variant='contained' onClick={() =>
+          <Button variant='contained' disabled={!routeMap[selectingRouteListIndex].length} onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = selectingRouteIndex === routeMap[selectingRouteListIndex].length - 1
               ? 0
               : selectingRouteIndex + 1
@@ -217,7 +217,7 @@ function RouteListEditor() {
             diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].toTimezone = event.target.value;
           }}
         />
-        {routeMap[selectingRouteListIndex][selectingRouteIndex].trackIds.length && <Alert severity="info">
+        {0 < routeMap[selectingRouteListIndex][selectingRouteIndex].trackIds.length && <Alert severity="info">
           {`最後の軌道を選択すると Stop offset を設定できます`}
         </Alert>}
         <TextField

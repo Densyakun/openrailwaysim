@@ -7,7 +7,7 @@ export const diagramsTabPanelState = proxy<{
   editingTrainGroupsInDiagramId: string;
   editingDiagramCurvesInDiagramId: string;
   routeMap: DiagramTrackRoute[][];
-  selectingRoutesIndex: number;
+  selectingRouteListIndex: number;
   selectingRouteIndex: number;
   tracksIsEditing: boolean;
   diagramCurves: TrainDiagramCurve[];
@@ -19,7 +19,7 @@ export const diagramsTabPanelState = proxy<{
   editingTrainGroupsInDiagramId: "",
   editingDiagramCurvesInDiagramId: "",
   routeMap: [],
-  selectingRoutesIndex: 0,
+  selectingRouteListIndex: 0,
   selectingRouteIndex: -1,
   tracksIsEditing: false,
   diagramCurves: [],
@@ -29,7 +29,7 @@ export const diagramsTabPanelState = proxy<{
 
 export function resetEditingDiagramState() {
   diagramsTabPanelState.routeMap = [];
-  diagramsTabPanelState.selectingRoutesIndex = 0;
+  diagramsTabPanelState.selectingRouteListIndex = 0;
   diagramsTabPanelState.selectingRouteIndex = -1;
   diagramsTabPanelState.tracksIsEditing = false;
 

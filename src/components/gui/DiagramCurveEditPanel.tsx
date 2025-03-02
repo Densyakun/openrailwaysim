@@ -64,7 +64,7 @@ function DiagramCurveEditor() {
   const [changed, setChanged] = useState(true);
   useEffect(() => setChanged(true), [diagramCurves]);
 
-  //const invalidRoutesIndex = routeMap.findIndex(routes => !routes.length || routes.find(route => !route.trackIds.length));
+  //const invalidRouteListIndex = routeMap.findIndex(routeList => !routeList.length || routeList.find(route => !route.trackIds.length));
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -78,7 +78,7 @@ function DiagramCurveEditor() {
         `Edit a diagram curve "${editingDiagramCurvesInDiagramId}"`
       }</Typography>
       <Button variant="contained" startIcon={<SaveIcon />}
-        disabled={!changed/* || 0 <= invalidRoutesIndex*/}
+        disabled={!changed/* || 0 <= invalidRouteListIndex*/}
         onClick={() => {
           socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
             ["diagrams", editingDiagramCurvesInDiagramId, "diagramCurves"],
@@ -116,10 +116,10 @@ function DiagramCurveEditor() {
         </Button>
       </Stack>
     </Stack>
-    {/*0 <= invalidRoutesIndex && <Alert
+    {/*0 <= invalidRouteListIndex && <Alert
       severity="error"
     >
-      {`Routes ${invalidRoutesIndex + 1} に軌道ルートを設定してください`}
+      {`Route list ${invalidRouteListIndex + 1} に軌道ルートを設定してください`}
     </Alert>
     */}
   </Stack>;

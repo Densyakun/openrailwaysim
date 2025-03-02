@@ -19,7 +19,7 @@ export const editTracksInDiagramState = proxy<{
 export function onUpdateTrackList() {
   if (!diagramsTabPanelState.routeMap.length || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
-  const trackIds = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex].trackIds;
+  const trackIds = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex][diagramsTabPanelState.selectingRouteIndex].trackIds;
   if (!trackIds.length) return;
 
   // 接続された軌道の一覧を取得する
@@ -54,7 +54,7 @@ function focusingNextSegmentIndex() {
 export default function EditTracksInDiagramPanel() {
   const {
     routeMap,
-    selectingRoutesIndex,
+    selectingRouteListIndex,
     selectingRouteIndex,
   } = useSnapshot(diagramsTabPanelState);
   const {
@@ -77,7 +77,7 @@ export default function EditTracksInDiagramPanel() {
           Back
         </Button>
       </Stack>
-      {routeMap[selectingRoutesIndex][selectingRouteIndex].trackIds.length
+      {routeMap[selectingRouteListIndex][selectingRouteIndex].trackIds.length
         ? <Paper>
           <Stack spacing={1}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -103,7 +103,7 @@ export default function EditTracksInDiagramPanel() {
             </Stack>
             <Stack direction="row" spacing={1} alignItems="center">
               <Button variant='contained' startIcon={<AddIcon />} disabled={!nextTrackIds.length} onClick={() => {
-                diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex].trackIds.push(nextTrackIds[focusedNextTrackIndex]);
+                diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex][diagramsTabPanelState.selectingRouteIndex].trackIds.push(nextTrackIds[focusedNextTrackIndex]);
                 onUpdateTrackList();
               }}>
                 Add

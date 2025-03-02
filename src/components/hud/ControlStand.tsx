@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { ControlStandType, SerializableTrain, Train } from '@/lib/trains';
+import { ControlStandType, getDistanceToNextStop, SerializableTrain, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
 import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
@@ -9,7 +9,6 @@ import { FROM_CLIENT_SET_PROP, SaveDataType, toSerializableSaveData, trainTypeId
 import { gameState } from '@/lib/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
-import { getDistance } from '@/lib/tracks';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -22,21 +21,14 @@ function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, 
   if (!train.currentDiagramId)
     return <Paper>列車ダイヤ未設定</Paper>;
 
-  const trackRoute = data.diagrams[train.currentDiagramId].routeMap[train.currentRoutesIndex][train.currentRouteIndex];
+  const trackRoute = data.diagrams[train.currentDiagramId].routeMap[train.currentRouteListIndex][train.currentRouteIndex];
 
-  let distance: number | undefined;
-  const pointOnTrack = train.bogies[0].axles[0].pointOnTrack;
-  for (let i = 0; i < trackRoute.trackIds.length; i++) {
-    if (trackRoute.trackIds[i] === pointOnTrack.trackId) {
-      distance = getDistance(data, trackRoute.trackIds, trackRoute.stopOffset, pointOnTrack.length, i);
-      break;
-    }
-  }
+  const distance = getDistanceToNextStop(data, train, trackRoute);
 
   return <Paper>
     {
       /*`列車ダイヤ: ${train.currentDiagramId}, ${train.currentDiagramCurveIndex}, `
-      + */`次は: ${trackRoute.toDisplayName || `(${train.currentRoutesIndex}, ${train.currentRouteIndex})`}`
+      + */`次は: ${trackRoute.toDisplayName || `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}`
       + (distance === undefined ? "" : `, あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (controlStand?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
     }
   </Paper>;

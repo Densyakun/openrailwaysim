@@ -292,11 +292,11 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       }
     }
   } else if (diagramsTabPanelState.routeMap.length) {
-    const trackRoutes = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex];
+    const routeList = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex];
 
-    for (let i = 0; i < trackRoutes.length; i++) {
+    for (let i = 0; i < routeList.length; i++) {
       if (diagramsTabPanelState.selectingRouteIndex < 0 || i === diagramsTabPanelState.selectingRouteIndex) {
-        const trackRoute = trackRoutes[i];
+        const trackRoute = routeList[i];
 
         if (trackRoute.trackIds.includes(trackId)) color = "#f0f";
 
@@ -396,7 +396,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       </>}
     {guiState.selectedTab === "diagrams" &&
       diagramsTabPanelState.editingRouteMapsInDiagramId &&
-      0 <= diagramsTabPanelState.selectingRoutesIndex && <>
+      0 <= diagramsTabPanelState.selectingRouteListIndex && <>
         <Line
           points={points}
           lineWidth={48}
@@ -405,7 +405,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
           onPointerOver={() => {
             if (!diagramsTabPanelState.tracksIsEditing) return;
 
-            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex][diagramsTabPanelState.selectingRouteIndex];
             if (trackRoute.trackIds.length) return;
 
             tracksState.hoveredTracks.push(trackId);
@@ -413,7 +413,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
           onPointerMove={e => {
             if (!diagramsTabPanelState.routeMap || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
-            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex][diagramsTabPanelState.selectingRouteIndex];
             if (diagramsTabPanelState.tracksIsEditing
               ? trackRoute.trackIds.length
               : trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
@@ -438,7 +438,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
           onClick={() => {
             if (!diagramsTabPanelState.routeMap || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
-            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex][diagramsTabPanelState.selectingRouteIndex];
+            const trackRoute = diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex][diagramsTabPanelState.selectingRouteIndex];
             if (diagramsTabPanelState.tracksIsEditing) {
               if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
 

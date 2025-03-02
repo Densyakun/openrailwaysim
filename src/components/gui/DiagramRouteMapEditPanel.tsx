@@ -36,22 +36,22 @@ export default function DiagramRouteMapEditPanel() {
     {tracksIsEditing
       ? <EditTracksInDiagramPanel />
       : 0 <= selectingRouteIndex
-        ? <RoutesEditor />
+        ? <RouteListEditor />
         : <DiagramRouteMapEditor />}
   </Paper>;
 }
 
-function AddRoutesButton() {
+function AddRouteListButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() =>
     diagramsTabPanelState.routeMap.push([])
   }>
-    Add routes
+    Add route list
   </Button>;
 }
 
 function AddRouteButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() =>
-    diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRoutesIndex].push({
+    diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex].push({
       toDisplayName: "",
       toTimezone: "",
       trackIds: [],
@@ -66,13 +66,13 @@ function DiagramRouteMapEditor() {
   const {
     editingRouteMapsInDiagramId,
     routeMap,
-    selectingRoutesIndex,
+    selectingRouteListIndex,
   } = useSnapshot(diagramsTabPanelState);
 
   const [changed, setChanged] = useState(true);
   useEffect(() => setChanged(true), [routeMap]);
 
-  const invalidRoutesIndex = routeMap.findIndex(routes => !routes.length || routes.find(route => !route.trackIds.length));
+  const invalidRouteListIndex = routeMap.findIndex(routeList => !routeList.length || routeList.find(route => !route.trackIds.length));
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -89,26 +89,26 @@ function DiagramRouteMapEditor() {
     {routeMap.length
       ? <Stack spacing={1}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h6" gutterBottom>Editing route lists {selectingRoutesIndex + 1} / {routeMap.length}</Typography>
+          <Typography variant="h6" gutterBottom>Editing route lists {selectingRouteListIndex + 1} / {routeMap.length}</Typography>
           <ButtonGroup variant="contained">
             <Button variant='contained' onClick={() =>
-              diagramsTabPanelState.selectingRoutesIndex = selectingRoutesIndex === 0
+              diagramsTabPanelState.selectingRouteListIndex = selectingRouteListIndex === 0
                 ? routeMap.length - 1
-                : selectingRoutesIndex - 1
+                : selectingRouteListIndex - 1
             }>
               {"<"}
             </Button>
             <Button variant='contained' onClick={() =>
-              diagramsTabPanelState.selectingRoutesIndex = selectingRoutesIndex === routeMap.length - 1
+              diagramsTabPanelState.selectingRouteListIndex = selectingRouteListIndex === routeMap.length - 1
                 ? 0
-                : selectingRoutesIndex + 1
+                : selectingRouteListIndex + 1
             }>
               {">"}
             </Button>
           </ButtonGroup>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
-          <AddRoutesButton />
+          <AddRouteListButton />
           <Button variant="contained" onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = 0
           }>
@@ -119,20 +119,20 @@ function DiagramRouteMapEditor() {
       : <Alert
         severity="error"
         action={
-          <AddRoutesButton />
+          <AddRouteListButton />
         }
       >
         軌道ルートを追加してください
       </Alert>
     }
-    {0 <= invalidRoutesIndex && <Alert
+    {0 <= invalidRouteListIndex && <Alert
       severity="error"
     >
-      {`Routes ${invalidRoutesIndex + 1} に軌道ルートを設定してください`}
+      {`Route list ${invalidRouteListIndex + 1} に軌道ルートを設定してください`}
     </Alert>
     }
     <Button variant="contained" startIcon={<SaveIcon />}
-      disabled={!changed || !routeMap.length || 0 <= invalidRoutesIndex}
+      disabled={!changed || !routeMap.length || 0 <= invalidRouteListIndex}
       onClick={() => {
         socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
           ["diagrams", editingRouteMapsInDiagramId, "routeMap"],
@@ -145,17 +145,17 @@ function DiagramRouteMapEditor() {
   </Stack>;
 }
 
-function RoutesEditor() {
+function RouteListEditor() {
   const { toDisplayName, toTimezone, stopOffset } = useSnapshot(formState, { sync: true });
   const {
     routeMap,
-    selectingRoutesIndex,
+    selectingRouteListIndex,
     selectingRouteIndex,
   } = useSnapshot(diagramsTabPanelState);
 
   useEffect(() => {
-    if (!routeMap[selectingRoutesIndex].length) return;
-    formState.stopOffset = routeMap[selectingRoutesIndex][selectingRouteIndex].stopOffset.toString();
+    if (!routeMap[selectingRouteListIndex].length) return;
+    formState.stopOffset = routeMap[selectingRouteListIndex][selectingRouteIndex].stopOffset.toString();
   }, [routeMap, selectingRouteIndex]);
 
   return <Stack spacing={1}>
@@ -165,18 +165,18 @@ function RoutesEditor() {
       }>
         Back
       </Button>
-      {Boolean(routeMap[selectingRoutesIndex].length) && <>
-        <Typography variant="h6" gutterBottom>Editing route {selectingRouteIndex + 1} / {routeMap[selectingRoutesIndex].length} in {selectingRoutesIndex + 1}</Typography>
+      {Boolean(routeMap[selectingRouteListIndex].length) && <>
+        <Typography variant="h6" gutterBottom>Editing route {selectingRouteIndex + 1} / {routeMap[selectingRouteListIndex].length} in {selectingRouteListIndex + 1}</Typography>
         <ButtonGroup variant="contained">
           <Button variant='contained' onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = selectingRouteIndex === 0
-              ? routeMap[selectingRoutesIndex].length - 1
+              ? routeMap[selectingRouteListIndex].length - 1
               : selectingRouteIndex - 1
           }>
             {"<"}
           </Button>
           <Button variant='contained' onClick={() =>
-            diagramsTabPanelState.selectingRouteIndex = selectingRouteIndex === routeMap[selectingRoutesIndex].length - 1
+            diagramsTabPanelState.selectingRouteIndex = selectingRouteIndex === routeMap[selectingRouteListIndex].length - 1
               ? 0
               : selectingRouteIndex + 1
           }>
@@ -185,7 +185,7 @@ function RoutesEditor() {
         </ButtonGroup>
         <Stack direction="row" spacing={1} alignItems="center">
           <AddRouteButton />
-          <Button variant="contained" startIcon={<RouteIcon />} disabled={!routeMap[selectingRoutesIndex].length} onClick={() => {
+          <Button variant="contained" startIcon={<RouteIcon />} disabled={!routeMap[selectingRouteListIndex].length} onClick={() => {
             diagramsTabPanelState.tracksIsEditing = true;
             onUpdateTrackList();
           }}>
@@ -194,7 +194,7 @@ function RoutesEditor() {
         </Stack>
       </>}
     </Stack>
-    {routeMap[selectingRoutesIndex].length
+    {routeMap[selectingRouteListIndex].length
       ? <>
         <TextField
           label="To display name"
@@ -202,7 +202,7 @@ function RoutesEditor() {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             formState.toDisplayName = event.target.value;
 
-            diagramsTabPanelState.routeMap[selectingRoutesIndex][selectingRouteIndex].toDisplayName = event.target.value;
+            diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].toDisplayName = event.target.value;
           }}
         />
         {!toTimezone && <Alert severity="info">
@@ -214,10 +214,10 @@ function RoutesEditor() {
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
             formState.toTimezone = event.target.value;
 
-            diagramsTabPanelState.routeMap[selectingRoutesIndex][selectingRouteIndex].toTimezone = event.target.value;
+            diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].toTimezone = event.target.value;
           }}
         />
-        {routeMap[selectingRoutesIndex][selectingRouteIndex].trackIds.length && <Alert severity="info">
+        {routeMap[selectingRouteListIndex][selectingRouteIndex].trackIds.length && <Alert severity="info">
           {`最後の軌道を選択すると Stop offset を設定できます`}
         </Alert>}
         <TextField
@@ -228,7 +228,7 @@ function RoutesEditor() {
             const value = parseFloat(event.target.value);
             if (Number.isNaN(value)) return;
 
-            diagramsTabPanelState.routeMap[selectingRoutesIndex][selectingRouteIndex].stopOffset = value;
+            diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].stopOffset = value;
           }}
         />
       </>

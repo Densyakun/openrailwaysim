@@ -236,7 +236,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRoutesIndex,
+      currentRouteListIndex,
       currentRouteIndex,
     }: Train = value;
 
@@ -249,7 +249,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRoutesIndex,
+      currentRouteListIndex,
       currentRouteIndex,
     } as SerializableTrain;
   } else if (type === bogieArrayTypeId) {
@@ -490,7 +490,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRoutesIndex,
+      currentRouteListIndex,
       currentRouteIndex,
     }: SerializableTrain = value;
 
@@ -506,7 +506,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
 
     train.currentDiagramId = currentDiagramId;
     train.currentDiagramCurveIndex = currentDiagramCurveIndex;
-    train.currentRoutesIndex = currentRoutesIndex;
+    train.currentRouteListIndex = currentRouteListIndex;
     train.currentRouteIndex = currentRouteIndex;
 
     return train;

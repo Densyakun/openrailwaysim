@@ -54,7 +54,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
               push()
             } else if (path[2] === "currentDiagramCurveIndex") {
               push()
-            } else if (path[2] === "currentRoutesIndex") {
+            } else if (path[2] === "currentRouteListIndex") {
               push()
             } else if (path[2] === "currentRouteIndex") {
               push()

@@ -13,7 +13,7 @@ export type DiagramTrackRoute = {
 /**
  * デフォルトの停止位置許容範囲
  */
-export const defaultStopRange = 1;
+export const DEFAULT_STOP_RANGE = 1;
 
 /**
  * 路線、方向単位の列車ダイヤ。上りと下りで分けるのが望ましい
@@ -115,21 +115,11 @@ export function assignSchedulesToTrains(data: SaveDataType) {
         // 始発駅のインデックス
         const firstStopIndex = diagramCurve.passTime.findIndex(time => time !== ROUTE_NOT_VIA);
 
-        const trackRoutes = diagram.routeMap[firstStopIndex];
-        if (0 <= diagramCurve.scheduledRouteIndexes[firstStopIndex]) {
-          const routeIndex = diagramCurve.scheduledRouteIndexes[firstStopIndex];
-          return trackRoutes[routeIndex].trackIds.includes(pointOnTrack.trackId) ? routeIndex : -1;
-        } else {
-          for (let routeIndex = 0; routeIndex < trackRoutes.length; routeIndex++) {
-            if (trackRoutes[routeIndex].trackIds.includes(pointOnTrack.trackId))
-              return routeIndex;
-          }
-          return -1;
-        }
+        return getRouteIndex(diagram.routeMap, diagramCurve, firstStopIndex, pointOnTrack.trackId);
       });
     });
 
-    // 運行条件を満たす最も早い発車時刻のダイヤを割り当てる
+    // 運行条件を満たす最も早い発車時刻のダイヤを求める
     let routeMapId = "";
     let diagramCurveIndex = -1;
     let firstStopIndex = 0;
@@ -161,9 +151,28 @@ export function assignSchedulesToTrains(data: SaveDataType) {
       });
     }
 
+    if (!routeMapId) return;
+
     train.currentDiagramId = routeMapId;
     train.currentDiagramCurveIndex = diagramCurveIndex;
-    train.currentRoutesIndex = firstStopIndex;
+    train.currentRouteListIndex = firstStopIndex;
     train.currentRouteIndex = routeIndex;
+  }
+}
+
+/**
+ * diagramCurve の routeList から trackId を含む軌道ルートのインデックスを求める。 scheduledRouteIndexes があればそれを優先する
+ */
+export function getRouteIndex(routeMap: DiagramTrackRoute[][], diagramCurve: TrainDiagramCurve, routeListIndex: number, trackId: string) {
+  const routeList = routeMap[routeListIndex];
+  if (0 <= diagramCurve.scheduledRouteIndexes[routeListIndex]) {
+    const routeIndex = diagramCurve.scheduledRouteIndexes[routeListIndex];
+    return routeList[routeIndex].trackIds.includes(trackId) ? routeIndex : -1;
+  } else {
+    for (let routeIndex = 0; routeIndex < routeList.length; routeIndex++) {
+      if (routeList[routeIndex].trackIds.includes(trackId))
+        return routeIndex;
+    }
+    return -1;
   }
 }

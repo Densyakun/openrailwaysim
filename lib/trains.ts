@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { SaveDataType, SerializableEuler } from "./game";
-import { PointOnTrack, TransitionCurve, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
+import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
+import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA } from "./diagram";
 
 // Resistances
 
@@ -107,7 +108,7 @@ export type Train = {
   motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
-  currentRoutesIndex: number;
+  currentRouteListIndex: number;
   currentRouteIndex: number;
 };
 
@@ -120,7 +121,7 @@ export type SerializableTrain = {
   motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
-  currentRoutesIndex: number;
+  currentRouteListIndex: number;
   currentRouteIndex: number;
 };
 
@@ -172,7 +173,7 @@ export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies
     motors: motors_,
     currentDiagramId: "",
     currentDiagramCurveIndex: -1,
-    currentRoutesIndex: 0,
+    currentRouteListIndex: 0,
     currentRouteIndex: 0,
   }
 
@@ -625,6 +626,48 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
 
   // Run a trains
   rollAxles(saveData, train, train.speed * delta)
+
+  // 列車の停車、通過を判定する
+  if (train.currentDiagramId) {
+    const diagram = saveData.diagrams[train.currentDiagramId];
+    const routeMap = diagram.routeMap;
+    const trackRoute = routeMap[train.currentRouteListIndex][train.currentRouteIndex];
+    const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
+
+    let isPassed = false;
+    if (diagramCurve.isPasses[train.currentRouteListIndex]) {
+      // TODO distanceは軌道の向きであるため、通過する方向で判定する
+      /*const distance = getDistanceToNextStop(saveData, train, trackRoute);
+      if (distance !== undefined && 0 < distance)
+        isPassed = true;*/
+    } else if (!train.speed) {
+      const distance = getDistanceToNextStop(saveData, train, trackRoute);
+      if (distance !== undefined && -DEFAULT_STOP_RANGE <= distance && distance <= DEFAULT_STOP_RANGE)
+        isPassed = true;
+    }
+
+    if (isPassed)
+      while (true) {
+        train.currentRouteListIndex++;
+
+        // 運行が終了したときに列車ダイヤの割り当てを解除する
+        if (routeMap.length <= train.currentRouteListIndex) {
+          train.currentDiagramId = "";
+          train.currentDiagramCurveIndex = -1;
+          train.currentRouteListIndex = 0;
+          train.currentRouteIndex = 0;
+
+          // 列車ダイヤの自動割り当てを実行する
+          assignSchedulesToTrains(saveData);
+          break;
+        }
+
+        if (diagramCurve.passTime[train.currentRouteListIndex] !== ROUTE_NOT_VIA) {
+          train.currentRouteIndex = getRouteIndex(routeMap, diagramCurve, train.currentRouteListIndex, train.bogies[0].axles[0].pointOnTrack.trackId);
+          break;
+        }
+      }
+  }
 }
 
 export function rollAxles(saveData: SaveDataType, train: Train, distance: number) {
@@ -770,4 +813,17 @@ export function getTractiveForcePerMotors(speed: number/*, fieldCoil: number*/) 
 export function getTractiveForcePerMotorsJNR103Series(speed: number/*, fieldCoil: number*/) {
   // TODO 性能曲線（力行ノッチ曲線）を追加する
   return 1125
+}
+
+export function getDistanceToNextStop(saveData: SaveDataType, train: Train, trackRoute: DiagramTrackRoute) {
+  let distance: number | undefined;
+  const pointOnTrack = train.bogies[0].axles[0].pointOnTrack;
+  for (let i = 0; i < trackRoute.trackIds.length; i++) {
+    if (trackRoute.trackIds[i] === pointOnTrack.trackId) {
+      distance = getDistance(saveData, trackRoute.trackIds, trackRoute.stopOffset, pointOnTrack.length, i);
+      break;
+    }
+  }
+
+  return distance;
 }

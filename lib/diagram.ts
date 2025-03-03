@@ -4,7 +4,9 @@ import { SaveDataType } from "./game";
  * 列車を動かすための軌道ルート
  */
 export type DiagramTrackRoute = {
+  fromDisplayName: string;
   toDisplayName: string;
+  fromTimezone: string;
   toTimezone: string;
   trackIds: string[];
   stopOffset: number;

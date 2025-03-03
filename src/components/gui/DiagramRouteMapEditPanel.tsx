@@ -11,11 +11,15 @@ import EditTracksInDiagramPanel, { onUpdateTrackList } from "./EditTracksInDiagr
 import { useEffect, useState } from "react";
 
 const formState = proxy<{
+  fromDisplayName: string;
   toDisplayName: string;
+  fromTimezone: string;
   toTimezone: string;
   stopOffset: string;
 }>({
+  fromDisplayName: "",
   toDisplayName: "",
+  fromTimezone: "",
   toTimezone: "",
   stopOffset: "",
 });
@@ -52,7 +56,9 @@ function AddRouteListButton() {
 function AddRouteButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() =>
     diagramsTabPanelState.routeMap[diagramsTabPanelState.selectingRouteListIndex].push({
+      fromDisplayName: "",
       toDisplayName: "",
+      fromTimezone: "",
       toTimezone: "",
       trackIds: [],
       stopOffset: 0,
@@ -146,7 +152,7 @@ function DiagramRouteMapEditor() {
 }
 
 function RouteListEditor() {
-  const { toDisplayName, toTimezone, stopOffset } = useSnapshot(formState, { sync: true });
+  const { fromDisplayName, toDisplayName, fromTimezone, toTimezone, stopOffset } = useSnapshot(formState, { sync: true });
   const {
     routeMap,
     selectingRouteListIndex,
@@ -197,6 +203,15 @@ function RouteListEditor() {
     {routeMap[selectingRouteListIndex].length
       ? <>
         <TextField
+          label="From display name"
+          value={fromDisplayName}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            formState.fromDisplayName = event.target.value;
+
+            diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].fromDisplayName = event.target.value;
+          }}
+        />
+        <TextField
           label="To display name"
           value={toDisplayName}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,9 +220,18 @@ function RouteListEditor() {
             diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].toDisplayName = event.target.value;
           }}
         />
-        {!toTimezone && <Alert severity="info">
+        {!fromTimezone && !toTimezone && <Alert severity="info">
           {`タイムゾーンはデフォルトで Asia/Tokyo になります`}
         </Alert>}
+        <TextField
+          label="From timezone"
+          value={fromTimezone}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+            formState.fromTimezone = event.target.value;
+
+            diagramsTabPanelState.routeMap[selectingRouteListIndex][selectingRouteIndex].fromTimezone = event.target.value;
+          }}
+        />
         <TextField
           label="To timezone"
           value={toTimezone}

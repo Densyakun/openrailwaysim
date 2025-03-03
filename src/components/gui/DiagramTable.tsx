@@ -47,7 +47,9 @@ export default function DiagramTable() {
             diagramsTabPanelState.routeMap = JSON.parse(JSON.stringify(gameState.data.diagrams[id].routeMap)) as DiagramTrackRoute[][];
             if (!diagramsTabPanelState.routeMap.length) {
               diagramsTabPanelState.routeMap = [[{
+                fromDisplayName: "",
                 toDisplayName: "",
+                fromTimezone: "",
                 toTimezone: "",
                 trackIds: [],
                 stopOffset: 0,

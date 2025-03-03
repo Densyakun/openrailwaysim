@@ -1,4 +1,5 @@
 import { SaveDataType } from "./game";
+import moment from 'moment-timezone';
 
 /**
  * 列車を動かすための軌道ルート
@@ -63,7 +64,7 @@ export type TrainDiagramCurve = {
    */
   scheduledRouteIndexes: number[];
   /**
-   * 発車時刻 (UTC、0時からのミリ秒)。省略するときはTIME_IS_NOT_SETを、経由しないルートはROUTE_NOT_VIAを設定する
+   * 発車(通過)時刻 (UTC、0時からのミリ秒)。省略するときはTIME_IS_NOT_SETを、経由しないルートはROUTE_NOT_VIAを設定する
    */
   passTime: number[];
   /**
@@ -72,6 +73,8 @@ export type TrainDiagramCurve = {
   stopTime: number[];
   isPasses: boolean[];
 };
+
+export const twelveHoursMilliseconds = 1000 * 60 * 60 * 12;
 
 /**
  * 列車編成が割り当てられていないダイヤを取得する
@@ -138,10 +141,10 @@ export function assignSchedulesToTrains(data: SaveDataType) {
         const firstStopIndex1 = diagramCurve.passTime.findIndex(time => time !== ROUTE_NOT_VIA);
 
         // 現在時刻と運行条件から発車時刻までの時間を計算する
-        let remainingSeconds1 = diagramCurve.passTime[firstStopIndex1] - data.nowDate % 86400000;
+        let remainingSeconds1 = diagramCurve.passTime[firstStopIndex1] - data.nowDate % (twelveHoursMilliseconds * 2);
 
         if (remainingSeconds1 < 0)
-          remainingSeconds1 += 86400000;
+          remainingSeconds1 += twelveHoursMilliseconds * 2;
 
         if (remainingSeconds === -1 || remainingSeconds1 < remainingSeconds) {
           routeMapId = routeMapId1;
@@ -159,6 +162,7 @@ export function assignSchedulesToTrains(data: SaveDataType) {
     train.currentDiagramCurveIndex = diagramCurveIndex;
     train.currentRouteListIndex = firstStopIndex;
     train.currentRouteIndex = routeIndex;
+    train.isStopping = true;
   }
 }
 
@@ -177,4 +181,8 @@ export function getRouteIndex(routeMap: DiagramTrackRoute[][], diagramCurve: Tra
     }
     return -1;
   }
+}
+
+export function getTimeText(date: Date, timezone: string): string {
+  return moment.tz(date, timezone || "Asia/Tokyo").format((timezone || "Asia/Tokyo") === "Asia/Tokyo" ? "HH:mm:ss" : "HH:mm:ss (z)");
 }

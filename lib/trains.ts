@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { SaveDataType, SerializableEuler } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
-import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA } from "./diagram";
+import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
 
 // Resistances
 
@@ -110,6 +110,7 @@ export type Train = {
   currentDiagramCurveIndex: number;
   currentRouteListIndex: number;
   currentRouteIndex: number;
+  isStopping: boolean;
 };
 
 export type SerializableTrain = {
@@ -123,6 +124,7 @@ export type SerializableTrain = {
   currentDiagramCurveIndex: number;
   currentRouteListIndex: number;
   currentRouteIndex: number;
+  isStopping: boolean;
 };
 
 export function getGlobalEulerOfFirstAxle(saveData: SaveDataType, axle: Axle) {
@@ -175,6 +177,7 @@ export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies
     currentDiagramCurveIndex: -1,
     currentRouteListIndex: 0,
     currentRouteIndex: 0,
+    isStopping: true,
   }
 
   calcJointsToRotateBody(train)
@@ -634,39 +637,61 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
     const trackRoute = routeMap[train.currentRouteListIndex][train.currentRouteIndex];
     const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
-    let isPassed = false;
-    if (diagramCurve.isPasses[train.currentRouteListIndex]) {
-      // TODO distanceは軌道の向きであるため、通過する方向で判定する
-      /*const distance = getDistanceToNextStop(saveData, train, trackRoute);
-      if (distance !== undefined && 0 < distance)
-        isPassed = true;*/
-    } else if (!train.speed) {
-      const distance = getDistanceToNextStop(saveData, train, trackRoute);
-      if (distance !== undefined && -DEFAULT_STOP_RANGE <= distance && distance <= DEFAULT_STOP_RANGE)
-        isPassed = true;
-    }
+    if (train.isStopping) {
+      const nowTime = saveData.nowDate % (twelveHoursMilliseconds * 2);
 
-    if (isPassed)
-      while (true) {
-        train.currentRouteListIndex++;
-
-        // 運行が終了したときに列車ダイヤの割り当てを解除する
-        if (routeMap.length <= train.currentRouteListIndex) {
-          train.currentDiagramId = "";
-          train.currentDiagramCurveIndex = -1;
-          train.currentRouteListIndex = 0;
-          train.currentRouteIndex = 0;
-
-          // 列車ダイヤの自動割り当てを実行する
-          assignSchedulesToTrains(saveData);
+      // 停車時刻を求めるため、前のルートを求める
+      let prevRouteListIndex = -1;
+      for (let i = train.currentDiagramCurveIndex - 1; 0 <= i; i--)
+        if (diagramCurve.passTime[i] !== ROUTE_NOT_VIA) {
+          prevRouteListIndex = i;
           break;
         }
 
-        if (diagramCurve.passTime[train.currentRouteListIndex] !== ROUTE_NOT_VIA) {
-          train.currentRouteIndex = getRouteIndex(routeMap, diagramCurve, train.currentRouteListIndex, train.bogies[0].axles[0].pointOnTrack.trackId);
-          break;
+      // 停車時刻と発車時刻を過ぎているか判定する
+      if (
+        (prevRouteListIndex === -1 || diagramCurve.stopTime[prevRouteListIndex] === TIME_IS_NOT_SET || (diagramCurve.stopTime[prevRouteListIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
+        && (diagramCurve.passTime[train.currentRouteListIndex] === TIME_IS_NOT_SET || (diagramCurve.passTime[train.currentRouteListIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
+      )
+        train.isStopping = false;
+    } else {
+      let isPassed = false;
+      if (diagramCurve.isPasses[train.currentRouteListIndex]) {
+        // TODO distanceは軌道の向きであるため、通過する方向で判定する
+        /*const distance = getDistanceToNextStop(saveData, train, trackRoute);
+        if (distance !== undefined && 0 < distance)
+          isPassed = true;*/
+      } else if (!train.speed) {
+        const distance = getDistanceToNextStop(saveData, train, trackRoute);
+        if (distance !== undefined && -DEFAULT_STOP_RANGE <= distance && distance <= DEFAULT_STOP_RANGE) {
+          isPassed = true;
+          train.isStopping = true;
         }
       }
+
+      if (isPassed)
+        while (true) {
+          train.currentRouteListIndex++;
+
+          // 運行が終了したときに列車ダイヤの割り当てを解除する
+          if (routeMap.length <= train.currentRouteListIndex) {
+            train.currentDiagramId = "";
+            train.currentDiagramCurveIndex = -1;
+            train.currentRouteListIndex = 0;
+            train.currentRouteIndex = 0;
+
+            // サーバー側で列車ダイヤの自動割り当てを実行する
+            if (typeof window === "undefined")
+              assignSchedulesToTrains(saveData);
+            break;
+          }
+
+          if (diagramCurve.passTime[train.currentRouteListIndex] !== ROUTE_NOT_VIA) {
+            train.currentRouteIndex = getRouteIndex(routeMap, diagramCurve, train.currentRouteListIndex, train.bogies[0].axles[0].pointOnTrack.trackId);
+            break;
+          }
+        }
+    }
   }
 }
 

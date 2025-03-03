@@ -238,6 +238,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       currentDiagramCurveIndex,
       currentRouteListIndex,
       currentRouteIndex,
+      isStopping,
     }: Train = value;
 
     return {
@@ -251,6 +252,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       currentDiagramCurveIndex,
       currentRouteListIndex,
       currentRouteIndex,
+      isStopping,
     } as SerializableTrain;
   } else if (type === bogieArrayTypeId) {
     const bogies: Bogie[] = value;
@@ -492,6 +494,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       currentDiagramCurveIndex,
       currentRouteListIndex,
       currentRouteIndex,
+      isStopping,
     }: SerializableTrain = value;
 
     const train = createTrain(
@@ -508,6 +511,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
     train.currentDiagramCurveIndex = currentDiagramCurveIndex;
     train.currentRouteListIndex = currentRouteListIndex;
     train.currentRouteIndex = currentRouteIndex;
+    train.isStopping = isStopping;
 
     return train;
   } else if (type === bogieArrayTypeId) {

@@ -58,6 +58,8 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
               push()
             } else if (path[2] === "currentRouteIndex") {
               push()
+            } else if (path[2] === "isStopping") {
+              push()
             }
           } else if (path.length === 2) {
             push()

@@ -2,13 +2,14 @@ import { useSnapshot } from 'valtio';
 import { ControlStandType, getDistanceToNextStop, SerializableTrain, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
-import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
+import { Box, Button, Paper, Stack, SxProps, Tooltip } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP, SaveDataType, toSerializableSaveData, trainTypeId } from '@/lib/game';
 import { gameState } from '@/lib/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
+import { getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
 
 const Box_ = Box as (props: {
   children?: React.ReactNode;
@@ -21,15 +22,38 @@ function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, 
   if (!train.currentDiagramId)
     return <Paper>列車ダイヤ未設定</Paper>;
 
-  const trackRoute = data.diagrams[train.currentDiagramId].routeMap[train.currentRouteListIndex][train.currentRouteIndex];
+  const diagram = data.diagrams[train.currentDiagramId];
+  const trackRoute = diagram.routeMap[train.currentRouteListIndex][train.currentRouteIndex];
+  const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
   const distance = getDistanceToNextStop(data, train, trackRoute);
 
+  // TODO 夏時間に対応するため、getTimeTextに渡すDateに日付を追加する
+  if (train.isStopping)
+    return <Paper>
+      {
+        (trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`)
+        + (diagramCurve.passTime[train.currentRouteListIndex] !== TIME_IS_NOT_SET ? ` 発車 ${getTimeText(new Date(diagramCurve.passTime[train.currentRouteListIndex]), trackRoute.fromTimezone)}` : "")
+      }
+    </Paper>;
+
+  // 通過の場合、次のルートから通過時刻を求める
+  let nextRouteListIndex = -1;
+  if (diagramCurve.isPasses[train.currentRouteListIndex])
+    for (let i = train.currentRouteListIndex; i < diagramCurve.passTime.length; i++)
+      if (diagramCurve.passTime[i] !== ROUTE_NOT_VIA) {
+        nextRouteListIndex = i;
+        break;
+      }
+
   return <Paper>
     {
-      /*`列車ダイヤ: ${train.currentDiagramId}, ${train.currentDiagramCurveIndex}, `
-      + */`次は: ${trackRoute.toDisplayName || `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}`
-      + (distance === undefined ? "" : `, あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (controlStand?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
+      `次 ${trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}`
+      + ` ${diagramCurve.isPasses[train.currentRouteListIndex]
+        ? `通過${diagramCurve.passTime[nextRouteListIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.passTime[nextRouteListIndex]), trackRoute.toTimezone)}` : ""}`
+        : `停車${diagramCurve.stopTime[train.currentRouteListIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.stopTime[train.currentRouteListIndex]), trackRoute.toTimezone)}` : ""}`
+      }`
+      + (distance === undefined ? "" : ` あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (controlStand?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
     }
   </Paper>;
 }

@@ -20,6 +20,7 @@
     "@react-three/fiber": "^8.17.10",
     "@turf/turf": "^7.1.0",
     "events": "^3.3.0",
+    "moment-timezone": "^0.5.47",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-error-boundary": "^4.1.2",

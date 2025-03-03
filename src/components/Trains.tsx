@@ -227,7 +227,7 @@ function OtherBodyModel({
       <boxGeometry args={[1, 0.3, 3]} />
       {isHovered
         ? <meshBasicMaterial color="yellow" />
-        : isActive
+        : isActive && !trainsState.activeTrainId
           ? <meshBasicMaterial color="red" />
           : <meshStandardMaterial />
       }

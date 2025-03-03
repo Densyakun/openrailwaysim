@@ -38,6 +38,8 @@ function BogieModel({
     <>
       <group ref={groupRef} {...props}>
         <mesh
+          castShadow
+          receiveShadow
           onClick={() => {
             if (trainsState.activeTrainId) return;
 
@@ -124,7 +126,12 @@ function WheelAndAxleModel({ axle, ...props }: { axle: Axle }) {
 
   return (
     <group ref={groupRef} {...props}>
-      <mesh position={[0, axle.diameter / 2, 0]} rotation={[axle.rotationX, 0, Math.PI / 2]}>
+      <mesh
+        castShadow
+        receiveShadow
+        position={[0, axle.diameter / 2, 0]}
+        rotation={[axle.rotationX, 0, Math.PI / 2]}
+      >
         <cylinderGeometry args={[axle.diameter / 2, axle.diameter / 2, 1.267, 8]} />
         <meshStandardMaterial />
       </mesh>
@@ -158,6 +165,8 @@ function OtherBodyModel({
   return (
     <mesh
       ref={meshRef}
+      castShadow
+      receiveShadow
       onClick={() => {
         if (trainsState.activeTrainId) return;
 

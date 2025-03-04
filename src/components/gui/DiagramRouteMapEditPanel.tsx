@@ -161,7 +161,11 @@ function RouteListEditor() {
 
   useEffect(() => {
     if (!routeMap[selectingRouteListIndex].length) return;
-    formState.stopOffset = routeMap[selectingRouteListIndex][selectingRouteIndex].stopOffset.toString();
+    formState.fromDisplayName = routeMap[selectingRouteListIndex][selectingRouteIndex].fromDisplayName;
+    formState.toDisplayName = routeMap[selectingRouteListIndex][selectingRouteIndex].toDisplayName;
+    formState.fromTimezone = routeMap[selectingRouteListIndex][selectingRouteIndex].fromTimezone;
+    formState.toTimezone = routeMap[selectingRouteListIndex][selectingRouteIndex].toTimezone;
+    formState.stopOffset = String(routeMap[selectingRouteListIndex][selectingRouteIndex].stopOffset);
   }, [routeMap, selectingRouteIndex]);
 
   return <Stack spacing={1}>

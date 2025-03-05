@@ -14,17 +14,17 @@ const formState = proxy<{
   scheduledRouteIndex: string;
   passTime: string;
   stopTime: string;
-  isPasses: string;
+  isPasses: boolean;
 }>({
   scheduledRouteIndex: "",
   passTime: "",
   stopTime: "",
-  isPasses: "",
+  isPasses: false,
 });
 
 export default function DiagramCurveEditPanel() {
   const {
-    selectingStationIndex,
+    selectingRouteListIndexInDiagramCurve,
   } = useSnapshot(diagramsTabPanelState);
 
   return <Paper sx={{
@@ -34,8 +34,8 @@ export default function DiagramCurveEditPanel() {
     maxHeight: "25%",
     overflow: "auto",
   }}>
-    {0 <= selectingStationIndex
-      ? <StationEditor />
+    {0 <= selectingRouteListIndexInDiagramCurve
+      ? <SectionEditor />
       : <DiagramCurveEditor />}
   </Paper>;
 }
@@ -91,7 +91,7 @@ function DiagramCurveEditor() {
     </Stack>
     <Stack spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="h6" gutterBottom>Editing diagram curves {selectingDiagramCurveIndex + 1} / {diagramCurves.length}</Typography>
+        <Typography variant="h6" gutterBottom>Editing diagram curve {selectingDiagramCurveIndex + 1} / {diagramCurves.length}</Typography>
         <ButtonGroup variant="contained">
           <Button variant='contained' disabled={!diagramCurves.length} onClick={() =>
             diagramsTabPanelState.selectingDiagramCurveIndex = selectingDiagramCurveIndex <= 0
@@ -110,7 +110,7 @@ function DiagramCurveEditor() {
         </ButtonGroup>
         <AddCurveButton />
         <Button variant="contained" disabled={!diagramCurves.length} onClick={() =>
-          diagramsTabPanelState.selectingStationIndex = 0
+          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = 0
         }>
           Edit
         </Button>
@@ -125,86 +125,82 @@ function DiagramCurveEditor() {
   </Stack>;
 }
 
-function StationEditor() {
+function SectionEditor() {
   const { scheduledRouteIndex, passTime, stopTime, isPasses } = useSnapshot(formState, { sync: true });
   const {
     diagramCurves,
     selectingDiagramCurveIndex,
-    selectingStationIndex,
+    selectingRouteListIndexInDiagramCurve,
   } = useSnapshot(diagramsTabPanelState);
 
   useEffect(() => {
     const diagramCurve = diagramCurves[selectingDiagramCurveIndex];
     //if (!diagramCurve.scheduledRouteIndexes.length) return;
-    formState.scheduledRouteIndex = selectingStationIndex === 0 ? "" : diagramCurve.scheduledRouteIndexes[selectingStationIndex - 1].toString();
-    formState.passTime = selectingStationIndex === diagramCurve.scheduledRouteIndexes.length ? "" : diagramCurve.passTime[selectingStationIndex].toString();
-    formState.stopTime = selectingStationIndex === 0 ? "" : diagramCurve.stopTime[selectingStationIndex - 1].toString();
-    formState.isPasses = selectingStationIndex === 0 ? "" : diagramCurve.isPasses[selectingStationIndex - 1].toString();
-  }, [diagramCurves, selectingDiagramCurveIndex, selectingStationIndex]);
+    formState.scheduledRouteIndex = diagramCurve.scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve].toString();
+    formState.passTime = diagramCurve.passTime[selectingRouteListIndexInDiagramCurve].toString();
+    formState.stopTime = diagramCurve.stopTime[selectingRouteListIndexInDiagramCurve].toString();
+    //formState.isPasses = selectingStationIndex === 0 ? "" : diagramCurve.isPasses[selectingStationIndex - 1].toString();
+  }, [diagramCurves, selectingDiagramCurveIndex, selectingRouteListIndexInDiagramCurve]);
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
-        diagramsTabPanelState.selectingStationIndex = -1
+        diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = -1
       }>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing station {selectingStationIndex + 1} / {diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes.length + 1} in {selectingDiagramCurveIndex + 1}</Typography>
+      <Typography variant="h6" gutterBottom>Editing section {selectingRouteListIndexInDiagramCurve + 1} / {diagramCurves[selectingDiagramCurveIndex].passTime.length} in {selectingDiagramCurveIndex + 1}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() =>
-          diagramsTabPanelState.selectingStationIndex = selectingStationIndex === 0
-            ? diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes.length
-            : selectingStationIndex - 1
+          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = selectingRouteListIndexInDiagramCurve === 0
+            ? diagramCurves[selectingDiagramCurveIndex].passTime.length - 1
+            : selectingRouteListIndexInDiagramCurve - 1
         }>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() =>
-          diagramsTabPanelState.selectingStationIndex = selectingStationIndex === diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes.length
+          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = selectingRouteListIndexInDiagramCurve === diagramCurves[selectingDiagramCurveIndex].passTime.length - 1
             ? 0
-            : selectingStationIndex + 1
+            : selectingRouteListIndexInDiagramCurve + 1
         }>
           {">"}
         </Button>
       </ButtonGroup>
     </Stack>
-    {selectingStationIndex !== diagramCurves[selectingDiagramCurveIndex].passTime.length && <TextField
+    {/** TODO 駅名、番線を表示 */}
+    {/*<Typography variant="h6" gutterBottom>{`${trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}:`}</Typography>*/}
+    <TextField
       label="Pass time"
       value={passTime}
-      disabled={selectingStationIndex === diagramCurves[selectingDiagramCurveIndex].passTime.length}
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.passTime = event.target.value;
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].passTime[selectingStationIndex] = value;
+        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].passTime[selectingRouteListIndexInDiagramCurve] = value;
       }}
-    />}
-    {selectingStationIndex !== 0 && <>
-      <TextField
-        label="Stop time"
-        value={stopTime}
-        disabled={selectingStationIndex === 0}
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-          formState.stopTime = event.target.value;
-          const value = parseInt(event.target.value);
-          if (Number.isNaN(value)) return;
+    />
+    <TextField
+      label="Stop time"
+      value={stopTime}
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        formState.stopTime = event.target.value;
+        const value = parseInt(event.target.value);
+        if (Number.isNaN(value)) return;
 
-          diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].stopTime[selectingStationIndex - 1] = value;
-        }}
-      />
-      <TextField
-        label="Scheduled route index"
-        value={scheduledRouteIndex}
-        disabled={selectingStationIndex === 0}
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-          formState.scheduledRouteIndex = event.target.value;
-          const value = parseInt(event.target.value);
-          if (Number.isNaN(value)) return;
+        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].stopTime[selectingRouteListIndexInDiagramCurve] = value;
+      }}
+    />
+    <TextField
+      label="Scheduled route index"
+      value={scheduledRouteIndex}
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        formState.scheduledRouteIndex = event.target.value;
+        const value = parseInt(event.target.value);
+        if (Number.isNaN(value)) return;
 
-          diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes[selectingStationIndex - 1] = value;
-        }}
-      />
-    </>}
-    {/** TODO 通過設定 */}
+        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve] = value;
+      }}
+    />
   </Stack>;
 }

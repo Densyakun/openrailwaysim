@@ -3,7 +3,6 @@ import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianA
 import { SaveDataType, SerializableEuler } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
-import { gameState } from "./client";
 
 // Resistances
 
@@ -660,14 +659,14 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
         // trackのEnd側にprevTrackが接続されているかどうかを求める
         const trackId = train.bogies[0].axles[0].pointOnTrack.trackId;
         const prevTrackId = trackRoute.trackIds.length < 2 ? "" : trackRoute.trackIds[trackRoute.trackIds.length - 2];
-        const track = gameState.data.tracks[trackId];
+        const track = saveData.tracks[trackId];
 
         let isConnectedFromTrackEnd = false;
         if (track.connectedFromEndIsTrack) {
           if (track.idOfTrackOrSwitchConnectedFromEnd === prevTrackId)
             isConnectedFromTrackEnd = true;
         } else {
-          const railroadSwitch = gameState.data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          const railroadSwitch = saveData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
           if (railroadSwitch.connectedTrackIds.includes(prevTrackId))
             isConnectedFromTrackEnd = true;
         }

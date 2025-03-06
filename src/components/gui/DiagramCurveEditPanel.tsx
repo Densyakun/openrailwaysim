@@ -24,7 +24,7 @@ const formState = proxy<{
 
 export default function DiagramCurveEditPanel() {
   const {
-    selectingRouteListIndexInDiagramCurve,
+    selectingDiagramSectionIndexInDiagramCurve,
   } = useSnapshot(diagramsTabPanelState);
 
   return <Paper sx={{
@@ -34,7 +34,7 @@ export default function DiagramCurveEditPanel() {
     maxHeight: "25%",
     overflow: "auto",
   }}>
-    {0 <= selectingRouteListIndexInDiagramCurve
+    {0 <= selectingDiagramSectionIndexInDiagramCurve
       ? <SectionEditor />
       : <DiagramCurveEditor />}
   </Paper>;
@@ -42,7 +42,7 @@ export default function DiagramCurveEditPanel() {
 
 function AddCurveButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
-    const stations = gameState.data.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].routeMap.length;
+    const stations = gameState.data.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].sections.length;
     diagramsTabPanelState.diagramCurves.push({
       scheduledRouteIndexes: [...Array(stations)].map(_ => -1),
       passTime: [...Array(stations)].map(_ => TIME_IS_NOT_SET),
@@ -64,7 +64,7 @@ function DiagramCurveEditor() {
   const [changed, setChanged] = useState(true);
   useEffect(() => setChanged(true), [diagramCurves]);
 
-  //const invalidRouteListIndex = routeMap.findIndex(routeList => !routeList.length || routeList.find(route => !route.trackIds.length));
+  //const invalidSectionIndex = sections.findIndex(section => !section.length || section.find(route => !route.trackIds.length));
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -78,7 +78,7 @@ function DiagramCurveEditor() {
         `Edit a diagram curve "${editingDiagramCurvesInDiagramId}"`
       }</Typography>
       <Button variant="contained" startIcon={<SaveIcon />}
-        disabled={!changed/* || 0 <= invalidRouteListIndex*/}
+        disabled={!changed/* || 0 <= invalidSectionIndex*/}
         onClick={() => {
           socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
             ["diagrams", editingDiagramCurvesInDiagramId, "diagramCurves"],
@@ -110,16 +110,16 @@ function DiagramCurveEditor() {
         </ButtonGroup>
         <AddCurveButton />
         <Button variant="contained" disabled={!diagramCurves.length} onClick={() =>
-          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = 0
+          diagramsTabPanelState.selectingDiagramSectionIndexInDiagramCurve = 0
         }>
           Edit
         </Button>
       </Stack>
     </Stack>
-    {/*0 <= invalidRouteListIndex && <Alert
+    {/*0 <= invalidSectionIndex && <Alert
       severity="error"
     >
-      {`Route list ${invalidRouteListIndex + 1} に軌道ルートを設定してください`}
+      {`Route list ${invalidSectionIndex + 1} に軌道ルートを設定してください`}
     </Alert>
     */}
   </Stack>;
@@ -129,48 +129,49 @@ function SectionEditor() {
   const { scheduledRouteIndex, passTime, stopTime, isPasses } = useSnapshot(formState, { sync: true });
   const {
     diagramCurves,
+    editingDiagramCurvesInDiagramId,
     selectingDiagramCurveIndex,
-    selectingRouteListIndexInDiagramCurve,
+    selectingDiagramSectionIndexInDiagramCurve,
   } = useSnapshot(diagramsTabPanelState);
 
   useEffect(() => {
     const diagramCurve = diagramCurves[selectingDiagramCurveIndex];
     //if (!diagramCurve.scheduledRouteIndexes.length) return;
-    formState.scheduledRouteIndex = diagramCurve.scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve].toString();
-    formState.passTime = diagramCurve.passTime[selectingRouteListIndexInDiagramCurve].toString();
-    formState.stopTime = diagramCurve.stopTime[selectingRouteListIndexInDiagramCurve].toString();
-    formState.isPasses = diagramCurve.isPasses[selectingRouteListIndexInDiagramCurve];
-  }, [diagramCurves, selectingDiagramCurveIndex, selectingRouteListIndexInDiagramCurve]);
+    formState.scheduledRouteIndex = diagramCurve.scheduledRouteIndexes[selectingDiagramSectionIndexInDiagramCurve].toString();
+    formState.passTime = diagramCurve.passTime[selectingDiagramSectionIndexInDiagramCurve].toString();
+    formState.stopTime = diagramCurve.stopTime[selectingDiagramSectionIndexInDiagramCurve].toString();
+    formState.isPasses = diagramCurve.isPasses[selectingDiagramSectionIndexInDiagramCurve];
+  }, [diagramCurves, selectingDiagramCurveIndex, selectingDiagramSectionIndexInDiagramCurve]);
 
   const diagramCurve = diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex];
+  const section = gameState.data.diagrams[editingDiagramCurvesInDiagramId].sections[selectingDiagramSectionIndexInDiagramCurve];
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
-        diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = -1
+        diagramsTabPanelState.selectingDiagramSectionIndexInDiagramCurve = -1
       }>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing section {selectingRouteListIndexInDiagramCurve + 1} / {diagramCurves[selectingDiagramCurveIndex].passTime.length} in {selectingDiagramCurveIndex + 1}</Typography>
+      <Typography variant="h6" gutterBottom>Editing section {selectingDiagramSectionIndexInDiagramCurve + 1} / {diagramCurves[selectingDiagramCurveIndex].passTime.length} in {selectingDiagramCurveIndex + 1}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() =>
-          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = selectingRouteListIndexInDiagramCurve === 0
+          diagramsTabPanelState.selectingDiagramSectionIndexInDiagramCurve = selectingDiagramSectionIndexInDiagramCurve === 0
             ? diagramCurves[selectingDiagramCurveIndex].passTime.length - 1
-            : selectingRouteListIndexInDiagramCurve - 1
+            : selectingDiagramSectionIndexInDiagramCurve - 1
         }>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() =>
-          diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = selectingRouteListIndexInDiagramCurve === diagramCurves[selectingDiagramCurveIndex].passTime.length - 1
+          diagramsTabPanelState.selectingDiagramSectionIndexInDiagramCurve = selectingDiagramSectionIndexInDiagramCurve === diagramCurves[selectingDiagramCurveIndex].passTime.length - 1
             ? 0
-            : selectingRouteListIndexInDiagramCurve + 1
+            : selectingDiagramSectionIndexInDiagramCurve + 1
         }>
           {">"}
         </Button>
       </ButtonGroup>
     </Stack>
-    {/** TODO 駅名、番線を表示 */}
-    {/*<Typography variant="h6" gutterBottom>{`${trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}:`}</Typography>*/}
+    <Typography variant="h6" gutterBottom>{`"${section.fromDisplayName}"`}</Typography>
     <TextField
       label="Pass time"
       value={passTime}
@@ -179,9 +180,10 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramCurve.passTime[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.passTime[selectingDiagramSectionIndexInDiagramCurve] = value;
       }}
     />
+    <Typography variant="h6" gutterBottom>{`"${section.toDisplayName}"`}</Typography>
     <TextField
       label="Stop time"
       value={stopTime}
@@ -190,7 +192,7 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramCurve.stopTime[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.stopTime[selectingDiagramSectionIndexInDiagramCurve] = value;
       }}
     />
     <TextField
@@ -201,14 +203,19 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramCurve.scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.scheduledRouteIndexes[selectingDiagramSectionIndexInDiagramCurve] = value;
       }}
     />
-    {selectingRouteListIndexInDiagramCurve === diagramCurve.passTime.length - 1 && <Alert severity="info">
+    {0 <= diagramCurve.scheduledRouteIndexes[selectingDiagramSectionIndexInDiagramCurve] && diagramCurve.scheduledRouteIndexes[selectingDiagramSectionIndexInDiagramCurve] < section.routes.length &&
+      <Typography variant="h6" gutterBottom>
+        {`"${section.routes[diagramCurve.scheduledRouteIndexes[selectingDiagramSectionIndexInDiagramCurve]].toPlatformName}"`}
+      </Typography>
+    }
+    {selectingDiagramSectionIndexInDiagramCurve === diagramCurve.passTime.length - 1 && <Alert severity="info">
       {`終点は通過できません`}
     </Alert>}
-    <FormControlLabel control={<Checkbox size="small" checked={isPasses} disabled={selectingRouteListIndexInDiagramCurve === diagramCurve.passTime.length - 1} onChange={event => {
-      diagramCurve.isPasses[selectingRouteListIndexInDiagramCurve] =
+    <FormControlLabel control={<Checkbox size="small" checked={isPasses} disabled={selectingDiagramSectionIndexInDiagramCurve === diagramCurve.passTime.length - 1} onChange={event => {
+      diagramCurve.isPasses[selectingDiagramSectionIndexInDiagramCurve] =
         formState.isPasses = event.target.checked;
     }} />} label="is passes" />
   </Stack>;

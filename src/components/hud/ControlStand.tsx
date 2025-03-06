@@ -23,7 +23,8 @@ function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, 
     return <Paper>列車ダイヤ未設定</Paper>;
 
   const diagram = data.diagrams[train.currentDiagramId];
-  const trackRoute = diagram.routeMap[train.currentRouteListIndex][train.currentRouteIndex];
+  const section = diagram.sections[train.currentDiagramSectionIndex];
+  const trackRoute = section.routes[train.currentRouteIndex];
   const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
   const distance = getDistanceToNextStop(data, train, trackRoute);
@@ -32,26 +33,26 @@ function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, 
   if (train.isStopping)
     return <Paper>
       {
-        (trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`)
-        + (diagramCurve.passTime[train.currentRouteListIndex] !== TIME_IS_NOT_SET ? ` 発車 ${getTimeText(new Date(diagramCurve.passTime[train.currentRouteListIndex]), trackRoute.fromTimezone)}` : "")
+        `"${section.fromDisplayName}" ${trackRoute.fromPlatformName}`
+        + (diagramCurve.passTime[train.currentDiagramSectionIndex] !== TIME_IS_NOT_SET ? ` 発車 ${getTimeText(new Date(diagramCurve.passTime[train.currentDiagramSectionIndex]), section.fromTimezone)}` : "")
       }
     </Paper>;
 
   // 通過の場合、次のルートから通過時刻を求める
-  let nextRouteListIndex = -1;
-  if (diagramCurve.isPasses[train.currentRouteListIndex])
-    for (let i = train.currentRouteListIndex; i < diagramCurve.passTime.length; i++)
+  let nextSectionIndex = -1;
+  if (diagramCurve.isPasses[train.currentDiagramSectionIndex])
+    for (let i = train.currentDiagramSectionIndex; i < diagramCurve.passTime.length; i++)
       if (diagramCurve.passTime[i] !== ROUTE_NOT_VIA) {
-        nextRouteListIndex = i;
+        nextSectionIndex = i;
         break;
       }
 
   return <Paper>
     {
-      `次 ${trackRoute.toDisplayName ? `"${trackRoute.toDisplayName}"` : `(${train.currentRouteListIndex}, ${train.currentRouteIndex})`}`
-      + ` ${diagramCurve.isPasses[train.currentRouteListIndex]
-        ? `通過${diagramCurve.passTime[nextRouteListIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.passTime[nextRouteListIndex]), trackRoute.toTimezone)}` : ""}`
-        : `停車${diagramCurve.stopTime[train.currentRouteListIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.stopTime[train.currentRouteListIndex]), trackRoute.toTimezone)}` : ""}`
+      `次 "${section.toDisplayName}" ${trackRoute.toPlatformName}`
+      + ` ${diagramCurve.isPasses[train.currentDiagramSectionIndex]
+        ? `通過${diagramCurve.passTime[nextSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.passTime[nextSectionIndex]), section.toTimezone)}` : ""}`
+        : `停車${diagramCurve.stopTime[train.currentDiagramSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.stopTime[train.currentDiagramSectionIndex]), section.toTimezone)}` : ""}`
       }`
       + (distance === undefined ? "" : ` あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (controlStand?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
     }

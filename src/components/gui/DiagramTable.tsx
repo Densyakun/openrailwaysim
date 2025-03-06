@@ -9,7 +9,7 @@ import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/mate
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { diagramsTabPanelState, resetEditingDiagramState } from '@/lib/client/diagrams';
-import { Diagram, DiagramTrackRoute } from '@/lib/diagram';
+import { Diagram, DiagramSection, DiagramTrackRoute } from '@/lib/diagram';
 
 export default function DiagramTable() {
   useSnapshot(gameState.data);
@@ -43,17 +43,21 @@ export default function DiagramTable() {
         <Tooltip title="Edit route maps" disableInteractive>
           <IconButton edge="end" onClick={() => {
             resetEditingDiagramState();
-            diagramsTabPanelState.editingRouteMapsInDiagramId = id;
-            diagramsTabPanelState.routeMap = JSON.parse(JSON.stringify(gameState.data.diagrams[id].routeMap)) as DiagramTrackRoute[][];
-            if (!diagramsTabPanelState.routeMap.length) {
-              diagramsTabPanelState.routeMap = [[{
+            diagramsTabPanelState.editingSectionsInDiagramId = id;
+            diagramsTabPanelState.sections = JSON.parse(JSON.stringify(gameState.data.diagrams[id].sections)) as DiagramSection[];
+            if (!diagramsTabPanelState.sections.length) {
+              diagramsTabPanelState.sections = [{
+                routes: [{
+                  trackIds: [],
+                  stopOffset: 0,
+                  fromPlatformName: "",
+                  toPlatformName: "",
+                }],
                 fromDisplayName: "",
                 toDisplayName: "",
                 fromTimezone: "",
                 toTimezone: "",
-                trackIds: [],
-                stopOffset: 0,
-              }]];
+              }];
             }
           }}>
             <RouteIcon />
@@ -81,7 +85,7 @@ export default function DiagramTable() {
         ] : [
           ["diagrams", inputs.id],
           gameState.data.diagrams[inputs.id] || {
-            routeMap: [],
+            sections: [],
             trainGroups: [],
             diagramCurves: [],
             country: "",

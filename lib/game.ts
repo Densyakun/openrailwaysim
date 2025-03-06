@@ -236,7 +236,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRouteListIndex,
+      currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
     }: Train = value;
@@ -250,7 +250,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRouteListIndex,
+      currentDiagramSectionIndex: currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
     } as SerializableTrain;
@@ -492,7 +492,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentRouteListIndex,
+      currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
     }: SerializableTrain = value;
@@ -509,7 +509,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
 
     train.currentDiagramId = currentDiagramId;
     train.currentDiagramCurveIndex = currentDiagramCurveIndex;
-    train.currentRouteListIndex = currentRouteListIndex;
+    train.currentDiagramSectionIndex = currentDiagramSectionIndex;
     train.currentRouteIndex = currentRouteIndex;
     train.isStopping = isStopping;
 

@@ -109,7 +109,7 @@ export type Train = {
   motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
-  currentRouteListIndex: number;
+  currentDiagramSectionIndex: number;
   currentRouteIndex: number;
   isStopping: boolean;
 };
@@ -123,7 +123,7 @@ export type SerializableTrain = {
   motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
-  currentRouteListIndex: number;
+  currentDiagramSectionIndex: number;
   currentRouteIndex: number;
   isStopping: boolean;
 };
@@ -176,7 +176,7 @@ export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies
     motors: motors_,
     currentDiagramId: "",
     currentDiagramCurveIndex: -1,
-    currentRouteListIndex: 0,
+    currentDiagramSectionIndex: 0,
     currentRouteIndex: 0,
     isStopping: true,
   }
@@ -634,30 +634,29 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
   // 列車の停車、通過を判定する
   if (train.currentDiagramId) {
     const diagram = saveData.diagrams[train.currentDiagramId];
-    const routeMap = diagram.routeMap;
-    const trackRoute = routeMap[train.currentRouteListIndex][train.currentRouteIndex];
+    const trackRoute = diagram.sections[train.currentDiagramSectionIndex].routes[train.currentRouteIndex];
     const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
     if (train.isStopping) {
       const nowTime = saveData.nowDate % (twelveHoursMilliseconds * 2);
 
       // 停車時刻を求めるため、前のルートを求める
-      let prevRouteListIndex = -1;
+      let prevSectionIndex = -1;
       for (let i = train.currentDiagramCurveIndex - 1; 0 <= i; i--)
         if (diagramCurve.passTime[i] !== ROUTE_NOT_VIA) {
-          prevRouteListIndex = i;
+          prevSectionIndex = i;
           break;
         }
 
       // 停車時刻と発車時刻を過ぎているか判定する
       if (
-        (prevRouteListIndex === -1 || diagramCurve.stopTime[prevRouteListIndex] === TIME_IS_NOT_SET || (diagramCurve.stopTime[prevRouteListIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
-        && (diagramCurve.passTime[train.currentRouteListIndex] === TIME_IS_NOT_SET || (diagramCurve.passTime[train.currentRouteListIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
+        (prevSectionIndex === -1 || diagramCurve.stopTime[prevSectionIndex] === TIME_IS_NOT_SET || (diagramCurve.stopTime[prevSectionIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
+        && (diagramCurve.passTime[train.currentDiagramSectionIndex] === TIME_IS_NOT_SET || (diagramCurve.passTime[train.currentDiagramSectionIndex] - twelveHoursMilliseconds - nowTime) % (twelveHoursMilliseconds * 2) <= -twelveHoursMilliseconds)
       )
         train.isStopping = false;
     } else {
       let isPassed = false;
-      if (diagramCurve.isPasses[train.currentRouteListIndex]) {
+      if (diagramCurve.isPasses[train.currentDiagramSectionIndex]) {
         // trackのEnd側にprevTrackが接続されているかどうかを求める
         const trackId = train.bogies[0].axles[0].pointOnTrack.trackId;
         const prevTrackId = trackRoute.trackIds.length < 2 ? "" : trackRoute.trackIds[trackRoute.trackIds.length - 2];
@@ -686,13 +685,13 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
 
       if (isPassed)
         while (true) {
-          train.currentRouteListIndex++;
+          train.currentDiagramSectionIndex++;
 
           // 運行が終了したときに列車ダイヤの割り当てを解除する
-          if (routeMap.length <= train.currentRouteListIndex) {
+          if (diagram.sections.length <= train.currentDiagramSectionIndex) {
             train.currentDiagramId = "";
             train.currentDiagramCurveIndex = -1;
-            train.currentRouteListIndex = 0;
+            train.currentDiagramSectionIndex = 0;
             train.currentRouteIndex = 0;
 
             // サーバー側で列車ダイヤの自動割り当てを実行する
@@ -701,8 +700,8 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
             break;
           }
 
-          if (diagramCurve.passTime[train.currentRouteListIndex] !== ROUTE_NOT_VIA) {
-            train.currentRouteIndex = getRouteIndex(routeMap, diagramCurve, train.currentRouteListIndex, train.bogies[0].axles[0].pointOnTrack.trackId);
+          if (diagramCurve.passTime[train.currentDiagramSectionIndex] !== ROUTE_NOT_VIA) {
+            train.currentRouteIndex = getRouteIndex(diagram.sections, diagramCurve, train.currentDiagramSectionIndex, train.bogies[0].axles[0].pointOnTrack.trackId);
             break;
           }
         }

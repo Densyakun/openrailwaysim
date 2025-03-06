@@ -3,7 +3,7 @@ import { Fab, Paper, Stack, Tooltip } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
 import DiagramTable from './DiagramTable';
 import { diagramsTabPanelState } from '@/lib/client/diagrams';
-import DiagramRouteMapEditPanel from './DiagramRouteMapEditPanel';
+import DiagramSectionsEditPanel from './DiagramSectionsEditPanel';
 import DiagramCurveEditPanel from './DiagramCurveEditPanel';
 
 function DiagramsMenu() {
@@ -28,15 +28,15 @@ function DiagramsMenu() {
 export default function DiagramsTabPanel() {
   const {
     isShowTable,
-    editingRouteMapsInDiagramId,
+    editingSectionsInDiagramId,
     editingDiagramCurvesInDiagramId,
   } = useSnapshot(diagramsTabPanelState);
 
   return isShowTable
     ? editingDiagramCurvesInDiagramId
       ? <DiagramCurveEditPanel />
-      : editingRouteMapsInDiagramId
-        ? <DiagramRouteMapEditPanel />
+      : editingSectionsInDiagramId
+        ? <DiagramSectionsEditPanel />
         : <DiagramTable />
     : <DiagramsMenu />;
 }

@@ -5,12 +5,21 @@ import moment from 'moment-timezone';
  * 列車を動かすための軌道ルート
  */
 export type DiagramTrackRoute = {
+  trackIds: string[];
+  stopOffset: number;
+  fromPlatformName: string;
+  toPlatformName: string;
+};
+
+/**
+ * 前後の駅の名前、タイムゾーンと、複数の進路をまとめた駅間データ
+ */
+export type DiagramSection = {
+  routes: DiagramTrackRoute[];
   fromDisplayName: string;
   toDisplayName: string;
   fromTimezone: string;
   toTimezone: string;
-  trackIds: string[];
-  stopOffset: number;
 };
 
 /**
@@ -22,10 +31,7 @@ export const DEFAULT_STOP_RANGE = 1;
  * 路線、方向単位の列車ダイヤ。上りと下りで分けるのが望ましい
  */
 export type Diagram = {
-  /**
-   * 地点ごとの進路の軌道ルート
-   */
-  routeMap: DiagramTrackRoute[][],
+  sections: DiagramSection[],
   /**
    * 自動で列車ダイヤを割り当てるTrainGroup
    */
@@ -78,7 +84,7 @@ export const twelveHoursMilliseconds = 1000 * 60 * 60 * 12;
 
 /**
  * 列車編成が割り当てられていないダイヤを取得する
- * @returns キーにDiagramTrackRouteMapのIDを持つ、列車編成の割り当てられていないDiagramCurveのindexの配列が値のオブジェクトを返す
+ * @returns キーにDiagramのIDを持つ、列車編成の割り当てられていないDiagramCurveのindexの配列が値のオブジェクトを返す
  */
 export function getUnassignedDiagrams(data: SaveDataType) {
   const res: { [key: string]: number[] } = {};
@@ -120,19 +126,19 @@ export function assignSchedulesToTrains(data: SaveDataType) {
         // 始発駅のインデックス
         const firstStopIndex = diagramCurve.passTime.findIndex(time => time !== ROUTE_NOT_VIA);
 
-        return getRouteIndex(diagram.routeMap, diagramCurve, firstStopIndex, pointOnTrack.trackId);
+        return getRouteIndex(diagram.sections, diagramCurve, firstStopIndex, pointOnTrack.trackId);
       });
     });
 
     // 運行条件を満たす最も早い発車時刻のダイヤを求める
-    let routeMapId = "";
+    let diagramId = "";
     let diagramCurveIndex = -1;
     let firstStopIndex = 0;
     let routeIndex = 0;
     let remainingSeconds = -1;
-    for (const routeMapId1 of Object.keys(diagramRouteIndexes)) {
-      const diagram = data.diagrams[routeMapId1];
-      diagramRouteIndexes[routeMapId1].forEach((routeIndex1, diagramCurveIndex1) => {
+    for (const diagramId1 of Object.keys(diagramRouteIndexes)) {
+      const diagram = data.diagrams[diagramId1];
+      diagramRouteIndexes[diagramId1].forEach((routeIndex1, diagramCurveIndex1) => {
         if (routeIndex1 < 0) return;
 
         const diagramCurve = diagram.diagramCurves[diagramCurveIndex1];
@@ -147,7 +153,7 @@ export function assignSchedulesToTrains(data: SaveDataType) {
           remainingSeconds1 += twelveHoursMilliseconds * 2;
 
         if (remainingSeconds === -1 || remainingSeconds1 < remainingSeconds) {
-          routeMapId = routeMapId1;
+          diagramId = diagramId1;
           diagramCurveIndex = diagramCurveIndex1;
           firstStopIndex = firstStopIndex1;
           routeIndex = routeIndex1;
@@ -156,27 +162,27 @@ export function assignSchedulesToTrains(data: SaveDataType) {
       });
     }
 
-    if (!routeMapId) return;
+    if (!diagramId) return;
 
-    train.currentDiagramId = routeMapId;
+    train.currentDiagramId = diagramId;
     train.currentDiagramCurveIndex = diagramCurveIndex;
-    train.currentRouteListIndex = firstStopIndex;
+    train.currentDiagramSectionIndex = firstStopIndex;
     train.currentRouteIndex = routeIndex;
     train.isStopping = true;
   }
 }
 
 /**
- * diagramCurve の routeList から trackId を含む軌道ルートのインデックスを求める。 scheduledRouteIndexes があればそれを優先する
+ * diagramCurve の sections[sectionIndex] から trackId を含む軌道ルートのインデックスを求める。 scheduledRouteIndexes があればそれを優先する
  */
-export function getRouteIndex(routeMap: DiagramTrackRoute[][], diagramCurve: TrainDiagramCurve, routeListIndex: number, trackId: string) {
-  const routeList = routeMap[routeListIndex];
-  if (0 <= diagramCurve.scheduledRouteIndexes[routeListIndex]) {
-    const routeIndex = diagramCurve.scheduledRouteIndexes[routeListIndex];
-    return routeList[routeIndex].trackIds.includes(trackId) ? routeIndex : -1;
+export function getRouteIndex(sections: DiagramSection[], diagramCurve: TrainDiagramCurve, sectionIndex: number, trackId: string) {
+  const section = sections[sectionIndex];
+  if (0 <= diagramCurve.scheduledRouteIndexes[sectionIndex]) {
+    const routeIndex = diagramCurve.scheduledRouteIndexes[sectionIndex];
+    return section.routes[routeIndex].trackIds.includes(trackId) ? routeIndex : -1;
   } else {
-    for (let routeIndex = 0; routeIndex < routeList.length; routeIndex++) {
-      if (routeList[routeIndex].trackIds.includes(trackId))
+    for (let routeIndex = 0; routeIndex < section.routes.length; routeIndex++) {
+      if (section.routes[routeIndex].trackIds.includes(trackId))
         return routeIndex;
     }
     return -1;

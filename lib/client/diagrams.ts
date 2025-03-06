@@ -1,39 +1,39 @@
 import { proxy } from "valtio";
-import { DiagramTrackRoute, TrainDiagramCurve } from "../diagram";
+import { DiagramSection, TrainDiagramCurve } from "../diagram";
 
 export const diagramsTabPanelState = proxy<{
   isShowTable: boolean;
-  editingRouteMapsInDiagramId: string;
+  editingSectionsInDiagramId: string;
   editingTrainGroupsInDiagramId: string;
   editingDiagramCurvesInDiagramId: string;
-  routeMap: DiagramTrackRoute[][];
-  selectingRouteListIndex: number;
+  sections: DiagramSection[];
+  selectingDiagramSectionIndex: number;
   selectingRouteIndex: number;
   tracksIsEditing: boolean;
   diagramCurves: TrainDiagramCurve[];
   selectingDiagramCurveIndex: number;
-  selectingRouteListIndexInDiagramCurve: number;
+  selectingDiagramSectionIndexInDiagramCurve: number;
 }>({
   isShowTable: false,
-  editingRouteMapsInDiagramId: "",
+  editingSectionsInDiagramId: "",
   editingTrainGroupsInDiagramId: "",
   editingDiagramCurvesInDiagramId: "",
-  routeMap: [],
-  selectingRouteListIndex: 0,
+  sections: [],
+  selectingDiagramSectionIndex: 0,
   selectingRouteIndex: -1,
   tracksIsEditing: false,
   diagramCurves: [],
   selectingDiagramCurveIndex: 0,
-  selectingRouteListIndexInDiagramCurve: -1,
+  selectingDiagramSectionIndexInDiagramCurve: -1,
 });
 
 export function resetEditingDiagramState() {
-  diagramsTabPanelState.routeMap = [];
-  diagramsTabPanelState.selectingRouteListIndex = 0;
+  diagramsTabPanelState.sections = [];
+  diagramsTabPanelState.selectingDiagramSectionIndex = 0;
   diagramsTabPanelState.selectingRouteIndex = -1;
   diagramsTabPanelState.tracksIsEditing = false;
 
   diagramsTabPanelState.diagramCurves = [];
   diagramsTabPanelState.selectingDiagramCurveIndex = 0;
-  diagramsTabPanelState.selectingRouteListIndexInDiagramCurve = -1;
+  diagramsTabPanelState.selectingDiagramSectionIndexInDiagramCurve = -1;
 }

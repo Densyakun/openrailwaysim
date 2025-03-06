@@ -206,6 +206,9 @@ function RouteListEditor() {
     </Stack>
     {routeMap[selectingRouteListIndex].length
       ? <>
+        {routeMap[selectingRouteListIndex][selectingRouteIndex].trackIds.length === 1 && <Alert severity="info">
+          {`軌道が1つしかない軌道ルートでは、列車が通過できません`}
+        </Alert>}
         <TextField
           label="From display name"
           value={fromDisplayName}

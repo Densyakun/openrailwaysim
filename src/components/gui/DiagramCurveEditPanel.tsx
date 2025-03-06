@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from "valtio";
-import { Button, ButtonGroup, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Button, ButtonGroup, Checkbox, FormControlLabel, Paper, Stack, TextField, Typography } from "@mui/material";
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -139,8 +139,10 @@ function SectionEditor() {
     formState.scheduledRouteIndex = diagramCurve.scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve].toString();
     formState.passTime = diagramCurve.passTime[selectingRouteListIndexInDiagramCurve].toString();
     formState.stopTime = diagramCurve.stopTime[selectingRouteListIndexInDiagramCurve].toString();
-    //formState.isPasses = selectingStationIndex === 0 ? "" : diagramCurve.isPasses[selectingStationIndex - 1].toString();
+    formState.isPasses = diagramCurve.isPasses[selectingRouteListIndexInDiagramCurve];
   }, [diagramCurves, selectingDiagramCurveIndex, selectingRouteListIndexInDiagramCurve]);
+
+  const diagramCurve = diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex];
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -177,7 +179,7 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].passTime[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.passTime[selectingRouteListIndexInDiagramCurve] = value;
       }}
     />
     <TextField
@@ -188,7 +190,7 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].stopTime[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.stopTime[selectingRouteListIndexInDiagramCurve] = value;
       }}
     />
     <TextField
@@ -199,8 +201,15 @@ function SectionEditor() {
         const value = parseInt(event.target.value);
         if (Number.isNaN(value)) return;
 
-        diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex].scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve] = value;
+        diagramCurve.scheduledRouteIndexes[selectingRouteListIndexInDiagramCurve] = value;
       }}
     />
+    {selectingRouteListIndexInDiagramCurve === diagramCurve.passTime.length - 1 && <Alert severity="info">
+      {`終点は通過できません`}
+    </Alert>}
+    <FormControlLabel control={<Checkbox size="small" checked={isPasses} disabled={selectingRouteListIndexInDiagramCurve === diagramCurve.passTime.length - 1} onChange={event => {
+      diagramCurve.isPasses[selectingRouteListIndexInDiagramCurve] =
+        formState.isPasses = event.target.checked;
+    }} />} label="is passes" />
   </Stack>;
 }

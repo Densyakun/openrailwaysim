@@ -3,6 +3,7 @@ import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianA
 import { SaveDataType, SerializableEuler } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
+import { gameState } from "./client";
 
 // Resistances
 
@@ -657,10 +658,24 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
     } else {
       let isPassed = false;
       if (diagramCurve.isPasses[train.currentRouteListIndex]) {
-        // TODO distanceは軌道の向きであるため、通過する方向で判定する
-        /*const distance = getDistanceToNextStop(saveData, train, trackRoute);
-        if (distance !== undefined && 0 < distance)
-          isPassed = true;*/
+        // trackのEnd側にprevTrackが接続されているかどうかを求める
+        const trackId = train.bogies[0].axles[0].pointOnTrack.trackId;
+        const prevTrackId = trackRoute.trackIds.length < 2 ? "" : trackRoute.trackIds[trackRoute.trackIds.length - 2];
+        const track = gameState.data.tracks[trackId];
+
+        let isConnectedFromTrackEnd = false;
+        if (track.connectedFromEndIsTrack) {
+          if (track.idOfTrackOrSwitchConnectedFromEnd === prevTrackId)
+            isConnectedFromTrackEnd = true;
+        } else {
+          const railroadSwitch = gameState.data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          if (railroadSwitch.connectedTrackIds.includes(prevTrackId))
+            isConnectedFromTrackEnd = true;
+        }
+
+        const distance = getDistanceToNextStop(saveData, train, trackRoute);
+        if (distance !== undefined && (isConnectedFromTrackEnd ? 0 < distance : distance < 0))
+          isPassed = true;
       } else if (!train.speed) {
         const distance = getDistanceToNextStop(saveData, train, trackRoute);
         if (distance !== undefined && -DEFAULT_STOP_RANGE <= distance && distance <= DEFAULT_STOP_RANGE) {

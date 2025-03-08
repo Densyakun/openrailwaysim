@@ -10,9 +10,7 @@ export default function FeatureCollectionsWithDreiSegment() {
   return (
     <>
       {Object.keys(gameState.data.featureCollections).map(id =>
-        clientState.visibleFeatureCollections.includes(id)
-          ? <FeatureCollection key={id} id={id} />
-          : null
+        <FeatureCollection key={id} id={id} />
       )}
     </>
   );
@@ -78,6 +76,12 @@ function LineStringSegment({
 
   useFrame(() => {
     if (!ref.current) return;
+
+    if (!clientState.visibleFeatureCollections.includes(segment.featureCollectionId)) {
+      ref.current.start.set(0, 0, 0);
+      ref.current.end.set(0, 0, 0);
+      return;
+    }
 
     // Azimuthal equidistant projection
     const start = getRelativePosition(startCoordinate);

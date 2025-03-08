@@ -325,6 +325,14 @@ function MainMenu() {
     setOpen(newOpen);
   };
 
+  const count: { [key: string]: number } = {};
+  gisState.selectedFeatures.forEach(featureAt => {
+    if (count[featureAt.featureCollectionId] === undefined)
+      count[featureAt.featureCollectionId] = 1;
+    else
+      count[featureAt.featureCollectionId]++;
+  });
+
   return <Paper sx={{
     p: 1,
     pointerEvents: 'auto',
@@ -341,6 +349,7 @@ function MainMenu() {
           </Fab>
         </Tooltip>
         <div>Selected: {gisState.selectedFeatures.length}</div>
+        {Object.keys(count).map(key => <div key={key}> {key}: {count[key]}</div>)}
       </Stack>
       <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
         gisState.selectedFeatures.splice(0, gisState.selectedFeatures.length);

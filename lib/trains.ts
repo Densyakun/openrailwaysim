@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { getRelativePosition, eulerToCoordinate, coordinateToEuler, getMeridianAngle } from './gis';
 import { SaveDataType, SerializableEuler } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
@@ -101,7 +100,6 @@ export type Train = {
   otherJoints: Joint[]; // CarBody同士を接続するジョイント。連結器や、マレー式機関車の関節、複式ボギーの台車以外の接続に使う
   fromJointIndexes: number[];
   toJointIndexes: number[];
-  globalPosition: THREE.Euler;
   speed: number; // m/s
   weight: number; // ton
   centroidZ: number; // 第一軸から重心に近い軌道上の相対位置
@@ -126,10 +124,6 @@ export type SerializableTrain = {
   currentRouteIndex: number;
   isStopping: boolean;
 };
-
-export function getGlobalEulerOfFirstAxle(saveData: SaveDataType, axle: Axle) {
-  return coordinateToEuler(saveData.tracks[axle.pointOnTrack.trackId].centerCoordinate || [0, 0])
-}
 
 export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, motors?: number): Train {
   let weight_ = 0
@@ -168,7 +162,6 @@ export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies
     otherJoints,
     fromJointIndexes: [],
     toJointIndexes: [],
-    globalPosition: getGlobalEulerOfFirstAxle(saveData, bogies[0].axles[0]),
     speed,
     weight: weight_,
     centroidZ,
@@ -197,36 +190,14 @@ export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3)
   otherBodies.forEach(body => body.position.add(vector));
 }
 
-export function moveGlobalPositionOfTrain(train: Train, newPosition: THREE.Euler) {
-  const relativePosition = getRelativePosition(
-    eulerToCoordinate(newPosition),
-    train.globalPosition,
-    undefined,
-    0
-  );
-
-  moveTrain(train, relativePosition);
-
-  train.globalPosition = newPosition;
-}
-
-export function getAxlePosition(saveData: SaveDataType, train: Train, axle: Axle) {
+export function getAxlePosition(saveData: SaveDataType, axle: Axle) {
   const { pointOnTrack: { length } } = axle;
 
   const track = saveData.tracks[axle.pointOnTrack.trackId];
-  const axleRelativePosition = getPosition(track, length);
-
-  const globalTrackRelativePosition = getRelativePosition(
-    track.centerCoordinate,
-    train.globalPosition,
-    undefined,
-    0
-  );
-
-  return globalTrackRelativePosition.add(axleRelativePosition);
+  return getPosition(track, length);
 }
 
-export function getAxleRotation(saveData: SaveDataType, train: Train, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
+export function getAxleRotation(saveData: SaveDataType, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
   const track = saveData.tracks[pointOnTrack.trackId];
   const axleRelativeRotation = getRotation(track, pointOnTrack.length);
 
@@ -239,13 +210,13 @@ export function getAxleRotation(saveData: SaveDataType, train: Train, pointOnTra
   // 軌道の進行方向がX軸、列車の進行方向がZ軸になっている
   return new THREE.Euler(
     -axleRelativeRotation.z,
-    axleRelativeRotation.y + Math.PI / 2 + getMeridianAngle(track.centerCoordinate, train.globalPosition),
+    axleRelativeRotation.y + Math.PI / 2,
     axleRelativeRotation.x,
     'YXZ'
   );
 }
 
-export function bogieToAxles(saveData: SaveDataType, train: Train, bogie: Bogie) {
+export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
@@ -256,11 +227,11 @@ export function bogieToAxles(saveData: SaveDataType, train: Train, bogie: Bogie)
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
       lastAxlePosition.copy(
-        getAxlePosition(saveData, train, bogie.axles[index])
+        getAxlePosition(saveData, bogie.axles[index])
       )
     );
 
-    const axleRotation = getAxleRotation(saveData, train, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
+    const axleRotation = getAxleRotation(saveData, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
     rotationX += axleRotation.x;
     rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
     rotationZ += axleRotation.z;
@@ -281,7 +252,7 @@ export function bogieToAxles(saveData: SaveDataType, train: Train, bogie: Bogie)
   );
 }
 
-export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, globalPosition: THREE.Euler, position: THREE.Vector3) {
+export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, position: THREE.Vector3) {
   const track = saveData.tracks[pointOnTrack.trackId];
 
   // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
@@ -289,17 +260,10 @@ export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointO
   if ((track as TransitionCurve).endPosition !== undefined) return;
 
   // axle.pointOnTrack to track
-  const globalTrackRelativePosition = getRelativePosition(
-    track.centerCoordinate,
-    globalPosition,
-    undefined,
-    0
-  );
-
-  pointOnTrack.length = getLength(position.clone().sub(globalTrackRelativePosition), track);
+  pointOnTrack.length = getLength(position, track);
 }
 
-export function axlesToBogie(saveData: SaveDataType, train: Train, bogie: Bogie) {
+export function axlesToBogie(saveData: SaveDataType, bogie: Bogie) {
   bogie.axles.forEach(axle => {
     // axles to bogie
     axle.position.copy(new THREE.Vector3(0, 0, axle.z)
@@ -311,14 +275,13 @@ export function axlesToBogie(saveData: SaveDataType, train: Train, bogie: Bogie)
     pointOnTrackToTrack(
       saveData,
       axle.pointOnTrack,
-      train.globalPosition,
       axle.position,
     )
   });
 }
 
 export function axlesToBogies(saveData: SaveDataType, train: Train) {
-  train.bogies.forEach(bogie => axlesToBogie(saveData, train, bogie));
+  train.bogies.forEach(bogie => axlesToBogie(saveData, bogie));
 
   return train;
 }
@@ -421,18 +384,8 @@ export function calcJointsToRotateBody(train: Train) {
 export function placeOtherBodies(saveData: SaveDataType, train: Train) {
   train.otherBodies.forEach(otherBody => {
     const track = saveData.tracks[otherBody.pointOnTrack.trackId];
-    const axleRelativePosition = getPosition(track, otherBody.pointOnTrack.length);
-
-    const globalTrackRelativePosition = getRelativePosition(
-      track.centerCoordinate,
-      train.globalPosition,
-      undefined,
-      0
-    );
-
-    otherBody.position.copy(globalTrackRelativePosition.add(axleRelativePosition));
-
-    otherBody.rotation.copy(getAxleRotation(saveData, train, otherBody.pointOnTrack, false));
+    otherBody.position.copy(getPosition(track, otherBody.pointOnTrack.length));
+    otherBody.rotation.copy(getAxleRotation(saveData, otherBody.pointOnTrack, false));
   });
 }
 
@@ -488,7 +441,6 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
     pointOnTrackToTrack(
       saveData,
       fromBody.pointOnTrack,
-      train.globalPosition,
       fromBody.position,
     );
   });
@@ -565,11 +517,11 @@ export function placeTrain(saveData: SaveDataType, train: Train) {
   // 連結器の向きを反転させないため
   placeOtherBodies(saveData, train);
 
-  train.bogies.forEach(bogie => bogieToAxles(saveData, train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
 
   syncOtherBodies(saveData, train);
 
-  train.bogies.forEach(fromBogie => axlesToBogie(saveData, train, fromBogie));
+  train.bogies.forEach(fromBogie => axlesToBogie(saveData, fromBogie));
 }
 
 export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: number) {
@@ -728,7 +680,7 @@ export function rollAxles(saveData: SaveDataType, train: Train, distance: number
     });
 
     // ボギーを輪軸に合わせる
-    bogieToAxles(saveData, train, bogie);
+    bogieToAxles(saveData, bogie);
 
     newCenter.add(bogie.position);
   });
@@ -800,10 +752,10 @@ export function rollAxles(saveData: SaveDataType, train: Train, distance: number
       fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
-    axlesToBogie(saveData, train, fromBogie);
+    axlesToBogie(saveData, fromBogie);
   });
 
-  train.bogies.forEach(bogie => bogieToAxles(saveData, train, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
 }
 
 export type ControlStandType = {

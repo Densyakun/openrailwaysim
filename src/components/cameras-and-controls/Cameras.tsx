@@ -8,7 +8,7 @@ export type CameraRefs = {
   [key: string]: THREE.Camera
 }
 
-export const state = proxy<{
+export const camerasState = proxy<{
   mainCameraKey: string,
   cameraRefs: CameraRefs
 }>({
@@ -17,14 +17,14 @@ export const state = proxy<{
 })
 
 export default function Cameras() {
-  const { mainCameraKey } = useSnapshot(state)
+  const { mainCameraKey } = useSnapshot(camerasState)
   const { cameraFar } = useSnapshot(clientState)
 
   const perspectiveCameraRef = React.useCallback((perspectiveCamera: THREE.PerspectiveCamera) => {
-    state.cameraRefs["perspectiveCamera"] = perspectiveCamera
+    camerasState.cameraRefs["perspectiveCamera"] = perspectiveCamera
   }, [])
   const orthographicCameraRef = React.useCallback((orthographicCamera: THREE.OrthographicCamera) => {
-    state.cameraRefs["orthographicCamera"] = orthographicCamera
+    camerasState.cameraRefs["orthographicCamera"] = orthographicCamera
   }, [])
 
   return (

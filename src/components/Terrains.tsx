@@ -161,7 +161,7 @@ function TerrainTile({
     geometry.computeVertexNormals();
   });
 
-  return <FeatureObject centerCoordinate={merc.ll([tileX * 256, tileY * 256], terrainZoom)}>
+  return <FeatureObject coordinate={merc.ll([tileX * 256, tileY * 256], terrainZoom)}>
     <mesh castShadow receiveShadow ref={meshRef}>
       <bufferGeometry attributes={{ "position": new BufferAttribute(vertices, 3) }} />
       <meshStandardMaterial />

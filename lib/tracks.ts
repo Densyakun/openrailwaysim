@@ -1,9 +1,7 @@
 import { Position } from 'geojson';
-import { lineString } from '@turf/helpers';
 import * as THREE from 'three'
 import { SaveDataType } from './game';
-import centroid from '@turf/centroid';
-import { coordinateToEuler, getRelativePosition } from './gis';
+import { getRelativePosition } from './gis';
 import { tracksState } from './client/tracks';
 
 export type GradientsType = { [key: number]: number };
@@ -25,7 +23,6 @@ export type SerializableTrackShape = {
 };
 
 export type Track = TrackShape & {
-  centerCoordinate: Position;
   idOfTrackOrSwitchConnectedFromStart: string;
   idOfTrackOrSwitchConnectedFromEnd: string;
   connectedFromStartIsTrack: boolean;
@@ -38,7 +35,6 @@ export type Track = TrackShape & {
 };
 
 export type SerializableTrack = SerializableTrackShape & {
-  centerCoordinate: Position;
   idOfTrackOrSwitchConnectedFromStart: string;
   idOfTrackOrSwitchConnectedFromEnd: string;
   connectedFromStartIsTrack: boolean;
@@ -350,62 +346,50 @@ export function switchTrack(saveData: SaveDataType, switchId: number, newCurrent
   }
 }
 
-export function areParallel(AB: Track, CD: Track) {
-  const centerCoordinate = centroid(lineString([AB.centerCoordinate, CD.centerCoordinate])).geometry.coordinates;
-  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
+export function createStraightTrackFromLineStrings(
+  originCoordinate: Position,
+  coordinatePairs: Position[],
+  modelPaths: string[]
+) {
+  const points: THREE.Vector3[] = coordinatePairs.map(c => getRelativePosition(c, originCoordinate));
 
-  const trackCenterCoordinates = [
-    getRelativePosition(AB.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0),
-    getRelativePosition(CD.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0),
-  ];
+  const numLines = points.length / 2;
+  if (numLines < 1) throw new Error();
 
-  const pointA = trackCenterCoordinates[0].clone().add(AB.position);
-  const pointB = trackCenterCoordinates[0].clone().add(AB.position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, AB.rotationY)).multiplyScalar(AB.length)));
-  const pointC = trackCenterCoordinates[1].clone().add(CD.position);
-  const pointD = trackCenterCoordinates[1].clone().add(CD.position.clone().add(new THREE.Vector3(1).applyEuler(new THREE.Euler(0, CD.rotationY)).multiplyScalar(CD.length)));
-
-  const s = ((pointC.x - pointA.x) * (pointD.z - pointC.z) - (pointC.z - pointA.z) * (pointD.x - pointC.x))
-    / ((pointB.x - pointA.x) * (pointD.z - pointC.z) - (pointB.z - pointA.z) * (pointD.x - pointC.x));
-
-  return Number.isNaN(s);
-}
-
-export function createStraightTrackFromLineStrings(coordinatePairs: Position[], modelPaths: string[]) {
-  const centerCoordinate = centroid(lineString(coordinatePairs)).geometry.coordinates;
-  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
-
-  const points = coordinatePairs.map(coordinate => getRelativePosition(coordinate, centerCoordinateEuler, centerCoordinate, 0));
-
-  const vector = points[1].clone().sub(points[0]);
-  const rotationYA = Math.atan2(-vector.z, vector.x);
-  for (let i = 3; i < points.length; i += 2) {
-    const vector_ = points[i].clone().sub(points[i - 1]);
-    const rotationYB = Math.atan2(-vector_.z, vector_.x);
-    if (Math.round((rotationYB - rotationYA) / Math.PI / 2) === 0)
-      vector.add(vector_);
-    else
-      vector.sub(vector_);
+  const sumVec = new THREE.Vector3();
+  for (let i = 0; i < points.length; i += 2) {
+    const a = points[i];
+    const b = points[i + 1];
+    const v = b.clone().sub(a);
+    if (sumVec.lengthSq() === 0) {
+      sumVec.copy(v);
+    } else {
+      if (sumVec.dot(v) < 0) v.negate();
+      sumVec.add(v);
+    }
   }
-  vector.divideScalar(points.length - 1);
 
-  const rotationY = Math.atan2(-vector.z, vector.x);
+  const avgDir = sumVec.clone().divideScalar(numLines).normalize();
+  const rotationY = Math.atan2(-avgDir.z, avgDir.x);
 
-  let mostNegativeZ = 0;
-  let mostPositiveZ = 0;
-  points.forEach(point => {
-    const z = point.clone().applyEuler(new THREE.Euler(0, -rotationY)).x;
-    mostNegativeZ = Math.min(mostNegativeZ, z);
-    mostPositiveZ = Math.max(mostPositiveZ, z);
-  })
+  const base = points[0].clone();
+
+  let minProj = Infinity;
+  let maxProj = -Infinity;
+  points.forEach(p => {
+    const proj = p.clone().sub(base).dot(avgDir);
+    if (proj < minProj) minProj = proj;
+    if (proj > maxProj) maxProj = proj;
+  });
+
+  const startPos = base.clone().add(avgDir.clone().multiplyScalar(minProj));
+  const length = maxProj - minProj;
 
   return {
-    centerCoordinate,
-    position: vector.clone().setLength(mostNegativeZ),
+    position: startPos,
     rotationY,
-    length: mostPositiveZ - mostNegativeZ,
+    length,
     radius: 0,
-    /*startGrade: 0, // TODO grade
-    endGrade: 0,*/
     idOfTrackOrSwitchConnectedFromStart: "",
     idOfTrackOrSwitchConnectedFromEnd: "",
     connectedFromStartIsTrack: true,
@@ -446,7 +430,6 @@ export function createSerializableTrackBasedOnTrack(
   modelPaths = baseTrack.modelPaths,
 ) {
   const serializableTrack: SerializableTrack = {
-    centerCoordinate: baseTrack.centerCoordinate,
     position: getPosition(baseTrack, baseTrack.length * startLengthS).toArray(),
     length: baseTrack.length * (endLengthS - startLengthS),
     radius: baseTrack.radius,

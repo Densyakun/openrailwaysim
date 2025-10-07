@@ -1,24 +1,19 @@
-import { useOriginCoordinate } from '@/lib';
 import FeatureCollectionComponent from './FeatureCollection';
-import FeatureObject from './FeatureObject';
 import { clientState, gameState } from '@/lib/client';
 import { useSnapshot } from 'valtio';
 import { guiState } from '@/lib/client/gui';
 
 export default function FeatureCollections() {
-  const featureCollections = useSnapshot(gameState.data.featureCollections);
+  const { featureCollections } = useSnapshot(gameState.data);
   const visibleFeatureCollections = useSnapshot(clientState.visibleFeatureCollections);
   const { selectedTab } = useSnapshot(guiState);
-  const originCoordinate = useOriginCoordinate(1);
 
   return (
     <>
       {selectedTab === "featureCollections" && Object.keys(featureCollections).map(id => {
         return visibleFeatureCollections.includes(id)
           ? (
-            <FeatureObject key={id} centerCoordinate={originCoordinate}>
-              <FeatureCollectionComponent featureCollectionId={id} centerCoordinate={originCoordinate} />
-            </FeatureObject>
+            <FeatureCollectionComponent key={id} featureCollectionId={id} />
           )
           : null
       })}

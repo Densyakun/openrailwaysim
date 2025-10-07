@@ -3,10 +3,7 @@ import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
-import { coordinateToEuler, getRelativePosition } from '@/lib/gis';
-import centroid from '@turf/centroid';
 import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, connectTwoTracks, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
-import { lineString } from '@turf/helpers';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
@@ -52,16 +49,10 @@ export function updateAddingTracks() {
   const CD = curveEditMenuState.CD;
   if (!AB || !CD) return;
 
-  const centerCoordinate = centroid(lineString([AB.centerCoordinate, CD.centerCoordinate])).geometry.coordinates;
-  const centerCoordinateEuler = coordinateToEuler(centerCoordinate);
-
-  const ABCenterCoordinate = getRelativePosition(AB.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0);
-  const CDCenterCoordinate = getRelativePosition(CD.centerCoordinate, centerCoordinateEuler, centerCoordinate, 0);
-
-  const pointA = ABCenterCoordinate.clone().add(AB.position);
-  const pointB = ABCenterCoordinate.clone().add(getPosition(AB, AB.length));
-  const pointC = CDCenterCoordinate.clone().add(CD.position);
-  const pointD = CDCenterCoordinate.clone().add(getPosition(CD, CD.length));
+  const pointA = getPosition(AB, 0);
+  const pointB = getPosition(AB, AB.length);
+  const pointC = getPosition(CD, 0);
+  const pointD = getPosition(CD, CD.length);
 
   const ABVector = pointB.clone().sub(pointA);
   const CDVector = pointD.clone().sub(pointC);
@@ -219,7 +210,6 @@ export function updateAddingTracks() {
 
     return {
       ...curve,
-      centerCoordinate,
       radius: 2 <= index && index < 6 ? curveEditMenuState.curveRadius : -curveEditMenuState.curveRadius,
       idOfTrackOrSwitchConnectedFromStart: "",
       idOfTrackOrSwitchConnectedFromEnd: "",

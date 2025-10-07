@@ -1,63 +1,40 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { OrbitControls as OrbitControlsImpl, MapControls as MapControlsImpl } from 'three-stdlib'
-import { useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, MapControls } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
-import { state as cameraState } from './Cameras'
-import { Position } from 'geojson'
-import { coordinateToEuler, move, gisState } from '@/lib/gis'
+import { camerasState } from './Cameras'
+import { useFrame } from '@react-three/fiber'
 
 export type ControlsRefs = {
-  [key: string]: THREE.EventDispatcher
+  [key: string]: OrbitControlsImpl | MapControlsImpl
 }
 
-const cameraNearOnTeleport = 1;
-
-export const state = proxy<{
+export const cameraControlsState = proxy<{
   mainControlsKey: string;
   controlsRefs: ControlsRefs;
   target: THREE.Vector3;
 }>({
   mainControlsKey: "orbitControls",
   controlsRefs: ref<ControlsRefs>({}),
-  target: new THREE.Vector3(cameraNearOnTeleport)
+  target: new THREE.Vector3(),
 })
 
-export function setCameraTargetPosition(targetCoordinate: Position, targetElevation?: number) {
-  gisState.originTransform.quaternion.copy(new THREE.Quaternion().setFromEuler(coordinateToEuler(targetCoordinate)))
-  const mainControls = state.controlsRefs[state.mainControlsKey]
-  if (mainControls) {
-    const controlsTargetPosition = ((mainControls as any).target as THREE.Vector3)
-    const d = controlsTargetPosition.length();
-    move(gisState.originTransform.quaternion, -controlsTargetPosition.x, -controlsTargetPosition.z)
-    if (targetElevation !== undefined)
-      gisState.originTransform.elevation = targetElevation - controlsTargetPosition.y
-
-    state.target.setLength(d < cameraNearOnTeleport ? cameraNearOnTeleport : d);
-  }
-}
-
 export default function CameraControls() {
-  const { invalidate } = useThree()
-
-  const { controlsRefs, mainControlsKey, target } = useSnapshot(state)
-  const { cameraRefs, mainCameraKey } = useSnapshot(cameraState)
+  const { mainControlsKey } = useSnapshot(cameraControlsState)
+  const { cameraRefs, mainCameraKey } = useSnapshot(camerasState)
 
   const orbitControlsRef = React.useCallback((orbitControls: OrbitControlsImpl) => {
-    state.controlsRefs["orbitControls"] = orbitControls
+    cameraControlsState.controlsRefs["orbitControls"] = orbitControls
   }, [])
   const mapControlsRef = React.useCallback((mapControls: MapControlsImpl) => {
-    state.controlsRefs["mapControls"] = mapControls
+    cameraControlsState.controlsRefs["mapControls"] = mapControls
   }, [])
 
-  useFrame(({ }, delta) => {
-    const mainControls = controlsRefs[mainControlsKey]
-    if (mainControls) {
-      state.target = (mainControls as any).target = target;
-      (mainControls as any).update()
-      invalidate()
-    }
+  useFrame(() => {
+    const mainControls = cameraControlsState.controlsRefs[mainControlsKey]
+    if (mainControls)
+      cameraControlsState.target = (mainControls as OrbitControlsImpl).target.clone()
   })
 
   return (

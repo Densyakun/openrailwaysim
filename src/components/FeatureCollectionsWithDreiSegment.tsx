@@ -84,8 +84,8 @@ function LineStringSegment({
     }
 
     // Azimuthal equidistant projection
-    const start = getRelativePosition(startCoordinate);
-    const end = getRelativePosition(endCoordinate);
+    const start = getRelativePosition(startCoordinate, gameState.data.originCoordinate);
+    const end = getRelativePosition(endCoordinate, gameState.data.originCoordinate);
 
     ref.current.start.copy(start);
     ref.current.end.copy(end);

@@ -1,8 +1,8 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
-import { proxy, ref, useSnapshot } from 'valtio'
-import { state as camerasState } from './Cameras'
+import { proxy, ref } from 'valtio'
+import { camerasState } from './Cameras'
 
 export const state = proxy<{
   groupThatIsTracking: {

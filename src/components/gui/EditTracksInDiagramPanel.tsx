@@ -3,10 +3,9 @@ import { Alert, Button, ButtonGroup, Paper, Stack } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { gameState } from '@/lib/client';
 import { getPosition, selectConnectedTracks } from '@/lib/tracks';
-import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import { diagramsTabPanelState } from '@/lib/client/diagrams';
 import { tracksState } from '@/lib/client/tracks';
-import { gisState, move } from '@/lib/gis';
+import { setCameraTargetPosition } from '@/lib/client/camera';
 
 export const editTracksInDiagramState = proxy<{
   nextTrackIds: string[];
@@ -43,12 +42,7 @@ function focusingNextSegmentIndex() {
   const nextTrackId = editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex];
   const nextTrack = gameState.data.tracks[nextTrackId];
 
-  setCameraTargetPosition(
-    nextTrack.centerCoordinate,
-    0
-  );
-  const position = getPosition(nextTrack, nextTrack.length / 2);
-  move(gisState.originTransform.quaternion, position.x, position.z);
+  setCameraTargetPosition(getPosition(nextTrack, nextTrack.length / 2));
 }
 
 export default function EditTracksInDiagramPanel() {

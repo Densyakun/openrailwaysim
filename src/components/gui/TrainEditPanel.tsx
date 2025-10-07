@@ -11,12 +11,11 @@ import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains
 import { useEffect } from "react";
 import { createBogie, createOtherBody } from "@/lib/trainSamples";
 import { getPosition, runPointOnTrack } from "@/lib/tracks";
-import { setCameraTargetPosition } from "../cameras-and-controls/CameraControls";
-import { eulerToCoordinate, move, gisState } from "@/lib/gis";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
 import { FROM_CLIENT_SET_TRAIN, toSerializableSaveData, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
+import { setCameraTargetPosition } from "@/lib/client/camera";
 
 const formState = proxy<{
   newTrainId: string;
@@ -66,14 +65,12 @@ function focusCamera() {
     const selectedBody = trainsTabPanelState.selectedCarBodyIndex < trainsTabPanelState.axleTable.length
       ? trainsTabPanelState.editingTrain.bogies[trainsTabPanelState.selectedCarBodyIndex]
       : trainsTabPanelState.editingTrain.otherBodies[trainsTabPanelState.selectedCarBodyIndex - trainsTabPanelState.axleTable.length];
-    setCameraTargetPosition(eulerToCoordinate(trainsTabPanelState.editingTrain.globalPosition), selectedBody.position.y);
-    move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z);
+    setCameraTargetPosition(selectedBody.position);
   } else if (trainsTabPanelState.pointOnTrack) {
     // To train
     const track = gameState.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
     const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
-    setCameraTargetPosition(track.centerCoordinate, position.y);
-    move(gisState.originTransform.quaternion, position.x, position.z);
+    setCameraTargetPosition(position);
   }
 }
 

@@ -3,7 +3,7 @@ import { Button, Paper, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { gameState } from '@/lib/client';
-import { areParallel, getSelectedTracks } from '@/lib/tracks';
+import { getSelectedTracks } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
@@ -55,7 +55,7 @@ export default function TracksSubMenu() {
             const tracks = getSelectedTracks(gameState.data);
 
             // 平行の場合
-            if (areParallel(tracks[0], tracks[1])) return;
+            if (tracks[0].rotationY === tracks[1].rotationY) return;
 
             curveEditMenuState.AB = tracks[0];
             curveEditMenuState.CD = tracks[1];

@@ -1,43 +1,19 @@
 import * as React from 'react'
-import * as THREE from 'three'
-import { useFrame } from '@react-three/fiber'
 import { Position } from 'geojson'
-import { getRelativePosition, getOriginEuler, eulerToCoordinate, getMeridianAngle } from '@/lib/gis'
-
-function getRotation(centerCoordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
-  return new THREE.Euler(0, getMeridianAngle(centerCoordinate, originCoordinateEuler, originCoordinate), 0, 'YXZ')
-}
+import { getRelativePosition, getRotation } from '@/lib/gis'
+import { useSnapshot } from 'valtio'
+import { gameState } from '@/lib/client'
 
 export default function FeatureObject({
   children,
-  centerCoordinate,
+  coordinate,
 }: {
   children: React.ReactNode;
-  centerCoordinate?: Position;
+  coordinate: Position;
 }) {
-  let originCoordinateEuler = getOriginEuler()
-  let originCoordinate = eulerToCoordinate(originCoordinateEuler)
+  const { originCoordinate } = useSnapshot(gameState.data);
 
-  if (!centerCoordinate)
-    centerCoordinate = originCoordinate
-
-  const groupRef = React.useRef<THREE.Group>(null)
-  useFrame(() => {
-    originCoordinateEuler = getOriginEuler()
-    originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-    const centerPosition = getRelativePosition(centerCoordinate!, originCoordinateEuler, originCoordinate)
-    const rotation = getRotation(centerCoordinate!, originCoordinateEuler, originCoordinate)
-
-    groupRef.current!.position.copy(centerPosition)
-    groupRef.current!.rotation.copy(rotation)
-  })
-
-  return (
-    <>
-      <group ref={groupRef}>
-        {children}
-      </group>
-    </>
-  )
+  return <group position={getRelativePosition(coordinate, originCoordinate as number[])} rotation={getRotation(coordinate, originCoordinate as number[])}>
+    {children}
+  </group>;
 }

@@ -1,12 +1,10 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
-import FeatureObject from './FeatureObject'
 import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
-import { getRelativePosition } from '@/lib/gis'
 import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
@@ -65,7 +63,7 @@ function AddingTracks() {
     {curveEditMenuState.addingCurves.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { centerCoordinate, position, length, radius } = curve;
+      const { position, length, radius } = curve;
 
       let points = []
       if (radius === 0)
@@ -76,7 +74,7 @@ function AddingTracks() {
           points.push(getPosition(curve, length * i / numberOfPointsA))
       }
 
-      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+      return <React.Fragment key={trackIndex}>
         <Line
           points={points}
           lineWidth={48}
@@ -101,19 +99,19 @@ function AddingTracks() {
               "#000"
           }
         />
-      </FeatureObject>
+      </React.Fragment>
     })}
     {curveEditMenuState.addingTransitionsAB.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+      const { position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
 
       let points = [];
       for (let i = 0; i < transitionCurves.length; i++)
         points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
       points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
 
-      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+      return <React.Fragment key={trackIndex}>
         <Line
           points={points}
           lineWidth={48}
@@ -138,19 +136,19 @@ function AddingTracks() {
               "#f0f"
           }
         />
-      </FeatureObject>
+      </React.Fragment>
     })}
     {curveEditMenuState.addingTransitionsCD.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { centerCoordinate, position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+      const { position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
 
       let points = [];
       for (let i = 0; i < transitionCurves.length; i++)
         points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
       points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
 
-      return <FeatureObject key={trackIndex} centerCoordinate={centerCoordinate}>
+      return <React.Fragment key={trackIndex}>
         <Line
           points={points}
           lineWidth={48}
@@ -175,7 +173,7 @@ function AddingTracks() {
               "#f0f"
           }
         />
-      </FeatureObject>
+      </React.Fragment>
     })}
   </>;
 }
@@ -185,12 +183,10 @@ function PointingOnTrack() {
 
   if (!pointingOnTrack) return null;
 
-  return <FeatureObject centerCoordinate={gameState.data.tracks[pointingOnTrack.trackId].centerCoordinate}>
-    <mesh position={getPosition(gameState.data.tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
-      <sphereGeometry />
-      <meshBasicMaterial color={"#f00"} />
-    </mesh>
-  </FeatureObject>;
+  return <mesh position={getPosition(gameState.data.tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
+    <sphereGeometry />
+    <meshBasicMaterial color={"#f00"} />
+  </mesh>;
 }
 
 export default function Tracks() {
@@ -220,7 +216,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   useSnapshot(diagramsTabPanelState);
   useSnapshot(editTracksInDiagramState);
 
-  const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
+  const { position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
   if ((track as TransitionCurve).endPosition === undefined) {
@@ -314,7 +310,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
     }
   }
 
-  return <FeatureObject centerCoordinate={centerCoordinate}>
+  return <>
     {points.map((nextPoint, pointIndex, array) => {
       if (pointIndex === 0) return null
 
@@ -375,7 +371,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
             tracksState.pointingOnTrack = {
               trackId,
-              length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+              length: Math.min(track.length, Math.max(0, getLength(point, track))),
             }
           }}
           onPointerOut={() => {
@@ -423,7 +419,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
             tracksState.pointingOnTrack = {
               trackId,
-              length: Math.min(track.length, Math.max(0, getLength(point.clone().sub(getRelativePosition(track.centerCoordinate)), track))),
+              length: Math.min(track.length, Math.max(0, getLength(point, track))),
             };
           }}
           onPointerOut={() => {
@@ -461,14 +457,14 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
           color={color || "#000"}
         />
       </>}
-  </FeatureObject>;
+  </>;
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
   useSnapshot(tracksState);
   const switches = useSnapshot(gameState.data.switches);
 
-  const { centerCoordinate, position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
+  const { position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
   if ((track as TransitionCurve).endPosition === undefined) {
@@ -532,7 +528,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
     }
   }
 
-  return <FeatureObject centerCoordinate={centerCoordinate}>
+  return <>
     {guiState.selectedTab === "switches" && <>
       <Line
         points={points.slice(0, points.length / 2 + 1)}
@@ -612,5 +608,5 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         color={colorEnd || "#000"}
       />
     </>}
-  </FeatureObject>;
+  </>;
 }

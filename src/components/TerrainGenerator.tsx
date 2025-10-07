@@ -1,14 +1,16 @@
+import * as THREE from 'three'
 import { terrainZoom } from "@/lib/terrain"
 import { Plane } from '@react-three/drei'
 import { proxy, useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
-import { useOriginCoordinate } from '@/lib';
 import distance from "@turf/distance"
 import { socket } from "./Client"
 import { FROM_CLIENT_GET_HEIGHTMAP } from "@/lib/game"
 import { gameState } from "@/lib/client"
 import { merc } from "./Terrains"
 import { guiState } from "@/lib/client/gui";
+import { cameraControlsState } from "./cameras-and-controls/CameraControls"
+import { coordinateToEuler, eulerToCoordinate, move } from "@/lib/gis"
 
 const state = proxy({
   currentTileX: -1,
@@ -24,7 +26,7 @@ function NewTerrainTile({ tileX, tileY, isHovered }: { tileX: number, tileY: num
     { units: 'meters' }
   );
 
-  return <FeatureObject centerCoordinate={merc.ll([(tileX + 0.5) * 256, (tileY + 0.5) * 256], terrainZoom)}>
+  return <FeatureObject coordinate={merc.ll([(tileX + 0.5) * 256, (tileY + 0.5) * 256], terrainZoom)}>
     <Plane
       args={[terrainSize, terrainSize, 1, 1]}
       rotation={[-Math.PI / 2, 0, 0]}
@@ -52,31 +54,25 @@ function NewTerrainTile({ tileX, tileY, isHovered }: { tileX: number, tileY: num
   </FeatureObject>;
 }
 
-function CoordinateUpdater() {
-  const originCoordinate = useOriginCoordinate(256);
-
-  let [newTileX, newTileY] = merc.px([originCoordinate[0], originCoordinate[1]], terrainZoom)
-    .map((value: number) => Math.floor(value / 256));
-
-  if (newTileX !== state.currentTileX || newTileY !== state.currentTileY) {
-    state.currentTileX = newTileX;
-    state.currentTileY = newTileY;
-  }
-
-  return null;
-}
-
 const newTerrainWidth = 5;
 
 export default function TerrainGenerator() {
-  const terrains = useSnapshot(gameState.data.terrains);
+  const { terrains, originCoordinate } = useSnapshot(gameState.data);
   const { selectedTab } = useSnapshot(guiState);
-  const { currentTileX, currentTileY, hoveredTileX, hoveredTileY } = useSnapshot(state);
+  const { target } = useSnapshot(cameraControlsState);
+  const { hoveredTileX, hoveredTileY } = useSnapshot(state);
 
   if (selectedTab !== "terrains") return null;
 
+  const [currentTileX, currentTileY] = merc.px(eulerToCoordinate(
+    new THREE.Euler().setFromQuaternion(
+      move(new THREE.Quaternion().setFromEuler(coordinateToEuler(originCoordinate as number[])), target.x, target.z),
+      "YXZ"
+    )
+  ) as [number, number], terrainZoom)
+    .map((value: number) => Math.floor(value / 256));
+
   return <>
-    <CoordinateUpdater />
     {[...Array(newTerrainWidth)].map((_, x) => [...Array(newTerrainWidth)].map((_, y) => [
       currentTileX + x - Math.floor(newTerrainWidth / 2),
       currentTileY + y - Math.floor(newTerrainWidth / 2)

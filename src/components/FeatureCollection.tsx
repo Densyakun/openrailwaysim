@@ -1,17 +1,17 @@
-import * as React from 'react'
-import { LineString, Point, Position } from 'geojson'
+import { LineString, Point } from 'geojson'
 import CoordinatesLine from './CoordinatesLine'
 import { gameState } from '@/lib/client'
 import { Billboard, ScreenSizer, Text } from '@react-three/drei'
-import { coordinateToEuler, getRelativePosition } from '@/lib/gis'
+import { getRelativePosition } from '@/lib/gis'
+import { useSnapshot } from 'valtio'
 
 export default function FeatureCollectionComponent({
   featureCollectionId,
-  centerCoordinate
 }: {
   featureCollectionId: string,
-  centerCoordinate: Position
 }) {
+  const { originCoordinate } = useSnapshot(gameState.data);
+
   return (
     <>
       {gameState.data.featureCollections[featureCollectionId].value.features.map((feature, index) => {
@@ -20,7 +20,7 @@ export default function FeatureCollectionComponent({
             const lineString = feature.geometry as LineString
 
             return (
-              <CoordinatesLine key={index} featureCollectionId={featureCollectionId} featureIndex={index} coordinates={lineString.coordinates} centerCoordinate={centerCoordinate} />
+              <CoordinatesLine key={index} featureCollectionId={featureCollectionId} featureIndex={index} coordinates={lineString.coordinates} centerCoordinate={originCoordinate as number[]} />
             )
           case "Point":
             const point = feature.geometry as Point
@@ -28,7 +28,7 @@ export default function FeatureCollectionComponent({
             return (
               <ScreenSizer
                 key={index}
-                position={getRelativePosition(point.coordinates, coordinateToEuler(centerCoordinate), centerCoordinate, 0)}
+                position={getRelativePosition(point.coordinates, originCoordinate as number[])}
                 scale={1}
               >
                 <Billboard

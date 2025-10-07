@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
 import { Axle, BodySupporterJoint, Bogie, Joint, OtherBody, SerializableAxle, SerializableBodySupporterJoint, SerializableBogie, SerializableJoint, SerializableOtherBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTrainOnTime } from "./trains";
-import { FeatureCollection } from "geojson";
+import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
 import { Diagram } from './diagram';
@@ -12,6 +12,7 @@ export type GameStateType = {
 };
 
 export type SaveDataType = {
+  originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: Track | TransitionCurve };
@@ -30,6 +31,7 @@ export type SaveDataType = {
 };
 
 export type SerializableSaveDataType = { [key: string]: any } & {
+  originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: SerializableTrack | SerializableTransitionCurve };
@@ -45,6 +47,7 @@ export type SerializableEuler = [number, number, number, THREE.EulerOrder];
 
 export function getNewSaveData() {
   const data: SaveDataType = {
+    originCoordinate: [139.7, 35.691],
     terrains: {},
     featureCollections: {},
     tracks: {},
@@ -58,6 +61,26 @@ export function getNewSaveData() {
 
   return data;
 }
+
+export const saveDataTypeId = "saveData";
+export const tracksObjectTypeId = "tracksObject";
+export const trackTypeId = "track";
+export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
+export const transitionCurveSegmentTypeId = "transitionCurveSegment";
+export const trainsObjectTypeId = "trainsObject";
+export const trainTypeId = "train";
+export const bogieArrayTypeId = "bogieArray";
+export const bogieTypeId = "bogie";
+export const axleArrayTypeId = "axleArray";
+export const axleTypeId = "axle";
+export const otherBodyArrayTypeId = "otherBodyArray";
+export const otherBodyTypeId = "otherBody";
+export const bodySupporterJointArrayTypeId = "bodySupporterJointArray";
+export const bodySupporterJointTypeId = "bodySupporterJoint";
+export const jointArrayTypeId = "jointArray";
+export const jointTypeId = "joint";
+export const threeVector3TypeId = "THREE.Vector3";
+export const threeEulerTypeId = "THREE.Euler";
 
 export function getTypeIdByPath(path: string[]) {
   if (!path.length) return saveDataTypeId;
@@ -112,26 +135,6 @@ export function getTypeIdByPath(path: string[]) {
   return "";
 }
 
-export const saveDataTypeId = "saveData";
-export const tracksObjectTypeId = "tracksObject";
-export const trackTypeId = "track";
-export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
-export const transitionCurveSegmentTypeId = "transitionCurveSegment";
-export const trainsObjectTypeId = "trainsObject";
-export const trainTypeId = "train";
-export const bogieArrayTypeId = "bogieArray";
-export const bogieTypeId = "bogie";
-export const axleArrayTypeId = "axleArray";
-export const axleTypeId = "axle";
-export const otherBodyArrayTypeId = "otherBodyArray";
-export const otherBodyTypeId = "otherBody";
-export const bodySupporterJointArrayTypeId = "bodySupporterJointArray";
-export const bodySupporterJointTypeId = "bodySupporterJoint";
-export const jointArrayTypeId = "jointArray";
-export const jointTypeId = "joint";
-export const threeVector3TypeId = "THREE.Vector3";
-export const threeEulerTypeId = "THREE.Euler";
-
 export function toSerializableSaveData(type: string, value: any): any {
   if (type === saveDataTypeId) {
     const saveData: SaveDataType = value;
@@ -155,7 +158,6 @@ export function toSerializableSaveData(type: string, value: any): any {
       length,
       radius,
       gradients,
-      centerCoordinate,
       idOfTrackOrSwitchConnectedFromStart,
       idOfTrackOrSwitchConnectedFromEnd,
       connectedFromStartIsTrack,
@@ -173,7 +175,6 @@ export function toSerializableSaveData(type: string, value: any): any {
       length,
       radius,
       gradients,
-      centerCoordinate,
       idOfTrackOrSwitchConnectedFromStart,
       idOfTrackOrSwitchConnectedFromEnd,
       connectedFromStartIsTrack,
@@ -397,7 +398,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       length,
       radius,
       gradients,
-      centerCoordinate,
       idOfTrackOrSwitchConnectedFromStart,
       idOfTrackOrSwitchConnectedFromEnd,
       connectedFromStartIsTrack,
@@ -415,7 +415,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       length,
       radius,
       gradients,
-      centerCoordinate,
       idOfTrackOrSwitchConnectedFromStart,
       idOfTrackOrSwitchConnectedFromEnd,
       connectedFromStartIsTrack,

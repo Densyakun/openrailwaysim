@@ -2,8 +2,8 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { proxy, ref } from 'valtio'
-import { state as camerasState } from './Cameras'
-import { state as controlsState } from './CameraControls'
+import { camerasState } from './Cameras'
+import { cameraControlsState } from './CameraControls'
 
 export const state = proxy<{
   groupThatIsTracking: {
@@ -26,7 +26,7 @@ export default function FollowOrigin({ children }: { children?: React.ReactNode 
       if (mainCamera) {
         state.groupThatIsTracking.value.position.sub(mainCamera.position)
 
-        const mainControls = controlsState.controlsRefs[controlsState.mainControlsKey]
+        const mainControls = cameraControlsState.controlsRefs[cameraControlsState.mainControlsKey]
         if (mainControls)
           ((mainControls as any).target as THREE.Vector3).sub(mainCamera.position)
 

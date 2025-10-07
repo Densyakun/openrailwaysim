@@ -18,6 +18,7 @@ import { guiState } from '@/lib/client/gui';
 import { useEffect } from 'react';
 import { trainsState } from '@/lib/client/trains';
 import DiagramsTabPanel from './DiagramsTabPanel';
+import CameraPositionChip from '../CameraPositionChip';
 
 function TopInfo() {
   return <Box sx={{
@@ -32,6 +33,7 @@ function TopInfo() {
     >
       <TimeChip />
       <SyncedChip />
+      <CameraPositionChip />
     </Stack>
   </Box>;
 }

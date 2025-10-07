@@ -2,14 +2,12 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { eulerToCoordinate, move, gisState } from '@/lib/gis'
 import { Axle, Bogie, OtherBody, Train } from '@/lib/trains'
-import FeatureObject from './FeatureObject'
-import { setCameraTargetPosition } from './cameras-and-controls/CameraControls'
 import { gameState } from '@/lib/client'
 import { guiState } from '@/lib/client/gui'
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
+import { setCameraTargetPosition } from '@/lib/client/camera'
 
 function BogieModel({
   trainId,
@@ -240,8 +238,7 @@ export function onFrame() {
   if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
     const selectedTrain = gameState.data.trains[trainsState.activeTrainId]
     const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
-    setCameraTargetPosition(eulerToCoordinate(selectedTrain.globalPosition), selectedBody.position.y)
-    move(gisState.originTransform.quaternion, selectedBody.position.x, selectedBody.position.z)
+    setCameraTargetPosition(selectedBody.position)
   }
 }
 
@@ -262,7 +259,7 @@ export default function Trains() {
 }
 
 function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: string, train: Train, isEditing?: boolean }) {
-  return <FeatureObject centerCoordinate={eulerToCoordinate(train.globalPosition)}>
+  return <>
     {train.bogies.map((bogie, bogieIndex) => {
       const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
       const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
@@ -297,7 +294,7 @@ function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: 
       )
     })}
     {isEditing && <EditingJoints />}
-  </FeatureObject>;
+  </>;
 }
 
 function EditingJoints() {

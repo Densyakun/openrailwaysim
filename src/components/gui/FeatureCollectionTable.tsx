@@ -7,11 +7,12 @@ import { Button, IconButton, Paper, Stack, TextField, Tooltip, Typography } from
 import { Controller } from 'react-hook-form';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
-import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import centroid from '@turf/centroid';
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
+import { setCameraTargetPosition } from '@/lib/client/camera';
+import { getRelativePosition } from '@/lib/gis';
 
 export default function FeatureCollectionTable() {
   useSnapshot(gameState.data);
@@ -93,7 +94,7 @@ export default function FeatureCollectionTable() {
               if (!featureCollection.features.length) return
 
               const targetCoordinate = centroid(featureCollection).geometry.coordinates
-              setCameraTargetPosition(targetCoordinate, 0)
+              setCameraTargetPosition(getRelativePosition(targetCoordinate, gameState.data.originCoordinate))
             }}>
               <PlaceIcon />
             </IconButton>

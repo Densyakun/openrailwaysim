@@ -1,26 +1,30 @@
 import * as React from 'react';
+import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
-import { Button, ButtonGroup, Drawer, Fab, IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, ButtonGroup, Drawer, Fab, IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
-import { FeatureAt, SelectAdjoinedLineStringSegments, gisState } from '@/lib/gis';
+import { FeatureAt, SelectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client';
 import { Feature, LineString, Point, Position } from 'geojson';
 import { lineString } from '@turf/helpers';
 import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
-import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings } from '@/lib/tracks';
+import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
 import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
-import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
 import FeatureCollectionTable from './FeatureCollectionTable';
+import EditOriginCoordinatePanel from './EditOriginCoordinatePanel';
+import { setCameraTargetPosition } from '@/lib/client/camera';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -28,6 +32,9 @@ export type CurveSegmentRange = {
 };
 
 export const featureCollectionsTabPanelState = proxy<{
+  isEditingOriginCoordinate: boolean;
+  lon: number;
+  lat: number;
   isShowTable: boolean;
   modelPaths: string[];
   segmentList: FeatureAt[];
@@ -43,6 +50,9 @@ export const featureCollectionsTabPanelState = proxy<{
   addingTransitionsAB: (TransitionCurve | undefined)[];
   addingTransitionsCD: (TransitionCurve | undefined)[];
 }>({
+  isEditingOriginCoordinate: false,
+  lon: 0,
+  lat: 0,
   isShowTable: false,
   modelPaths: [],
   segmentList: [],
@@ -150,16 +160,17 @@ function onUpdateSegmentList() {
 }
 
 function onUpdateCurveIndex() {
+  const AB = featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex];
+  const CD = featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex + 1];
+
   setCameraTargetPosition(
-    centroid(lineString([
-      featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex].centerCoordinate,
-      featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex + 1].centerCoordinate
-    ])).geometry.coordinates,
-    0
+    getPosition(AB, AB.length / 2)
+      .add(getPosition(CD, CD.length / 2))
+      .divideScalar(2)
   );
 
-  curveEditMenuState.AB = featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex];
-  curveEditMenuState.CD = featureCollectionsTabPanelState.straightTracks[featureCollectionsTabPanelState.createCurveRangeIndex + 1];
+  curveEditMenuState.AB = AB;
+  curveEditMenuState.CD = CD;
   updateAddingTracks();
 }
 
@@ -174,11 +185,13 @@ function focusingNextSegmentIndex() {
   const coordinate1 = (nextGeometry as LineString).coordinates[nextFeatureAt.segmentIndex + 1];
 
   setCameraTargetPosition(
-    centroid(lineString([
-      coordinate,
-      coordinate1
-    ])).geometry.coordinates,
-    0
+    getRelativePosition(
+      centroid(lineString([
+        coordinate,
+        coordinate1
+      ])).geometry.coordinates,
+      gameState.data.originCoordinate
+    )
   );
 }
 
@@ -205,6 +218,7 @@ function startCurveEditing() {
     } else if (coordinatePairs.length) {
       featureCollectionsTabPanelState.straightTracks.push(
         createStraightTrackFromLineStrings(
+          gameState.data.originCoordinate,
           coordinatePairs,
           featureCollectionsTabPanelState.modelPaths
         )
@@ -318,6 +332,21 @@ export function resetEditing() {
   curveEditMenuState.addingTransitionsCD.splice(0);
 }
 
+function OriginCoordinateReadOnlyTextField() {
+  const { originCoordinate } = useSnapshot(gameState.data);
+
+  return <TextField
+    variant="standard"
+    label="Origin coordinate"
+    defaultValue={getCoordinateText(originCoordinate as Position)}
+    slotProps={{
+      input: {
+        readOnly: true,
+      },
+    }}
+  />;
+}
+
 function MainMenu() {
   const [open, setOpen] = React.useState(false);
 
@@ -369,54 +398,81 @@ function MainMenu() {
       }}>
         Create continuous tracks （選択された軌道を直線として平面曲線を作成する）
       </Button>
-      <ButtonGroup variant="contained">
-        <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
-          let coordinatePairs: Position[] = [];
+      <Box>
+        <ButtonGroup variant="contained">
+          <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
+            let coordinatePairs: Position[] = [];
 
-          gisState.selectedFeatures
-            .forEach(featureAt => {
-              if (featureAt.segmentIndex === undefined) return
+            gisState.selectedFeatures
+              .forEach(featureAt => {
+                if (featureAt.segmentIndex === undefined) return
 
-              const geometry =
-                gameState.data.featureCollections[featureAt.featureCollectionId].value
-                  .features[featureAt.featureIndex]
-                  .geometry
-              if (geometry.type === 'LineString') {
-                coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex])
-                coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex + 1])
-              }
-            });
+                const geometry =
+                  gameState.data.featureCollections[featureAt.featureCollectionId].value
+                    .features[featureAt.featureIndex]
+                    .geometry
+                if (geometry.type === 'LineString') {
+                  coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex])
+                  coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex + 1])
+                }
+              });
 
-          const trackId = uuidv4();
-          const track: SerializableTrack = toSerializableSaveData(
-            trackTypeId,
-            createStraightTrackFromLineStrings(
-              coordinatePairs,
-              featureCollectionsTabPanelState.modelPaths
-            )
-          );
+            const trackId = uuidv4();
+            const track: SerializableTrack = toSerializableSaveData(
+              trackTypeId,
+              createStraightTrackFromLineStrings(
+                gameState.data.originCoordinate,
+                coordinatePairs,
+                featureCollectionsTabPanelState.modelPaths
+              )
+            );
 
-          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
-            ["tracks", trackId],
-            track
-          ]]));
+            socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+              ["tracks", trackId],
+              track
+            ]]));
+          }}>
+            Create new straight track
+          </Button>
+          <Button onClick={toggleDrawer(true)}>
+            <SettingsIcon />
+          </Button>
+        </ButtonGroup>
+      </Box>
+      <Drawer open={open} onClose={toggleDrawer(false)}>
+        <Stack sx={{ width: 280 }}>
+          <ModelPaths />
+        </Stack>
+      </Drawer>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <PlaceIcon />
+        <OriginCoordinateReadOnlyTextField />
+        <Button variant='contained' startIcon={<EditIcon />} onClick={() => {
+          featureCollectionsTabPanelState.isEditingOriginCoordinate = true;
+          featureCollectionsTabPanelState.lon = gameState.data.originCoordinate[0];
+          featureCollectionsTabPanelState.lat = gameState.data.originCoordinate[1];
         }}>
-          Create new straight track
+          Edit
         </Button>
-        <Button onClick={toggleDrawer(true)}>
-          <SettingsIcon />
+        <Button variant='contained' onClick={() => {
+          setCameraTargetPosition(new THREE.Vector3())
+        }}>
+          Move to origin
         </Button>
-        <Drawer open={open} onClose={toggleDrawer(false)}>
-          <Stack sx={{ width: 280 }}>
-            <ModelPaths />
-          </Stack>
-        </Drawer>
-      </ButtonGroup>
+      </Stack>
     </Stack>
   </Paper>;
 }
 
 function CreateTrackMenu() {
+  let { curves, createCurveRangeIndex, straightTracks, focusedNextSegmentIndex, nextSegmentList } = useSnapshot(featureCollectionsTabPanelState);
+
+  curves = featureCollectionsTabPanelState.curves;
+  createCurveRangeIndex = featureCollectionsTabPanelState.createCurveRangeIndex;
+  straightTracks = featureCollectionsTabPanelState.straightTracks;
+  focusedNextSegmentIndex = featureCollectionsTabPanelState.focusedNextSegmentIndex;
+  nextSegmentList = featureCollectionsTabPanelState.nextSegmentList;
+
   return <Paper sx={{
     p: 1,
     pointerEvents: 'auto',
@@ -429,10 +485,10 @@ function CreateTrackMenu() {
           Cancel
         </Button>
       </Stack>
-      {featureCollectionsTabPanelState.curves.length ?
+      {curves.length ?
         <Paper>
           <Stack spacing={1}>
-            <div>Curve: {featureCollectionsTabPanelState.createCurveRangeIndex + 1} / {featureCollectionsTabPanelState.straightTracks.length - 1}</div>
+            <div>Curve: {createCurveRangeIndex + 1} / {straightTracks.length - 1}</div>
             <CurveEditMenu />
           </Stack>
         </Paper>
@@ -442,19 +498,19 @@ function CreateTrackMenu() {
             <Paper sx={{ m: 1 }}>
               <Stack spacing={1}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <div>Next segment: {featureCollectionsTabPanelState.focusedNextSegmentIndex + 1} / {featureCollectionsTabPanelState.nextSegmentList.length}</div>
+                  <div>Next segment: {focusedNextSegmentIndex + 1} / {nextSegmentList.length}</div>
                   <ButtonGroup variant="contained">
-                    <Button variant='contained' disabled={!featureCollectionsTabPanelState.nextSegmentList.length} onClick={() => {
+                    <Button variant='contained' disabled={!nextSegmentList.length} onClick={() => {
                       featureCollectionsTabPanelState.focusedNextSegmentIndex--;
-                      if (featureCollectionsTabPanelState.focusedNextSegmentIndex < 0)
-                        featureCollectionsTabPanelState.focusedNextSegmentIndex = featureCollectionsTabPanelState.nextSegmentList.length - 1;
+                      if (focusedNextSegmentIndex < 0)
+                        featureCollectionsTabPanelState.focusedNextSegmentIndex = nextSegmentList.length - 1;
                       focusingNextSegmentIndex();
                     }}>
                       {"<"}
                     </Button>
-                    <Button variant='contained' disabled={!featureCollectionsTabPanelState.nextSegmentList.length} onClick={() => {
+                    <Button variant='contained' disabled={!nextSegmentList.length} onClick={() => {
                       featureCollectionsTabPanelState.focusedNextSegmentIndex++;
-                      if (featureCollectionsTabPanelState.nextSegmentList.length <= featureCollectionsTabPanelState.focusedNextSegmentIndex)
+                      if (nextSegmentList.length <= focusedNextSegmentIndex)
                         featureCollectionsTabPanelState.focusedNextSegmentIndex = 0;
                       focusingNextSegmentIndex();
                     }}>
@@ -469,14 +525,14 @@ function CreateTrackMenu() {
                   </Stack>
                   <ButtonGroup variant="contained">
                     <Button variant='contained' startIcon={<StraightIcon />} onClick={() => {
-                      featureCollectionsTabPanelState.segmentList.push(featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]);
+                      featureCollectionsTabPanelState.segmentList.push(nextSegmentList[focusedNextSegmentIndex]);
                       featureCollectionsTabPanelState.isStraightList.push(true);
                       onUpdateSegmentList();
                     }}>
                       Straight
                     </Button>
                     <Button variant='contained' startIcon={<CircleOutlinedIcon />} onClick={() => {
-                      featureCollectionsTabPanelState.segmentList.push(featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]);
+                      featureCollectionsTabPanelState.segmentList.push(nextSegmentList[focusedNextSegmentIndex]);
                       featureCollectionsTabPanelState.isStraightList.push(false);
                       onUpdateSegmentList();
                     }}>
@@ -498,11 +554,13 @@ function CreateTrackMenu() {
 
 export default function FeatureCollectionsTabPanel() {
   useSnapshot(gisState);
-  const { isShowTable, segmentList } = useSnapshot(featureCollectionsTabPanelState);
+  const { isEditingOriginCoordinate, isShowTable, segmentList } = useSnapshot(featureCollectionsTabPanelState);
 
-  return isShowTable
-    ? <FeatureCollectionTable />
-    : segmentList.length
-      ? <CreateTrackMenu />
-      : <MainMenu />;
+  return isEditingOriginCoordinate
+    ? <EditOriginCoordinatePanel />
+    : isShowTable
+      ? <FeatureCollectionTable />
+      : segmentList.length
+        ? <CreateTrackMenu />
+        : <MainMenu />;
 }

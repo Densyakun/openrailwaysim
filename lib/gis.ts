@@ -10,11 +10,6 @@ import booleanEqual from '@turf/boolean-equal'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
 
-export type GlobalTransform = {
-  quaternion: THREE.Quaternion;
-  elevation: number;
-}
-
 export type FeatureAt = {
   featureCollectionId: string;
   featureIndex: number;
@@ -28,18 +23,16 @@ export function equalFeatureAt(featureAt: FeatureAt, featureAt1: FeatureAt) {
 }
 
 export const gisState = proxy<{
-  originTransform: GlobalTransform;
   hoveredFeatures: FeatureAt[];
   selectedFeatures: FeatureAt[];
 }>({
-  originTransform: { quaternion: new THREE.Quaternion(), elevation: 0 },
   hoveredFeatures: [],
   selectedFeatures: [],
 })
 
-export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number, elevation = gisState.originTransform.elevation) {
+export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: number) {
   const distance = Math.sqrt(moveX ** 2 + moveZ ** 2)
-    * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI + elevation) * Math.PI))
+    * (sphericalEarthMeridianLength / ((sphericalEarthMeridianLength / Math.PI) * Math.PI))
   const bearing = Math.atan2(-moveZ, moveX) * -180 / Math.PI + 90
   const destination = turfDestination(turfPoint([0, 0]), distance, bearing, { units: 'meters' })
 
@@ -55,21 +48,6 @@ export function move(pointQuaternion: THREE.Quaternion, moveX: number, moveZ: nu
   )
 }
 
-export function onMovedCamera(mainCamera: THREE.Camera, mainControls: THREE.EventDispatcher) {
-  move(gisState.originTransform.quaternion, mainCamera.position.x, mainCamera.position.z)
-
-  gisState.originTransform.elevation += mainCamera.position.y;
-
-  ((mainControls as any).target as THREE.Vector3).sub(mainCamera.position)
-
-  mainCamera.position.set(0, 0, 0)
-}
-
-export function getOriginEuler() {
-  return new THREE.Euler(0, 0, 0, 'YXZ')
-    .setFromQuaternion(gisState.originTransform.quaternion.clone(), 'YXZ')
-}
-
 export function eulerToCoordinate(euler: THREE.Euler): Position {
   return [euler.y * 180 / Math.PI, euler.x * -180 / Math.PI]
 }
@@ -78,45 +56,35 @@ export function coordinateToEuler(coordinate: Position): THREE.Euler {
   return new THREE.Euler(coordinate[1] * Math.PI / -180, coordinate[0] * Math.PI / 180, 0, 'YXZ')
 }
 
-export function getBearing(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
-  if (!originCoordinateEuler)
-    originCoordinateEuler = getOriginEuler()
-
-  if (!originCoordinate)
-    originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-  return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180 - originCoordinateEuler.z
+export function getRotation(coordinate: Position, originCoordinate: Position) {
+  return new THREE.Euler(0, getMeridianAngle(coordinate, originCoordinate), 0, 'YXZ')
 }
 
-export function getRelativePosition(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position, negativeElevation = -gisState.originTransform.elevation) {
-  if (!originCoordinateEuler)
-    originCoordinateEuler = getOriginEuler()
+export function getBearing(coordinate: Position, originCoordinate: Position) {
+  return (turfBearing(originCoordinate, coordinate) - 90) * Math.PI / -180
+}
 
-  if (!originCoordinate)
-    originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
+export function getRelativePosition(coordinate: Position, originCoordinate: Position) {
   const distance = turfDistance(originCoordinate, coordinate, { units: 'meters' })
 
-  const angle = getBearing(coordinate, originCoordinateEuler, originCoordinate)
+  const angle = getBearing(coordinate, originCoordinate)
 
   return new THREE.Vector3(
     Math.cos(angle) * distance,
-    negativeElevation,
+    0,
     Math.sin(-angle) * distance
   )
 }
 
-export function getMeridianAngle(coordinate: Position, originCoordinateEuler?: THREE.Euler, originCoordinate?: Position) {
-  if (!originCoordinateEuler)
-    originCoordinateEuler = getOriginEuler()
-
-  if (!originCoordinate)
-    originCoordinate = eulerToCoordinate(originCoordinateEuler)
-
-  const vector = getRelativePosition([coordinate[0], coordinate[1] + 0.04], originCoordinateEuler, originCoordinate)
-    .sub(getRelativePosition(coordinate, originCoordinateEuler, originCoordinate))
+export function getMeridianAngle(coordinate: Position, originCoordinate: Position) {
+  const vector = getRelativePosition([coordinate[0], coordinate[1] + 0.04], originCoordinate)
+    .sub(getRelativePosition(coordinate, originCoordinate))
 
   return Math.atan2(-vector.x, -vector.z)
+}
+
+export function getCoordinateText(coordinate: Position) {
+  return `${coordinate[0].toFixed(3)}, ${coordinate[1].toFixed(3)}`;
 }
 
 /**

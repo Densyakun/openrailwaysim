@@ -4,11 +4,11 @@ import { useFrame } from '@react-three/fiber'
 import { Environment, Sky } from '@react-three/drei'
 import FollowCamera, { state as followCameraState } from './cameras-and-controls/FollowCamera'
 import { useSnapshot } from 'valtio'
-import { getOriginEuler, gisState } from '@/lib/gis'
 import { gameState } from '@/lib/client'
 import { guiState, lightingIsForEditing } from '@/lib/client/gui'
 import { lightingState } from '@/lib/client/lighting'
 import { trainsState } from '@/lib/client/trains'
+import { coordinateToEuler } from '@/lib/gis'
 
 export const skyDistanceHalf = 149600000000
 
@@ -18,7 +18,7 @@ export const directionalLightCameraSize = 1000
 export const directionalLightDistance = 10000000
 
 function getSunPosition() {
-  const originCoordinateEuler = getOriginEuler()
+  const originCoordinateEuler = coordinateToEuler(gameState.data.originCoordinate)
 
   return new THREE.Vector3(
     Math.sin(lightingState.azimuth + originCoordinateEuler.z) * Math.cos(lightingState.elevation),
@@ -56,7 +56,7 @@ export default function SunAndSky() {
     const nowDate = new Date(gameState.data.nowDate)
     lightingState.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
-      + new THREE.Euler().setFromQuaternion(gisState.originTransform.quaternion, 'YXZ').y
+      + coordinateToEuler(gameState.data.originCoordinate).y
       - Math.PI / 2
 
     sunPosition.copy(getSunPosition())

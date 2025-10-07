@@ -2,7 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { Line } from '@react-three/drei'
 import { Position } from 'geojson'
-import { coordinateToEuler, getRelativePosition, gisState } from '@/lib/gis'
+import { getRelativePosition, gisState } from '@/lib/gis'
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel'
 import { useSnapshot } from 'valtio'
 
@@ -22,7 +22,7 @@ export default function CoordinatesLine({
   useSnapshot(featureCollectionsTabPanelState);
 
   // Azimuthal equidistant projection
-  const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, coordinateToEuler(centerCoordinate), centerCoordinate, 0))
+  const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, centerCoordinate))
 
   // 角度に色を付け、線を分類する
   /*return points.map((point, index) => {

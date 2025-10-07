@@ -3,13 +3,13 @@ import Switch from '@mui/material/Switch';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { useSnapshot } from 'valtio';
-import { state } from './CameraControls';
+import { cameraControlsState } from './CameraControls';
 
 export default function CameraControlsSwitch() {
-  const { mainControlsKey } = useSnapshot(state);
+  const { mainControlsKey } = useSnapshot(cameraControlsState);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    state.mainControlsKey = event.target.checked ? "mapControls" : "orbitControls";
+    cameraControlsState.mainControlsKey = event.target.checked ? "mapControls" : "orbitControls";
   };
 
   return (

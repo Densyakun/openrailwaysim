@@ -5,13 +5,12 @@ import PlaceIcon from '@mui/icons-material/Place';
 import TrainIcon from '@mui/icons-material/Train';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { setCameraTargetPosition } from '../cameras-and-controls/CameraControls';
-import { eulerToCoordinate, move, gisState } from '@/lib/gis';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
 import { Train } from '@/lib/trains';
 import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains';
 import { useSnapshot } from 'valtio';
+import { setCameraTargetPosition } from '@/lib/client/camera';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
   const { trainGroups, trains } = useSnapshot(gameState.data);
@@ -64,10 +63,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
           <IconButton edge="end" onClick={() => {
             const train = gameState.data.trains[id]
 
-            const targetCoordinate = eulerToCoordinate(train.globalPosition)
-            const position = train.bogies[0].axles[0].position
-            setCameraTargetPosition(targetCoordinate, position.y)
-            move(gisState.originTransform.quaternion, position.x, position.z)
+            setCameraTargetPosition(train.bogies[0].axles[0].position)
           }}>
             <PlaceIcon />
           </IconButton>

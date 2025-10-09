@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
-import { Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, TextField, Typography } from '@mui/material';
+import { Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -16,7 +16,11 @@ export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
   hoveredAddingTracks: number;
   isEditingModels: boolean;
-  trackModels: TrackModel[];
+  trackModels: {
+    modelPath: string;
+    start: string;
+    end: string;
+  }[];
 }>({
   isAddingCurve: false,
   hoveredAddingTracks: -1,
@@ -49,14 +53,23 @@ function TrackModelSettings() {
           </Typography>
           <IconButton color="primary" onClick={() => tracksSubMenuState.trackModels.push({
             modelPath: "",
-            start: 0,
-            end: -1,
+            start: "0",
+            end: "-1",
           })}>
             <AddIcon />
           </IconButton>
         </Stack>
         <TableContainer component={Paper} sx={{ height: "52.4px", overflow: "scroll" }}>
           <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>#</TableCell>
+                <TableCell align="right">Path</TableCell>
+                <TableCell align="right">Start</TableCell>
+                <TableCell align="right">End</TableCell>
+                <TableCell align="right"></TableCell>
+              </TableRow>
+            </TableHead>
             <TableBody>
               {trackModels.map((trackModel, index) => <TableRow
                 key={index}
@@ -75,6 +88,24 @@ function TrackModelSettings() {
                   />
                 </TableCell>
                 <TableCell align="right">
+                  <TextField
+                    value={trackModel.start}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].start = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    value={trackModel.end}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].end = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
                   <IconButton color="primary" size="small" onClick={() =>
                     tracksSubMenuState.trackModels.splice(index, 1)
                   }>
@@ -88,10 +119,16 @@ function TrackModelSettings() {
       </Stack>
       <Button variant="contained" startIcon={<SaveIcon />}
         onClick={() => {
+          // TODO エラーハンドリング
+          // TODO -1を入力する代わりにチェックボックスで終点を設定する
           tracksState.selectedTrackIds.forEach(trackId => {
             socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
               ["tracks", trackId, "trackModels"],
-              tracksSubMenuState.trackModels
+              tracksSubMenuState.trackModels.map(trackModel => ({
+                modelPath: trackModel.modelPath,
+                start: parseFloat(trackModel.start),
+                end: parseFloat(trackModel.end),
+              } as TrackModel))
             ]]));
           });
         }}>
@@ -110,7 +147,7 @@ export default function TracksSubMenu() {
 }
 
 function MainMenu() {
-  useSnapshot(tracksState);
+  const { selectedTrackIds } = useSnapshot(tracksState);
   useSnapshot(tracksSubMenuState);
 
   return <Paper sx={{
@@ -131,19 +168,20 @@ function MainMenu() {
         <CurveEditMenu />
       </>
         : <>
-          <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() => {
+          <div>Selected: {selectedTrackIds.length}</div>
+          <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
             tracksState.selectedTrackIds.splice(0, tracksState.selectedTrackIds.length);
           }}>
             Deselect tracks
           </Button>
-          <Button variant='contained' startIcon={<DeleteIcon />} disabled={!tracksState.selectedTrackIds.length} onClick={() =>
+          <Button variant='contained' startIcon={<DeleteIcon />} disabled={!selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId =>
               socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, ["tracks", trackId]]))
             )
           }>
             Delete tracks
           </Button>
-          <Button variant='contained' disabled={tracksState.selectedTrackIds.length !== 2} onClick={() => {
+          <Button variant='contained' disabled={selectedTrackIds.length !== 2} onClick={() => {
             const tracks = getSelectedTracks(gameState.data);
 
             // 平行の場合
@@ -155,7 +193,7 @@ function MainMenu() {
           }}>
             Create new curve
           </Button>
-          <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() =>
+          <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId => {
               socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
                 ["tracks", trackId, "trackModels"],
@@ -169,9 +207,13 @@ function MainMenu() {
           }>
             Test model
           </Button>
-          <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() => {
+          <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
             tracksSubMenuState.isEditingModels = true;
-            tracksSubMenuState.trackModels = [...gameState.data.tracks[tracksState.selectedTrackIds[0]].trackModels];
+            tracksSubMenuState.trackModels = gameState.data.tracks[tracksState.selectedTrackIds[0]].trackModels.map(trackModel => ({
+              modelPath: trackModel.modelPath,
+              start: trackModel.start.toString(),
+              end: trackModel.end.toString(),
+            }));
           }}>
             Model settings
           </Button>

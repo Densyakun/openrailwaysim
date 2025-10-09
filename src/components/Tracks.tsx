@@ -17,7 +17,7 @@ import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
 import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
 
-function RailModel({
+function TrackModel({
   from,
   to,
   rotationX,
@@ -219,40 +219,55 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   const { position, rotationY, length, radius, beginRotationX, endRotationX, trackModels, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
+  let lengthOfPoints: number[] = []
   if ((track as TransitionCurve).endPosition === undefined) {
     if (radius === 0) {
       const g = Object.keys(gradients).length
       if (1 < g) {
         const numberOfPoints = Math.ceil(length / 5) // TODO
-        for (let i = 0; i <= numberOfPoints; i++)
-          points.push(getPosition(track, length * i / numberOfPoints))
-      } else if (beginRotationX === endRotationX)
+        for (let i = 0; i <= numberOfPoints; i++) {
+          const l = length * i / numberOfPoints
+          points.push(getPosition(track, l))
+          lengthOfPoints.push(l)
+        }
+      } else if (beginRotationX === endRotationX) {
         points = [position, getPosition(track, length)]
-      else {
+        lengthOfPoints = [0, length]
+      } else {
         // 直線でカントが変化する場合
         const numberOfPoints = 2 // TODO
-        for (let i = 0; i <= numberOfPoints; i++)
-          points.push(getPosition(track, length * i / numberOfPoints))
+        for (let i = 0; i <= numberOfPoints; i++) {
+          const l = length * i / numberOfPoints
+          points.push(getPosition(track, l))
+          lengthOfPoints.push(l)
+        }
       }
     } else {
       const numberOfPointsA = getNumberOfCurvePoints(length, radius)
-      for (let i = 0; i <= numberOfPointsA; i++)
-        points.push(getPosition(track, length * i / numberOfPointsA))
+      for (let i = 0; i <= numberOfPointsA; i++) {
+        const l = length * i / numberOfPointsA
+        points.push(getPosition(track, l))
+        lengthOfPoints.push(l)
+      }
     }
   } else {
     const { transitionCurves, endPosition, curveDirection } = track as TransitionCurve;
 
-    for (let i = 0; i < transitionCurves.length; i++)
+    for (let i = 0; i < transitionCurves.length; i++) {
+      const l = length * i / transitionCurves.length
       points.push(
         position.clone()
           .add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
-            .add(new THREE.Vector3(0, getHeight(length * i / transitionCurves.length, gradients)))
+            .add(new THREE.Vector3(0, getHeight(l, gradients)))
           ));
+      lengthOfPoints.push(l);
+    }
     points.push(
       position.clone()
         .add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
           .add(new THREE.Vector3(0, getHeight(length, gradients)))
         ));
+    lengthOfPoints.push(length);
   }
 
   for (let i = 1; i < points.length; i++)
@@ -262,19 +277,25 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   const color = getColor(trackId, isAddingCurve, switches as SaveDataType["switches"]);
 
   return <>
-    {points.map((nextPoint, pointIndex, array) => {
-      if (pointIndex === 0) return null
+    {points.map((_, pointIndex) => {
+      if (pointIndex === 0) return null;
 
       return <React.Fragment key={pointIndex}>
-        {trackModels.map((trackModel, modelIndex) => <RailModel
-          key={modelIndex}
-          from={array[pointIndex - 1]}
-          to={nextPoint}
-          rotationX={rotationXList[pointIndex - 1]}
-          modelPath={trackModel.modelPath}
-          color={color}
-        />)}
-      </React.Fragment>
+        {trackModels.map((trackModel, modelIndex) => {
+          if (lengthOfPoints[pointIndex] < trackModel.start
+            || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1])
+            return;
+
+          return <TrackModel
+            key={modelIndex}
+            from={getPosition(track, Math.max(lengthOfPoints[pointIndex - 1], trackModel.start))}
+            to={getPosition(track, Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end))}
+            rotationX={rotationXList[pointIndex - 1]}
+            modelPath={trackModel.modelPath}
+            color={color}
+          />;
+        })}
+      </React.Fragment>;
     })}
     {guiState.selectedTab === "tracks" && <>
       <Line
@@ -572,6 +593,8 @@ function getColor(trackId: string, isAddingCurve: boolean, switches: SaveDataTyp
     return "#ff0";
 
   if (guiState.selectedTab === "tracks") {
+    if (tracksSubMenuState.isEditingModels) return;
+
     if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) return "#f00";
 
     if (tracksState.hoveredTracks.length === 1) {

@@ -18,35 +18,50 @@ import { diagramsTabPanelState } from '@/lib/client/diagrams'
 import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
 
 function TrackModel({
+  track,
   from,
   to,
   rotationX,
   modelPath,
   color,
 }: {
-  from: THREE.Vector3;
-  to: THREE.Vector3;
+  track: Track;
+  from: number;
+  to: number;
   rotationX: number;
   modelPath: string;
   color?: string;
 }) {
+  const children = <ErrorBoundary fallback={null}>
+    <React.Suspense fallback={null}>
+      <GLTFModel
+        modelPath={modelPath}
+        meshProps={
+          color ? { material: new THREE.MeshBasicMaterial({ color }) }
+            : undefined
+        }
+      />
+    </React.Suspense>
+  </ErrorBoundary>;
+
+  const fromPos = getPosition(track, from);
+  if (from === to)
+    return <group
+      position={fromPos}
+      rotation={getRotation(track, from)}
+      scale={[1, 1, 1]}
+    >
+      {children}
+    </group>;
+
+  const toPos = getPosition(track, to);
   return <group
-    position={from}
-    rotation={getRotationFromTwoPoints(from, to, rotationX)}
-    scale={[1, 1, from.distanceTo(to)]}
+    position={fromPos}
+    rotation={getRotationFromTwoPoints(fromPos, toPos, rotationX)}
+    scale={[1, 1, fromPos.distanceTo(toPos)]}
   >
-    <ErrorBoundary fallback={null}>
-      <React.Suspense fallback={null}>
-        <GLTFModel
-          modelPath={modelPath}
-          meshProps={
-            color ? { material: new THREE.MeshBasicMaterial({ color }) }
-              : undefined
-          }
-        />
-      </React.Suspense>
-    </ErrorBoundary>
-  </group>
+    {children}
+  </group>;
 }
 
 function AddingTracks() {
@@ -264,10 +279,22 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
             || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1])
             return;
 
+          if (trackModel.start === trackModel.end)
+            <TrackModel
+              key={modelIndex}
+              track={track}
+              from={trackModel.start}
+              to={trackModel.end}
+              rotationX={rotationXList[pointIndex - 1]}
+              modelPath={trackModel.modelPath}
+              color={color}
+            />;
+
           return <TrackModel
             key={modelIndex}
-            from={getPosition(track, Math.max(lengthOfPoints[pointIndex - 1], trackModel.start))}
-            to={getPosition(track, Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end))}
+            track={track}
+            from={Math.max(lengthOfPoints[pointIndex - 1], trackModel.start)}
+            to={Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end)}
             rotationX={rotationXList[pointIndex - 1]}
             modelPath={trackModel.modelPath}
             color={color}

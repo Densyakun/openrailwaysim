@@ -275,9 +275,12 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
       return <React.Fragment key={pointIndex}>
         {trackModels.map((trackModel, modelIndex) => {
-          if (lengthOfPoints[pointIndex] < trackModel.start
-            || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1])
-            return;
+          // 非連続設置またはレール用3Dモデル
+          if (
+            trackModel.interval !== 0
+            || lengthOfPoints[pointIndex] < trackModel.start
+            || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1]
+          ) return;
 
           if (trackModel.start === trackModel.end)
             <TrackModel
@@ -300,6 +303,27 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
             color={color}
           />;
         })}
+      </React.Fragment>;
+    })}
+    {trackModels.map((trackModel, modelIndex) => {
+      // 連続設置の非レール用3Dモデル
+      if (trackModel.interval === 0) return;
+
+      const length = (trackModel.end === -1 ? track.length : trackModel.end) - trackModel.start;
+      const modelCount = Math.round(length / trackModel.interval);
+
+      return <React.Fragment key={modelIndex}>
+        {[...Array(modelCount)].map((_, index) =>
+          <TrackModel
+            key={index}
+            track={track}
+            from={trackModel.start + length * index / modelCount}
+            to={trackModel.start + length * (index + 1) / modelCount}
+            rotationX={getRotation(track, length * (index - 0.5) / modelCount).x}
+            modelPath={trackModel.modelPath}
+            color={color}
+          />
+        )}
       </React.Fragment>;
     })}
     {guiState.selectedTab === "tracks" && <>

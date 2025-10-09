@@ -20,6 +20,7 @@ export const tracksSubMenuState = proxy<{
     modelPath: string;
     start: string;
     end: string;
+    interval: string;
   }[];
 }>({
   isAddingCurve: false,
@@ -55,6 +56,7 @@ function TrackModelSettings() {
             modelPath: "",
             start: "0",
             end: "-1",
+            interval: "0",
           })}>
             <AddIcon />
           </IconButton>
@@ -67,6 +69,7 @@ function TrackModelSettings() {
                 <TableCell align="right">Path</TableCell>
                 <TableCell align="right">Start</TableCell>
                 <TableCell align="right">End</TableCell>
+                <TableCell align="right">Interval</TableCell>
                 <TableCell align="right"></TableCell>
               </TableRow>
             </TableHead>
@@ -106,6 +109,15 @@ function TrackModelSettings() {
                   />
                 </TableCell>
                 <TableCell align="right">
+                  <TextField
+                    value={trackModel.interval}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].interval = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
                   <IconButton color="primary" size="small" onClick={() =>
                     tracksSubMenuState.trackModels.splice(index, 1)
                   }>
@@ -124,11 +136,16 @@ function TrackModelSettings() {
           tracksState.selectedTrackIds.forEach(trackId => {
             socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
               ["tracks", trackId, "trackModels"],
-              tracksSubMenuState.trackModels.map(trackModel => ({
-                modelPath: trackModel.modelPath,
-                start: parseFloat(trackModel.start),
-                end: parseFloat(trackModel.end),
-              } as TrackModel))
+              tracksSubMenuState.trackModels.map(trackModel => {
+                const trackModel_: TrackModel = {
+                  modelPath: trackModel.modelPath,
+                  start: parseFloat(trackModel.start),
+                  end: parseFloat(trackModel.end),
+                  interval: parseFloat(trackModel.interval),
+                };
+
+                return trackModel_;
+              })
             ]]));
           });
         }}>
@@ -213,6 +230,7 @@ function MainMenu() {
               modelPath: trackModel.modelPath,
               start: trackModel.start.toString(),
               end: trackModel.end.toString(),
+              interval: trackModel.interval.toString(),
             }));
           }}>
             Model settings

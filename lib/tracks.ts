@@ -53,6 +53,10 @@ export type TrackModel = {
    * startと同じ値の場合、非連続で設置。-1の場合、終点まで設置
    */
   end: number;
+  /**
+   * オブジェクトを設置する平均の間隔。間隔を固定する場合、設置範囲が等倍になるように設定する。0でレール用に設置
+   */
+  interval: number;
 };
 
 export type PointOnTrack = {

@@ -1,23 +1,115 @@
 import { proxy, useSnapshot } from 'valtio';
-import { Button, Paper, Stack } from '@mui/material';
+import { Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableRow, TextField, Typography } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SaveIcon from '@mui/icons-material/Save';
 import { gameState } from '@/lib/client';
-import { getSelectedTracks } from '@/lib/tracks';
+import { getSelectedTracks, TrackModel } from '@/lib/tracks';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
 import { tracksState } from '@/lib/client/tracks';
+import React from 'react';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
   hoveredAddingTracks: number;
+  isEditingModels: boolean;
+  trackModels: TrackModel[];
 }>({
   isAddingCurve: false,
   hoveredAddingTracks: -1,
+  isEditingModels: false,
+  trackModels: [],
 });
 
+function TrackModelSettings() {
+  const { trackModels } = useSnapshot(tracksSubMenuState, { sync: true });
+
+  return <Paper sx={{
+    p: 1,
+    pointerEvents: 'auto',
+    userSelect: 'none',
+  }}>
+    <Stack direction={'column'} spacing={1}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <div>Track model settings</div>
+        <Button variant='outlined' onClick={() => {
+          tracksSubMenuState.isEditingModels = false;
+          tracksSubMenuState.trackModels = [];
+        }}>
+          Cancel
+        </Button>
+      </Stack>
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography variant="h6" component="h1">
+            Model paths: {trackModels.length}
+          </Typography>
+          <IconButton color="primary" onClick={() => tracksSubMenuState.trackModels.push({
+            modelPath: "",
+            start: 0,
+            end: -1,
+          })}>
+            <AddIcon />
+          </IconButton>
+        </Stack>
+        <TableContainer component={Paper} sx={{ height: "52.4px", overflow: "scroll" }}>
+          <Table size="small">
+            <TableBody>
+              {trackModels.map((trackModel, index) => <TableRow
+                key={index}
+                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+              >
+                <TableCell component="th" scope="row">
+                  {index + 1}
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    value={trackModel.modelPath}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].modelPath = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton color="primary" size="small" onClick={() =>
+                    tracksSubMenuState.trackModels.splice(index, 1)
+                  }>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Stack>
+      <Button variant="contained" startIcon={<SaveIcon />}
+        onClick={() => {
+          tracksState.selectedTrackIds.forEach(trackId => {
+            socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+              ["tracks", trackId, "trackModels"],
+              tracksSubMenuState.trackModels
+            ]]));
+          });
+        }}>
+        Save
+      </Button>
+    </Stack>
+  </Paper>;
+}
+
 export default function TracksSubMenu() {
+  const { isEditingModels } = useSnapshot(tracksSubMenuState);
+
+  return isEditingModels
+    ? <TrackModelSettings />
+    : <MainMenu />;
+}
+
+function MainMenu() {
   useSnapshot(tracksState);
   useSnapshot(tracksSubMenuState);
 
@@ -65,14 +157,23 @@ export default function TracksSubMenu() {
           </Button>
           <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId => {
-              gameState.data.tracks[trackId].modelPaths = ["https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf"];
               socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
-                ["tracks", trackId],
-                toSerializableSaveData(trackTypeId, gameState.data.tracks[trackId])
+                ["tracks", trackId, "trackModels"],
+                [{
+                  modelPath: "https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf",
+                  start: 0,
+                  end: -1,
+                }]
               ]]));
             })
           }>
             Test model
+          </Button>
+          <Button variant='contained' disabled={!tracksState.selectedTrackIds.length} onClick={() => {
+            tracksSubMenuState.isEditingModels = true;
+            tracksSubMenuState.trackModels = [...gameState.data.tracks[tracksState.selectedTrackIds[0]].trackModels];
+          }}>
+            Model settings
           </Button>
         </>}
     </Stack>

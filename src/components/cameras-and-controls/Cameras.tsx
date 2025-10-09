@@ -9,7 +9,7 @@ export type CameraRefs = {
 }
 
 export const camerasState = proxy<{
-  mainCameraKey: string,
+  mainCameraKey: "perspectiveCamera" | "orthographicCamera",
   cameraRefs: CameraRefs
 }>({
   mainCameraKey: "perspectiveCamera",

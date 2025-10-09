@@ -166,7 +166,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       connectedFromEndIsToEnd,
       beginRotationX,
       endRotationX,
-      modelPaths,
+      trackModels,
     }: Track = value;
 
     const serializableTrack: SerializableTrack = {
@@ -183,7 +183,7 @@ export function toSerializableSaveData(type: string, value: any): any {
       connectedFromEndIsToEnd,
       beginRotationX,
       endRotationX,
-      modelPaths,
+      trackModels,
     };
 
     if ((value as TransitionCurve).endPosition === undefined)
@@ -406,7 +406,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       connectedFromEndIsToEnd,
       beginRotationX,
       endRotationX,
-      modelPaths,
+      trackModels,
     }: SerializableTrack = value;
 
     const track: Track = {
@@ -423,7 +423,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       connectedFromEndIsToEnd,
       beginRotationX,
       endRotationX,
-      modelPaths,
+      trackModels,
     };
 
     if ((value as SerializableTransitionCurve).endPosition === undefined)

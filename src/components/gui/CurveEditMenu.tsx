@@ -220,7 +220,7 @@ export function updateAddingTracks() {
       beginRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
       endRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
       gradients: { 0: 0 },
-      modelPaths: [],
+      trackModels: [],
     } as Track;
   });
 
@@ -361,7 +361,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     1,
     curve.beginRotationX,
     curve.endRotationX,
-    AB.modelPaths,
+    AB.trackModels,
   );
   const sCurveId = uuidv4();
 
@@ -372,7 +372,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       1,
       AB.beginRotationX,
       curve.beginRotationX,
-      AB.modelPaths,
+      AB.trackModels,
     ),
     transitionCurveAB
   );
@@ -385,7 +385,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       1,
       curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7 ? CD.beginRotationX : -CD.beginRotationX,
       -curve.endRotationX,
-      CD.modelPaths,
+      CD.trackModels,
     ),
     transitionCurveCD
   );
@@ -480,7 +480,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           1,
           AB.beginRotationX,
           AB.beginRotationX,
-          AB.modelPaths,
+          AB.trackModels,
         );
 
         AB.length *= s;
@@ -506,7 +506,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           s,
           AB.beginRotationX,
           AB.beginRotationX,
-          AB.modelPaths,
+          AB.trackModels,
         );
 
         AB.position = getPosition(AB, AB.length * s);
@@ -637,7 +637,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           1,
           CD.beginRotationX,
           CD.beginRotationX,
-          CD.modelPaths,
+          CD.trackModels,
         );
 
         CD.length *= t;
@@ -662,7 +662,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           t,
           CD.beginRotationX,
           CD.beginRotationX,
-          CD.modelPaths,
+          CD.trackModels,
         );
 
         CD.position = getPosition(CD, CD.length * t);

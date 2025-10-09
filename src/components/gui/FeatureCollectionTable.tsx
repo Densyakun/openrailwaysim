@@ -7,12 +7,15 @@ import { Button, IconButton, Paper, Stack, TextField, Tooltip, Typography } from
 import { Controller } from 'react-hook-form';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
-import centroid from '@turf/centroid';
+import * as turf from "@turf/turf";
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
 import { socket } from '../Client';
 import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import { getRelativePosition } from '@/lib/gis';
+import { camerasState } from '../cameras-and-controls/Cameras';
+import { PerspectiveCamera } from 'three';
+import { cameraControlsState } from '../cameras-and-controls/CameraControls';
 
 export default function FeatureCollectionTable() {
   useSnapshot(gameState.data);
@@ -93,8 +96,26 @@ export default function FeatureCollectionTable() {
               const featureCollection = gameState.data.featureCollections[id].value
               if (!featureCollection.features.length) return
 
-              const targetCoordinate = centroid(featureCollection).geometry.coordinates
+              const targetCoordinate = turf.centroid(featureCollection).geometry.coordinates
               setCameraTargetPosition(getRelativePosition(targetCoordinate, gameState.data.originCoordinate))
+
+              const bbox = turf.bbox(featureCollection);
+              if (camerasState.mainCameraKey === "perspectiveCamera") {
+                const camera = camerasState.cameraRefs["perspectiveCamera"] as PerspectiveCamera;
+                const controls = cameraControlsState.controlsRefs[cameraControlsState.mainControlsKey];
+                const distance = turf.distance([bbox[0], bbox[1]], [bbox[2], bbox[3]], { units: 'meters' })
+                  / Math.tan(camera.fov * Math.PI / 360);
+                camera.position.copy(
+                  controls.target.clone().sub(
+                    controls.target.clone()
+                      .sub(camera.position)
+                      .setLength(distance)
+                  )
+                );
+                controls.update();
+              } else {
+                // TODO
+              }
             }}>
               <PlaceIcon />
             </IconButton>

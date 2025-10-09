@@ -31,7 +31,7 @@ export type Track = TrackShape & {
   connectedFromEndIsToEnd: boolean;
   beginRotationX: number;
   endRotationX: number;
-  modelPaths: string[];
+  trackModels: TrackModel[];
 };
 
 export type SerializableTrack = SerializableTrackShape & {
@@ -43,7 +43,16 @@ export type SerializableTrack = SerializableTrackShape & {
   connectedFromEndIsToEnd: boolean;
   beginRotationX: number;
   endRotationX: number;
-  modelPaths: string[];
+  trackModels: TrackModel[];
+};
+
+export type TrackModel = {
+  modelPath: string;
+  start: number;
+  /**
+   * startと同じ値の場合、非連続で設置。-1の場合、終点まで設置
+   */
+  end: number;
 };
 
 export type PointOnTrack = {
@@ -349,7 +358,7 @@ export function switchTrack(saveData: SaveDataType, switchId: number, newCurrent
 export function createStraightTrackFromLineStrings(
   originCoordinate: Position,
   coordinatePairs: Position[],
-  modelPaths: string[]
+  trackModels: TrackModel[] = []
 ) {
   const points: THREE.Vector3[] = coordinatePairs.map(c => getRelativePosition(c, originCoordinate));
 
@@ -398,7 +407,7 @@ export function createStraightTrackFromLineStrings(
     connectedFromEndIsToEnd: false,
     beginRotationX: 0,
     endRotationX: 0,
-    modelPaths,
+    trackModels,
     gradients: { 0: 0 },
   } as Track;
 }
@@ -418,7 +427,7 @@ export const TOLERANCE_FOR_TRACK_CONNECTIONS = 0.1;
  * @param endLengthS baseTrackの終了位置。デフォルトは 1
  * @param beginRotationX デフォルトは baseTrack.beginRotationX
  * @param endRotationX デフォルトは baseTrack.endRotationX
- * @param modelPaths デフォルトは baseTrack.modelPaths
+ * @param trackModels デフォルトは baseTrack.trackModels
  * @returns 直列化可能な軌道
  */
 export function createSerializableTrackBasedOnTrack(
@@ -427,7 +436,7 @@ export function createSerializableTrackBasedOnTrack(
   endLengthS = 1,
   beginRotationX = baseTrack.beginRotationX,
   endRotationX = baseTrack.endRotationX,
-  modelPaths = baseTrack.modelPaths,
+  trackModels = baseTrack.trackModels,
 ) {
   const serializableTrack: SerializableTrack = {
     position: getPosition(baseTrack, baseTrack.length * startLengthS).toArray(),
@@ -443,7 +452,7 @@ export function createSerializableTrackBasedOnTrack(
     gradients: { 0: 0 },
     beginRotationX,
     endRotationX,
-    modelPaths,
+    trackModels,
   };
 
   return serializableTrack;

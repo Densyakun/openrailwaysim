@@ -216,7 +216,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   useSnapshot(diagramsTabPanelState);
   useSnapshot(editTracksInDiagramState);
 
-  const { position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
+  const { position, rotationY, length, radius, beginRotationX, endRotationX, trackModels, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
   if ((track as TransitionCurve).endPosition === undefined) {
@@ -315,12 +315,12 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       if (pointIndex === 0) return null
 
       return <React.Fragment key={pointIndex}>
-        {modelPaths.map((modelPath, modelIndex) => <RailModel
+        {trackModels.map((trackModel, modelIndex) => <RailModel
           key={modelIndex}
           from={array[pointIndex - 1]}
           to={nextPoint}
           rotationX={rotationXList[pointIndex - 1]}
-          modelPath={modelPath}
+          modelPath={trackModel.modelPath}
           color={color}
         />)}
       </React.Fragment>
@@ -464,7 +464,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   useSnapshot(tracksState);
   const switches = useSnapshot(gameState.data.switches);
 
-  const { position, rotationY, length, radius, beginRotationX, endRotationX, modelPaths, gradients } = track
+  const { position, rotationY, length, radius, beginRotationX, endRotationX, gradients } = track
   let points: THREE.Vector3[] = []
   let rotationXList: number[] = []
   if ((track as TransitionCurve).endPosition === undefined) {

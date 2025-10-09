@@ -10,7 +10,14 @@ export const saveFilePath = "./save.json";
 
 export function loadSaveData() {
   const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
-  return fromSerializableSaveData(saveDataTypeId, newState, getNewSaveData()) as SaveDataType;
+  const saveData: SaveDataType = fromSerializableSaveData(saveDataTypeId, newState, getNewSaveData());
+
+  // 開発用にセーブデータをアップデート
+  /*Object.keys(saveData.tracks).forEach(trackId => {
+    saveData.tracks[trackId].trackModels = [];
+  });*/
+
+  return saveData;
 }
 
 export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
@@ -82,6 +89,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
             || path[2] === "connectedFromEndIsTrack"
             || path[2] === "connectedFromStartIsToEnd"
             || path[2] === "connectedFromEndIsToEnd"
+            || path[2] === "trackModels"
           )) {
             push()
           }

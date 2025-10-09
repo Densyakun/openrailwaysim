@@ -2,13 +2,11 @@ import * as React from 'react';
 import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
-import { Box, Button, ButtonGroup, Drawer, Fab, IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Button, ButtonGroup, Fab, Paper, Stack, TextField, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
-import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PlaceIcon from '@mui/icons-material/Place';
-import SettingsIcon from '@mui/icons-material/Settings';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { FeatureAt, SelectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
@@ -36,7 +34,6 @@ export const featureCollectionsTabPanelState = proxy<{
   lon: number;
   lat: number;
   isShowTable: boolean;
-  modelPaths: string[];
   segmentList: FeatureAt[];
   isStraightList: boolean[];
   nextSegmentList: FeatureAt[];
@@ -54,7 +51,6 @@ export const featureCollectionsTabPanelState = proxy<{
   lon: 0,
   lat: 0,
   isShowTable: false,
-  modelPaths: [],
   segmentList: [],
   isStraightList: [],
   nextSegmentList: [],
@@ -68,32 +64,6 @@ export const featureCollectionsTabPanelState = proxy<{
   addingTransitionsAB: [],
   addingTransitionsCD: [],
 });
-
-function ModelPaths() {
-  const { modelPaths } = useSnapshot(featureCollectionsTabPanelState, { sync: true });
-
-  return <>
-    <Typography variant="h6" component="h1">
-      Model paths
-    </Typography>
-    <IconButton color="primary" onClick={() => featureCollectionsTabPanelState.modelPaths.push("")}>
-      <AddIcon />
-    </IconButton>
-    {modelPaths.map((_, index) => <Stack key={index} direction="row">
-      <TextField
-        value={modelPaths[index]}
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-          featureCollectionsTabPanelState.modelPaths[index] = event.target.value
-        }
-      />
-      <IconButton color="primary" onClick={() =>
-        featureCollectionsTabPanelState.modelPaths.splice(index, 1)
-      }>
-        <DeleteIcon />
-      </IconButton>
-    </Stack>)}
-  </>;
-}
 
 function onUpdateSegmentList() {
   const featureCollections = gameState.data.featureCollections;
@@ -220,7 +190,6 @@ function startCurveEditing() {
         createStraightTrackFromLineStrings(
           gameState.data.originCoordinate,
           coordinatePairs,
-          featureCollectionsTabPanelState.modelPaths
         )
       );
 
@@ -398,52 +367,39 @@ function MainMenu() {
       }}>
         Create continuous tracks （選択された軌道を直線として平面曲線を作成する）
       </Button>
-      <Box>
-        <ButtonGroup variant="contained">
-          <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
-            let coordinatePairs: Position[] = [];
+      <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
+        let coordinatePairs: Position[] = [];
 
-            gisState.selectedFeatures
-              .forEach(featureAt => {
-                if (featureAt.segmentIndex === undefined) return
+        gisState.selectedFeatures
+          .forEach(featureAt => {
+            if (featureAt.segmentIndex === undefined) return
 
-                const geometry =
-                  gameState.data.featureCollections[featureAt.featureCollectionId].value
-                    .features[featureAt.featureIndex]
-                    .geometry
-                if (geometry.type === 'LineString') {
-                  coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex])
-                  coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex + 1])
-                }
-              });
+            const geometry =
+              gameState.data.featureCollections[featureAt.featureCollectionId].value
+                .features[featureAt.featureIndex]
+                .geometry
+            if (geometry.type === 'LineString') {
+              coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex])
+              coordinatePairs.push((geometry as LineString).coordinates[featureAt.segmentIndex + 1])
+            }
+          });
 
-            const trackId = uuidv4();
-            const track: SerializableTrack = toSerializableSaveData(
-              trackTypeId,
-              createStraightTrackFromLineStrings(
-                gameState.data.originCoordinate,
-                coordinatePairs,
-                featureCollectionsTabPanelState.modelPaths
-              )
-            );
+        const trackId = uuidv4();
+        const track: SerializableTrack = toSerializableSaveData(
+          trackTypeId,
+          createStraightTrackFromLineStrings(
+            gameState.data.originCoordinate,
+            coordinatePairs,
+          )
+        );
 
-            socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
-              ["tracks", trackId],
-              track
-            ]]));
-          }}>
-            Create new straight track
-          </Button>
-          <Button onClick={toggleDrawer(true)}>
-            <SettingsIcon />
-          </Button>
-        </ButtonGroup>
-      </Box>
-      <Drawer open={open} onClose={toggleDrawer(false)}>
-        <Stack sx={{ width: 280 }}>
-          <ModelPaths />
-        </Stack>
-      </Drawer>
+        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+          ["tracks", trackId],
+          track
+        ]]));
+      }}>
+        Create new straight track
+      </Button>
       <Stack direction="row" spacing={1} alignItems="center">
         <PlaceIcon />
         <OriginCoordinateReadOnlyTextField />

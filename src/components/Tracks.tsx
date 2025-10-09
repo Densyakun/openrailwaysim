@@ -5,7 +5,7 @@ import { Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
-import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
+import { FROM_CLIENT_SWITCH_TRACK, SaveDataType } from '@/lib/game'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary } from 'react-error-boundary';
@@ -259,56 +259,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
     //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1));
     rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
 
-  let color: string | undefined;
-  if (isAddingCurve) color = "#888";
-  else if (
-    0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)
-    || tracksState.pointingOnTrack?.trackId === trackId
-  )
-    color = "#ff0";
-  else if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) color = "#f00";
-  else if (guiState.selectedTab === "tracks" && tracksState.hoveredTracks.length === 1) {
-    const hoveredTrack = gameState.data.tracks[tracksState.hoveredTracks[0]];
-
-    if (hoveredTrack.idOfTrackOrSwitchConnectedFromStart) {
-      if (hoveredTrack.connectedFromStartIsTrack) {
-        if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromStart) color = "#00f";
-      } else {
-        const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
-        if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
-      }
-    }
-
-    if (hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) {
-      if (hoveredTrack.connectedFromEndIsTrack) {
-        if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) color = "#00f";
-      } else {
-        const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
-        if (trackSwitch.connectedTrackIds.includes(trackId)) color = "#00f";
-      }
-    }
-  } else if (diagramsTabPanelState.sections.length) {
-    const routes = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes;
-
-    for (let i = 0; i < routes.length; i++) {
-      if (diagramsTabPanelState.selectingRouteIndex < 0 || i === diagramsTabPanelState.selectingRouteIndex) {
-        const trackRoute = routes[i];
-
-        if (trackRoute.trackIds.includes(trackId)) color = "#f0f";
-
-        if (diagramsTabPanelState.tracksIsEditing) {
-          if (editTracksInDiagramState.nextTrackIds.length) {
-            if (0 <= editTracksInDiagramState.focusedNextTrackIndex
-              && trackId === editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex])
-              color = "#f00";
-            else if (editTracksInDiagramState.nextTrackIds.includes(trackId))
-              color = "#ff0";
-          }
-        } else if (trackId === trackRoute.trackIds[trackRoute.trackIds.length - 1])
-          color = "#f00";
-      }
-    }
-  }
+  const color = getColor(trackId, isAddingCurve, switches as SaveDataType["switches"]);
 
   return <>
     {points.map((nextPoint, pointIndex, array) => {
@@ -609,4 +560,61 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
       />
     </>}
   </>;
+}
+
+function getColor(trackId: string, isAddingCurve: boolean, switches: SaveDataType["switches"]) {
+  if (isAddingCurve) return "#888";
+
+  if (
+    0 <= tracksState.hoveredTracks.findIndex(value => value === trackId)
+    || tracksState.pointingOnTrack?.trackId === trackId
+  )
+    return "#ff0";
+
+  if (guiState.selectedTab === "tracks") {
+    if (0 <= tracksState.selectedTrackIds.findIndex(value => value === trackId)) return "#f00";
+
+    if (tracksState.hoveredTracks.length === 1) {
+      const hoveredTrack = gameState.data.tracks[tracksState.hoveredTracks[0]];
+
+      if (hoveredTrack.idOfTrackOrSwitchConnectedFromStart) {
+        if (hoveredTrack.connectedFromStartIsTrack) {
+          if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromStart) return "#00f";
+        } else {
+          const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromStart];
+          if (trackSwitch.connectedTrackIds.includes(trackId)) return "#00f";
+        }
+      }
+
+      if (hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) {
+        if (hoveredTrack.connectedFromEndIsTrack) {
+          if (trackId === hoveredTrack.idOfTrackOrSwitchConnectedFromEnd) return "#00f";
+        } else {
+          const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
+          if (trackSwitch.connectedTrackIds.includes(trackId)) return "#00f";
+        }
+      }
+    }
+  } else if (diagramsTabPanelState.sections.length) {
+    const routes = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes;
+
+    for (let i = 0; i < routes.length; i++) {
+      if (diagramsTabPanelState.selectingRouteIndex < 0 || i === diagramsTabPanelState.selectingRouteIndex) {
+        const trackRoute = routes[i];
+
+        if (trackRoute.trackIds.includes(trackId)) return "#f0f";
+
+        if (diagramsTabPanelState.tracksIsEditing) {
+          if (editTracksInDiagramState.nextTrackIds.length) {
+            if (0 <= editTracksInDiagramState.focusedNextTrackIndex
+              && trackId === editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex])
+              return "#f00";
+            else if (editTracksInDiagramState.nextTrackIds.includes(trackId))
+              return "#ff0";
+          }
+        } else if (trackId === trackRoute.trackIds[trackRoute.trackIds.length - 1])
+          return "#f00";
+      }
+    }
+  }
 }

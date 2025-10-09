@@ -23,6 +23,7 @@ function TrackModel({
   to,
   rotationX,
   modelPath,
+  isRail = false,
   color,
 }: {
   track: Track;
@@ -30,6 +31,7 @@ function TrackModel({
   to: number;
   rotationX: number;
   modelPath: string;
+  isRail?: boolean;
   color?: string;
 }) {
   const children = <ErrorBoundary fallback={null}>
@@ -58,7 +60,7 @@ function TrackModel({
   return <group
     position={fromPos}
     rotation={getRotationFromTwoPoints(fromPos, toPos, rotationX)}
-    scale={[1, 1, fromPos.distanceTo(toPos)]}
+    scale={[1, 1, isRail ? fromPos.distanceTo(toPos) : 1]}
   >
     {children}
   </group>;
@@ -300,6 +302,7 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
             to={Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end)}
             rotationX={rotationXList[pointIndex - 1]}
             modelPath={trackModel.modelPath}
+            isRail={true}
             color={color}
           />;
         })}

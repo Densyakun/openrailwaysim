@@ -216,64 +216,42 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
   useSnapshot(diagramsTabPanelState);
   useSnapshot(editTracksInDiagramState);
 
-  const { position, rotationY, length, radius, beginRotationX, endRotationX, trackModels, gradients } = track
-  let points: THREE.Vector3[] = []
-  let rotationXList: number[] = []
-  let lengthOfPoints: number[] = []
+  const { length, radius, beginRotationX, endRotationX, trackModels, gradients } = track;
+  let rotationXList: number[] = [];
+  let lengthOfPoints: number[] = [];
   if ((track as TransitionCurve).endPosition === undefined) {
     if (radius === 0) {
-      const g = Object.keys(gradients).length
+      const g = Object.keys(gradients).length;
       if (1 < g) {
-        const numberOfPoints = Math.ceil(length / 5) // TODO
-        for (let i = 0; i <= numberOfPoints; i++) {
-          const l = length * i / numberOfPoints
-          points.push(getPosition(track, l))
-          lengthOfPoints.push(l)
-        }
+        const numberOfPoints = Math.ceil(length / 5); // TODO
+        for (let i = 0; i <= numberOfPoints; i++)
+          lengthOfPoints.push(length * i / numberOfPoints);
       } else if (beginRotationX === endRotationX) {
-        points = [position, getPosition(track, length)]
-        lengthOfPoints = [0, length]
+        lengthOfPoints = [0, length];
       } else {
         // 直線でカントが変化する場合
-        const numberOfPoints = 2 // TODO
-        for (let i = 0; i <= numberOfPoints; i++) {
-          const l = length * i / numberOfPoints
-          points.push(getPosition(track, l))
-          lengthOfPoints.push(l)
-        }
+        const numberOfPoints = 2; // TODO
+        for (let i = 0; i <= numberOfPoints; i++)
+          lengthOfPoints.push(length * i / numberOfPoints);
       }
     } else {
       const numberOfPointsA = getNumberOfCurvePoints(length, radius)
-      for (let i = 0; i <= numberOfPointsA; i++) {
-        const l = length * i / numberOfPointsA
-        points.push(getPosition(track, l))
-        lengthOfPoints.push(l)
-      }
+      for (let i = 0; i <= numberOfPointsA; i++)
+        lengthOfPoints.push(length * i / numberOfPointsA);
     }
   } else {
-    const { transitionCurves, endPosition, curveDirection } = track as TransitionCurve;
+    const { transitionCurves } = track as TransitionCurve;
 
-    for (let i = 0; i < transitionCurves.length; i++) {
-      const l = length * i / transitionCurves.length
-      points.push(
-        position.clone()
-          .add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
-            .add(new THREE.Vector3(0, getHeight(l, gradients)))
-          ));
-      lengthOfPoints.push(l);
-    }
-    points.push(
-      position.clone()
-        .add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
-          .add(new THREE.Vector3(0, getHeight(length, gradients)))
-        ));
+    for (let i = 0; i < transitionCurves.length; i++)
+      lengthOfPoints.push(length * i / transitionCurves.length);
     lengthOfPoints.push(length);
   }
 
-  for (let i = 1; i < points.length; i++)
-    //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1));
-    rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
+  for (let i = 1; i < lengthOfPoints.length; i++)
+    //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (lengthOfPoints.length - 1));
+    rotationXList.push(getRotation(track, (i - 0.5) * length / (lengthOfPoints.length - 1)).x);
 
+  const points = lengthOfPoints.map(length => getPosition(track, length));
   const color = getColor(trackId, isAddingCurve, switches as SaveDataType["switches"]);
 
   return <>
@@ -481,22 +459,20 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
-  if (guiState.selectedTab === "switches") {
-    for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(switches)) {
-      const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
-      if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
-        if (isConnectedToEnd[connectedIndex])
-          colorEnd = "#0f0";
-        else
-          colorStart = "#0f0";
-        break;
-      } else if (0 <= connectedIndex) {
-        if (isConnectedToEnd[connectedIndex])
-          colorEnd = "#f00";
-        else
-          colorStart = "#f00";
-        break;
-      }
+  for (const { connectedTrackIds, currentConnected, isConnectedToEnd } of Object.values(switches)) {
+    const connectedIndex = connectedTrackIds.findIndex(value => value === trackId);
+    if (currentConnected !== -1 && connectedTrackIds[currentConnected] === trackId) {
+      if (isConnectedToEnd[connectedIndex])
+        colorEnd = "#0f0";
+      else
+        colorStart = "#0f0";
+      break;
+    } else if (0 <= connectedIndex) {
+      if (isConnectedToEnd[connectedIndex])
+        colorEnd = "#f00";
+      else
+        colorStart = "#f00";
+      break;
     }
   }
 

@@ -277,23 +277,12 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
 
       return <React.Fragment key={pointIndex}>
         {trackModels.map((trackModel, modelIndex) => {
-          // 非連続設置またはレール用3Dモデル
+          // レール用3Dモデル
           if (
             trackModel.interval !== 0
             || lengthOfPoints[pointIndex] < trackModel.start
             || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1]
           ) return;
-
-          if (trackModel.start === trackModel.end)
-            <TrackModel
-              key={modelIndex}
-              track={track}
-              from={trackModel.start}
-              to={trackModel.end}
-              rotationX={rotationXList[pointIndex - 1]}
-              modelPath={trackModel.modelPath}
-              color={color}
-            />;
 
           return <TrackModel
             key={modelIndex}
@@ -309,8 +298,19 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
       </React.Fragment>;
     })}
     {trackModels.map((trackModel, modelIndex) => {
-      // 連続設置の非レール用3Dモデル
+      // 非レール用と非連続設置の3Dモデル
       if (trackModel.interval === 0) return;
+
+      if (trackModel.start === trackModel.end)
+        <TrackModel
+          key={modelIndex}
+          track={track}
+          from={trackModel.start}
+          to={trackModel.start + trackModel.span}
+          rotationX={getRotation(track, trackModel.start).x}
+          modelPath={trackModel.modelPath}
+          color={color}
+        />;
 
       const length = (trackModel.end === -1 ? track.length : trackModel.end) - trackModel.start;
       const modelCount = Math.round(length / trackModel.interval);
@@ -321,7 +321,13 @@ function TracksOnOtherMode({ track, trackId }: { track: Track, trackId: string }
             key={index}
             track={track}
             from={trackModel.start + length * index / modelCount}
-            to={trackModel.start + length * (index + 1) / modelCount}
+            to={
+              trackModel.span === 0
+                ? trackModel.start + length * index / modelCount
+                : trackModel.span === -1
+                  ? trackModel.start + length * (index + 1) / modelCount
+                  : trackModel.start + length * index / modelCount + trackModel.span
+            }
             rotationX={getRotation(track, length * (index - 0.5) / modelCount).x}
             modelPath={trackModel.modelPath}
             color={color}

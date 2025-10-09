@@ -20,6 +20,7 @@ export const tracksSubMenuState = proxy<{
     modelPath: string;
     start: string;
     end: string;
+    span: string;
     interval: string;
   }[];
 }>({
@@ -57,6 +58,7 @@ function TrackModelSettings() {
             start: "0",
             end: "-1",
             interval: "0",
+            span: "0",
           })}>
             <AddIcon />
           </IconButton>
@@ -69,6 +71,7 @@ function TrackModelSettings() {
                 <TableCell align="right">Path</TableCell>
                 <TableCell align="right">Start</TableCell>
                 <TableCell align="right">End</TableCell>
+                <TableCell align="right">Span</TableCell>
                 <TableCell align="right">Interval</TableCell>
                 <TableCell align="right"></TableCell>
               </TableRow>
@@ -110,6 +113,15 @@ function TrackModelSettings() {
                 </TableCell>
                 <TableCell align="right">
                   <TextField
+                    value={trackModel.span}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].span = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
                     value={trackModel.interval}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -132,7 +144,8 @@ function TrackModelSettings() {
       <Button variant="contained" startIcon={<SaveIcon />}
         onClick={() => {
           // TODO エラーハンドリング
-          // TODO -1を入力する代わりにチェックボックスで終点を設定する
+          // TODO 0や-1を入力する代わりにチェックボックスで設定できるようにする
+          // TODO レール用の場合に不要な入力を無効化する
           tracksState.selectedTrackIds.forEach(trackId => {
             socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
               ["tracks", trackId, "trackModels"],
@@ -141,6 +154,7 @@ function TrackModelSettings() {
                   modelPath: trackModel.modelPath,
                   start: parseFloat(trackModel.start),
                   end: parseFloat(trackModel.end),
+                  span: parseFloat(trackModel.span),
                   interval: parseFloat(trackModel.interval),
                 };
 
@@ -230,6 +244,7 @@ function MainMenu() {
               modelPath: trackModel.modelPath,
               start: trackModel.start.toString(),
               end: trackModel.end.toString(),
+              span: trackModel.span.toString(),
               interval: trackModel.interval.toString(),
             }));
           }}>

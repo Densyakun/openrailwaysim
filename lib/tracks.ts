@@ -54,6 +54,14 @@ export type TrackModel = {
    */
   end: number;
   /**
+   * 勾配に合わせて傾けるか
+   */
+  isInclined: boolean;
+  /**
+   * カントに合わせて傾けるか
+   */
+  isTilting: boolean;
+  /**
    * オブジェクトの（曲線における弦の長さ）。値が0の場合は軌道の向きに合わせる。値が-1の場合は次に配置される地点に向ける。intervalが0以外の場合に使われる
    */
   span: number;

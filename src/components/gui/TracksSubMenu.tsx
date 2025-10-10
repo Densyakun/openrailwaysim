@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from 'valtio';
-import { Button, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Button, Checkbox, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -20,6 +20,8 @@ export const tracksSubMenuState = proxy<{
     modelPath: string;
     start: string;
     end: string;
+    isInclined: boolean;
+    isTilting: boolean;
     span: string;
     interval: string;
   }[];
@@ -57,20 +59,24 @@ function TrackModelSettings() {
             modelPath: "",
             start: "0",
             end: "-1",
+            isInclined: true,
+            isTilting: true,
             interval: "0",
             span: "0",
           })}>
             <AddIcon />
           </IconButton>
         </Stack>
-        <TableContainer component={Paper} sx={{ height: "52.4px", overflow: "scroll" }}>
+        <TableContainer component={Paper} sx={{ height: "80px", overflow: "scroll" }}>
           <Table size="small">
-            <TableHead>
+            <TableHead sx={{ whiteSpace: "nowrap" }}>
               <TableRow>
                 <TableCell>#</TableCell>
                 <TableCell align="right">Path</TableCell>
                 <TableCell align="right">Start</TableCell>
                 <TableCell align="right">End</TableCell>
+                <TableCell align="right">Inclined</TableCell>
+                <TableCell align="right">Tilting</TableCell>
                 <TableCell align="right">Span</TableCell>
                 <TableCell align="right">Interval</TableCell>
                 <TableCell align="right"></TableCell>
@@ -86,6 +92,7 @@ function TrackModelSettings() {
                 </TableCell>
                 <TableCell align="right">
                   <TextField
+                    sx={{ width: 128 }}
                     value={trackModel.modelPath}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -95,6 +102,7 @@ function TrackModelSettings() {
                 </TableCell>
                 <TableCell align="right">
                   <TextField
+                    sx={{ width: 64 }}
                     value={trackModel.start}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -104,6 +112,7 @@ function TrackModelSettings() {
                 </TableCell>
                 <TableCell align="right">
                   <TextField
+                    sx={{ width: 64 }}
                     value={trackModel.end}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -112,7 +121,18 @@ function TrackModelSettings() {
                   />
                 </TableCell>
                 <TableCell align="right">
+                  <Checkbox size="small" checked={trackModel.isInclined} onChange={event =>
+                    tracksSubMenuState.trackModels[index].isInclined = event.target.checked
+                  } />
+                </TableCell>
+                <TableCell align="right">
+                  <Checkbox size="small" checked={trackModel.isTilting} onChange={event =>
+                    tracksSubMenuState.trackModels[index].isTilting = event.target.checked
+                  } />
+                </TableCell>
+                <TableCell align="right">
                   <TextField
+                    sx={{ width: 64 }}
                     value={trackModel.span}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -122,6 +142,8 @@ function TrackModelSettings() {
                 </TableCell>
                 <TableCell align="right">
                   <TextField
+                    sx={{ width: 64 }}
+                    disabled={trackModel.start === trackModel.end}
                     value={trackModel.interval}
                     size="small"
                     onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
@@ -154,8 +176,10 @@ function TrackModelSettings() {
                   modelPath: trackModel.modelPath,
                   start: parseFloat(trackModel.start),
                   end: parseFloat(trackModel.end),
+                  isInclined: trackModel.isInclined,
+                  isTilting: trackModel.isTilting,
                   span: parseFloat(trackModel.span),
-                  interval: parseFloat(trackModel.interval),
+                  interval: trackModel.start === trackModel.end ? 0 : parseFloat(trackModel.interval),
                 };
 
                 return trackModel_;
@@ -244,6 +268,8 @@ function MainMenu() {
               modelPath: trackModel.modelPath,
               start: trackModel.start.toString(),
               end: trackModel.end.toString(),
+              isInclined: trackModel.isInclined,
+              isTilting: trackModel.isTilting,
               span: trackModel.span.toString(),
               interval: trackModel.interval.toString(),
             }));

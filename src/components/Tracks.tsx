@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
+import { Track, TransitionCurve, getCant, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
@@ -22,7 +22,7 @@ function TrackModel({
   from,
   to,
   isInclined,
-  rotationX,
+  tilt,
   modelPath,
   minDistance,
   maxDistance,
@@ -33,7 +33,7 @@ function TrackModel({
   from: number;
   to: number;
   isInclined: boolean;
-  rotationX: number;
+  tilt: number;
   modelPath: string;
   minDistance: number;
   maxDistance: number;
@@ -61,7 +61,7 @@ function TrackModel({
   const fromPos = getPosition(track, from);
   if (from === to) {
     const rotation = getRotation(track, from);
-    rotation.x = rotationX;
+    rotation.z = -tilt;
     return <group
       position={fromPos}
       rotation={rotation}
@@ -75,7 +75,7 @@ function TrackModel({
   if (!isInclined) toPos.setY(fromPos.y);
   return <group
     position={fromPos}
-    rotation={getRotationFromTwoPoints(fromPos, toPos, rotationX)}
+    rotation={getRotationFromTwoPoints(fromPos, toPos, tilt)}
     scale={[1, 1, isRail ? fromPos.distanceTo(toPos) : 1]}
   >
     {children}
@@ -280,7 +280,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
 
   for (let i = 1; i < lengthOfPoints.length; i++)
     //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (lengthOfPoints.length - 1));
-    rotationXList.push(getRotation(track, (i - 0.5) * length / (lengthOfPoints.length - 1)).x);
+    rotationXList.push(getCant(track, (i - 0.5) * length / (lengthOfPoints.length - 1)));
 
   const points = lengthOfPoints.map(length => getPosition(track, length));
   const color = useTrackColorOnTrackMode(trackId);
@@ -304,7 +304,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             from={Math.max(lengthOfPoints[pointIndex - 1], trackModel.start)}
             to={Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end)}
             isInclined={trackModel.isInclined}
-            rotationX={trackModel.isTilting ? rotationXList[pointIndex - 1] : 0}
+            tilt={trackModel.isTilting ? rotationXList[pointIndex - 1] : 0}
             modelPath={trackModel.modelPath}
             minDistance={trackModel.minDistance}
             maxDistance={trackModel.maxDistance}
@@ -323,7 +323,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           from={trackModel.start}
           to={trackModel.start + trackModel.span}
           isInclined={trackModel.isInclined}
-          rotationX={trackModel.isTilting ? getRotation(track, trackModel.start).x : 0}
+          tilt={trackModel.isTilting ? getCant(track, trackModel.start) : 0}
           modelPath={trackModel.modelPath}
           minDistance={trackModel.minDistance}
           maxDistance={trackModel.maxDistance}
@@ -350,7 +350,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
                   : trackModel.start + length * index / modelCount + trackModel.span
             }
             isInclined={trackModel.isInclined}
-            rotationX={trackModel.isTilting ? getRotation(track, length * (index - 0.5) / modelCount).x : 0}
+            tilt={trackModel.isTilting ? getCant(track, length * (index - 0.5) / modelCount) : 0}
             modelPath={trackModel.modelPath}
             minDistance={trackModel.minDistance}
             maxDistance={trackModel.maxDistance}
@@ -538,7 +538,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
 
   for (let i = 1; i < points.length; i++)
     //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1));
-    rotationXList.push(getRotation(track, (i - 0.5) * length / (points.length - 1)).x);
+    rotationXList.push(getCant(track, (i - 0.5) * length / (points.length - 1)));
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;

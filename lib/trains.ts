@@ -199,21 +199,15 @@ export function getAxlePosition(saveData: SaveDataType, axle: Axle) {
 
 export function getAxleRotation(saveData: SaveDataType, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
   const track = saveData.tracks[pointOnTrack.trackId];
-  const axleRelativeRotation = getRotation(track, pointOnTrack.length);
+  const rotation = getRotation(track, pointOnTrack.length);
 
   if (rotationIsReversed) {
-    axleRelativeRotation.x = -axleRelativeRotation.x;
-    axleRelativeRotation.y += Math.PI;
-    axleRelativeRotation.z = -axleRelativeRotation.z;
+    rotation.x = -rotation.x;
+    rotation.y += Math.PI;
+    rotation.z = -rotation.z;
   }
 
-  // 軌道の進行方向がX軸、列車の進行方向がZ軸になっている
-  return new THREE.Euler(
-    -axleRelativeRotation.z,
-    axleRelativeRotation.y + Math.PI / 2,
-    axleRelativeRotation.x,
-    'YXZ'
-  );
+  return rotation;
 }
 
 export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {

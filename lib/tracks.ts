@@ -264,35 +264,40 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
       .add(new THREE.Vector3(0, getHeight(length, gradients)));
 }
 
-export function getRotation(track: Track, length: number) {
-  const { rotationY, radius, length: curveLength, gradients, beginRotationX, endRotationX } = track;
+export function getCant(track: Track, length: number) {
+  const { length: curveLength, beginRotationX, endRotationX } = track;
+  return beginRotationX + (endRotationX - beginRotationX) * length / curveLength;
+}
 
-  const cant = beginRotationX + (endRotationX - beginRotationX) * length / curveLength;
+export function getRotation(track: Track, length: number) {
+  const { rotationY, radius, length: curveLength, gradients } = track;
+
+  const cant = getCant(track, length);
 
   if ((track as TransitionCurve).endPosition !== undefined) {
     const i = Math.max(0, Math.min((track as TransitionCurve).transitionCurves.length - 1, Math.ceil(length * (track as TransitionCurve).transitionCurves.length / curveLength)));
     const transition = (track as TransitionCurve).transitionCurves[i];
     return new THREE.Euler(
-      cant,
-      rotationY + ((track as TransitionCurve).curveDirection ? 1 : -1) * (transition.rotationY + (transition.curvature === 0 ? 0 : (length - i * curveLength / (track as TransitionCurve).transitionCurves.length) * transition.curvature)),
       Math.atan(getGradient(length, gradients) / 1000),
-      'YZX'
+      rotationY + ((track as TransitionCurve).curveDirection ? 1 : -1) * (transition.rotationY + (transition.curvature === 0 ? 0 : (length - i * curveLength / (track as TransitionCurve).transitionCurves.length) * transition.curvature)) - Math.PI / 2,
+      -cant,
+      'YXZ'
     );
   }
 
   if (radius === 0)
     return new THREE.Euler(
-      cant,
-      rotationY,
       Math.atan(getGradient(length, gradients) / 1000),
-      'YZX'
+      rotationY - Math.PI / 2,
+      -cant,
+      'YXZ'
     );
   else
     return new THREE.Euler(
-      cant,
-      length / -radius + rotationY,
       Math.atan(getGradient(length, gradients) / 1000),
-      'YZX'
+      length / -radius + rotationY - Math.PI / 2,
+      -cant,
+      'YXZ'
     );
 }
 

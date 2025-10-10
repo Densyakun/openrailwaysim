@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
-import { Line } from '@react-three/drei'
+import { Detailed, Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
@@ -24,6 +24,8 @@ function TrackModel({
   isInclined,
   rotationX,
   modelPath,
+  minDistance,
+  maxDistance,
   isRail = false,
   color,
 }: {
@@ -33,18 +35,26 @@ function TrackModel({
   isInclined: boolean;
   rotationX: number;
   modelPath: string;
+  minDistance: number;
+  maxDistance: number;
   isRail?: boolean;
   color?: string;
 }) {
   const children = <ErrorBoundary fallback={null}>
     <React.Suspense fallback={null}>
-      <GLTFModel
-        modelPath={modelPath}
-        meshProps={
-          color ? { material: new THREE.MeshBasicMaterial({ color }) }
-            : undefined
-        }
-      />
+      <Detailed distances={maxDistance === 0 ? [0, minDistance] : [0, minDistance, maxDistance]}>
+        <group />
+        <group>
+          <GLTFModel
+            modelPath={modelPath}
+            meshProps={
+              color ? { material: new THREE.MeshBasicMaterial({ color }) }
+                : undefined
+            }
+          />
+        </group>
+        <group />
+      </Detailed>
     </React.Suspense>
   </ErrorBoundary>;
 
@@ -296,6 +306,8 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             isInclined={trackModel.isInclined}
             rotationX={trackModel.isTilting ? rotationXList[pointIndex - 1] : 0}
             modelPath={trackModel.modelPath}
+            minDistance={trackModel.minDistance}
+            maxDistance={trackModel.maxDistance}
             isRail={true}
             color={color}
           />;
@@ -313,6 +325,8 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           isInclined={trackModel.isInclined}
           rotationX={trackModel.isTilting ? getRotation(track, trackModel.start).x : 0}
           modelPath={trackModel.modelPath}
+          minDistance={trackModel.minDistance}
+          maxDistance={trackModel.maxDistance}
           color={color}
         />;
 
@@ -338,6 +352,8 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             isInclined={trackModel.isInclined}
             rotationX={trackModel.isTilting ? getRotation(track, length * (index - 0.5) / modelCount).x : 0}
             modelPath={trackModel.modelPath}
+            minDistance={trackModel.minDistance}
+            maxDistance={trackModel.maxDistance}
             color={color}
           />
         )}

@@ -14,7 +14,10 @@ export function loadSaveData() {
 
   // 開発用にセーブデータをアップデート
   /*Object.keys(saveData.tracks).forEach(trackId => {
-    saveData.tracks[trackId].trackModels = [];
+    saveData.tracks[trackId].trackModels.forEach(trackModel => {
+      trackModel.minDistance = 0;
+      trackModel.maxDistance = 0;
+    })
   });*/
 
   return saveData;

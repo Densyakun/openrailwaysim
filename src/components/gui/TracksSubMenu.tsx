@@ -24,6 +24,8 @@ export const tracksSubMenuState = proxy<{
     isTilting: boolean;
     span: string;
     interval: string;
+    minDistance: string;
+    maxDistance: string;
   }[];
 }>({
   isAddingCurve: false,
@@ -63,6 +65,8 @@ function TrackModelSettings() {
             isTilting: true,
             interval: "0",
             span: "0",
+            minDistance: "0",
+            maxDistance: "0",
           })}>
             <AddIcon />
           </IconButton>
@@ -79,6 +83,8 @@ function TrackModelSettings() {
                 <TableCell align="right">Tilting</TableCell>
                 <TableCell align="right">Span</TableCell>
                 <TableCell align="right">Interval</TableCell>
+                <TableCell align="right">Min dist.</TableCell>
+                <TableCell align="right">Max dist.</TableCell>
                 <TableCell align="right"></TableCell>
               </TableRow>
             </TableHead>
@@ -152,6 +158,26 @@ function TrackModelSettings() {
                   />
                 </TableCell>
                 <TableCell align="right">
+                  <TextField
+                    sx={{ width: 64 }}
+                    value={trackModel.minDistance}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].minDistance = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    sx={{ width: 64 }}
+                    value={trackModel.maxDistance}
+                    size="small"
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      tracksSubMenuState.trackModels[index].maxDistance = event.target.value
+                    }
+                  />
+                </TableCell>
+                <TableCell align="right">
                   <IconButton color="primary" size="small" onClick={() =>
                     tracksSubMenuState.trackModels.splice(index, 1)
                   }>
@@ -180,6 +206,8 @@ function TrackModelSettings() {
                   isTilting: trackModel.isTilting,
                   span: parseFloat(trackModel.span),
                   interval: trackModel.start === trackModel.end ? 0 : parseFloat(trackModel.interval),
+                  minDistance: parseFloat(trackModel.minDistance),
+                  maxDistance: parseFloat(trackModel.maxDistance),
                 };
 
                 return trackModel_;
@@ -272,6 +300,8 @@ function MainMenu() {
               isTilting: trackModel.isTilting,
               span: trackModel.span.toString(),
               interval: trackModel.interval.toString(),
+              minDistance: trackModel.minDistance.toString(),
+              maxDistance: trackModel.maxDistance.toString(),
             }));
           }}>
             Model settings

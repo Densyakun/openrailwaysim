@@ -69,6 +69,14 @@ export type TrackModel = {
    * オブジェクトを設置する平均の間隔。間隔を固定する場合、設置範囲が等倍になるように設定する。値が0かつ連続設置の場合、オブジェクトのスケールZが自動的に変更される（レールを設置するため）
    */
   interval: number;
+  /**
+   * 最短描画範囲
+   */
+  minDistance: number;
+  /**
+   * 最長描画範囲
+   */
+  maxDistance: number;
 };
 
 export type PointOnTrack = {

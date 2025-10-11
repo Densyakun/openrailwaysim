@@ -64,7 +64,7 @@ export default function DiagramTable() {
           </IconButton>
         </Tooltip>
         <Tooltip title="Edit train groups" disableInteractive>
-          <IconButton edge="end" onClick={() => diagramsTabPanelState.editingTrainGroupsInDiagramId = id}>
+          <IconButton edge="end" onClick={() => diagramsTabPanelState.editingTrainGroupsInDiagramId = id} disabled>
             <TrainIcon />
           </IconButton>
         </Tooltip>

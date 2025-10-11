@@ -5,6 +5,7 @@ import { proxy, useSnapshot } from 'valtio';
 import { Button, ButtonGroup, Fab, Paper, Stack, TextField, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
+import DeselectIcon from '@mui/icons-material/Deselect';
 import EditIcon from '@mui/icons-material/Edit';
 import PlaceIcon from '@mui/icons-material/Place';
 import StraightIcon from '@mui/icons-material/Straight';
@@ -349,10 +350,10 @@ function MainMenu() {
         <div>Selected: {gisState.selectedFeatures.length}</div>
         {Object.keys(count).map(key => <div key={key}> {key}: {count[key]}</div>)}
       </Stack>
-      <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
+      <Button variant='contained' startIcon={<DeselectIcon />} disabled={!gisState.selectedFeatures.length} onClick={() => {
         gisState.selectedFeatures.splice(0, gisState.selectedFeatures.length);
       }}>
-        Deselect features
+        Deselect
       </Button>
       <Button variant='contained' disabled={gisState.selectedFeatures.length !== 1} onClick={() => {
         const startFeatureAt = gisState.selectedFeatures[0];

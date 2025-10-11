@@ -19,6 +19,7 @@ import { useEffect } from 'react';
 import { trainsState } from '@/lib/client/trains';
 import DiagramsTabPanel from './DiagramsTabPanel';
 import CameraPositionChip from '../CameraPositionChip';
+import TerrainsTabPanel from './TerrainsTabPanel';
 
 function TopInfo() {
   return <Box sx={{
@@ -48,6 +49,7 @@ const menuComponents: {
   'terrains': {
     title: 'Terrains',
     icon: <TerrainIcon />,
+    component: <TerrainsTabPanel />,
   },
   'featureCollections': {
     title: 'Feature collections',

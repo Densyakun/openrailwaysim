@@ -3,6 +3,7 @@ import { Button, Checkbox, IconButton, Paper, Stack, Table, TableBody, TableCell
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DeselectIcon from '@mui/icons-material/Deselect';
 import SaveIcon from '@mui/icons-material/Save';
 import { gameState } from '@/lib/client';
 import { getSelectedTracks, TrackModel } from '@/lib/tracks';
@@ -252,10 +253,10 @@ function MainMenu() {
       </>
         : <>
           <div>Selected: {selectedTrackIds.length}</div>
-          <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
+          <Button variant='contained' startIcon={<DeselectIcon />} disabled={!selectedTrackIds.length} onClick={() => {
             tracksState.selectedTrackIds.splice(0, tracksState.selectedTrackIds.length);
           }}>
-            Deselect tracks
+            Deselect
           </Button>
           <Button variant='contained' startIcon={<DeleteIcon />} disabled={!selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId =>

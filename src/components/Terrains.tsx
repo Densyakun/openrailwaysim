@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef } from "react"
-import { BufferAttribute, Mesh } from "three"
+import { BufferAttribute, BufferGeometry, Mesh } from "three"
 import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
 import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
 import { clientState, gameState } from "@/lib/client"
 import { useSnapshot } from "valtio"
+import { terrainsState } from "@/lib/client/terrains"
+import { guiState } from "@/lib/client/gui"
+import { MeshDiscardMaterial, Plane } from "@react-three/drei"
 
 export const merc = new SphericalMercator({
   size: 256,
@@ -27,6 +30,12 @@ function TerrainTile({
   southHeightmap?: HeightmapType;
   southeastHeightmap?: HeightmapType;
 }) {
+  const { hoveredTileX, hoveredTileY, selectedTileX, selectedTileY } = useSnapshot(terrainsState);
+  const { selectedTab } = useSnapshot(guiState);
+
+  const isHovered = hoveredTileX === tileX && hoveredTileY === tileY;
+  const isSelected = selectedTileX === tileX && selectedTileY === tileY;
+
   // 小さな地形タイルがカメラの近くにある場合、扇形には見えないため、四角形で表示し、大きさのみ合わせる
   const terrainSize = distance(
     merc.ll([0, tileY * 256], terrainZoom),
@@ -34,7 +43,8 @@ function TerrainTile({
     { units: 'meters' }
   );
 
-  const meshRef = useRef<Mesh>(null!);
+  const receiveShadowMeshRef = useRef<Mesh>(null!);
+  const castShadowMeshRef = useRef<Mesh>(null!);
 
   const vertices = useMemo(() => new Float32Array(heightmapSize ** 2 * 2 * 3 * 3), []);
 
@@ -141,31 +151,83 @@ function TerrainTile({
       }
     }
 
-    const { geometry } = meshRef.current;
-    geometry.setAttribute("position", new BufferAttribute(vertices, 3));
+    function applyVertices(bufferGeometry: BufferGeometry, vertices: Float32Array) {
+      bufferGeometry.setAttribute("position", new BufferAttribute(vertices, 3));
+      bufferGeometry.computeVertexNormals();
 
-    geometry.setDrawRange(
-      eastHeightmap ? 0 : (heightmapSize - 1) * 2 * 3,
-      (
-        eastHeightmap && southHeightmap ?
-          southeastHeightmap ? heightmapSize ** 2
-            : heightmapSize ** 2 - 1
-          : southHeightmap ? heightmapSize * (heightmapSize - 1)
-            : heightmapSize * (heightmapSize - 1)
-      ) * 2 * 3
-    );
+      bufferGeometry.setDrawRange(
+        eastHeightmap ? 0 : (heightmapSize - 1) * 2 * 3,
+        (
+          eastHeightmap && southHeightmap ?
+            southeastHeightmap ? heightmapSize ** 2
+              : heightmapSize ** 2 - 1
+            : southHeightmap ? heightmapSize * (heightmapSize - 1)
+              : heightmapSize * (heightmapSize - 1)
+        ) * 2 * 3
+      );
+    }
+
+    applyVertices(receiveShadowMeshRef.current.geometry, vertices);
+    applyVertices(castShadowMeshRef.current.geometry, vertices);
   }, [heightmap, eastHeightmap, southHeightmap, southeastHeightmap]);
 
-  useEffect(() => {
-    const { geometry } = meshRef.current;
-    geometry.computeVertexNormals();
-  });
-
   return <FeatureObject coordinate={merc.ll([tileX * 256, tileY * 256], terrainZoom)}>
-    <mesh castShadow receiveShadow ref={meshRef}>
-      <bufferGeometry attributes={{ "position": new BufferAttribute(vertices, 3) }} />
-      <meshStandardMaterial />
+    <mesh
+      receiveShadow
+      ref={receiveShadowMeshRef}
+    >
+      <bufferGeometry />
+      {
+        guiState.selectedTab === "terrains" && isHovered
+          ? <meshBasicMaterial color="yellow" />
+          : guiState.selectedTab === "terrains" && isSelected
+            ? <meshBasicMaterial color="red" />
+            : <meshStandardMaterial />
+      }
     </mesh>
+    {/** 同じメッシュに影を落とすためにメッシュを分ける */}
+    <mesh
+      castShadow
+      ref={castShadowMeshRef}
+    >
+      <bufferGeometry />
+      <MeshDiscardMaterial />
+    </mesh>
+    {/** 複雑なメッシュではonPointer~イベントが重いので簡単なジオメトリに分ける */}
+    {selectedTab === "terrains" &&
+      <Plane
+        args={[terrainSize, terrainSize, 1, 1]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[terrainSize / 2, 0, terrainSize / 2]}
+        onPointerMove={e => {
+          e.stopPropagation();
+
+          terrainsState.hoveredTileX = tileX;
+          terrainsState.hoveredTileY = tileY;
+        }}
+        onPointerOut={e => {
+          e.stopPropagation();
+
+          if (terrainsState.hoveredTileX === tileX && terrainsState.hoveredTileY === tileY) {
+            terrainsState.hoveredTileX = -1;
+            terrainsState.hoveredTileY = -1;
+          }
+        }}
+        onClick={e => {
+          e.stopPropagation();
+
+          if (terrainsState.selectedTileX === tileX && terrainsState.selectedTileY === tileY) {
+            terrainsState.selectedTileX = -1;
+            terrainsState.selectedTileY = -1;
+          } else {
+            terrainsState.selectedTileX = tileX;
+            terrainsState.selectedTileY = tileY;
+          }
+        }}
+      >
+        <meshStandardMaterial />
+      </Plane>
+    }
   </FeatureObject>;
 }
 

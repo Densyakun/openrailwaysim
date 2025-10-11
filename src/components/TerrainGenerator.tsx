@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { terrainZoom } from "@/lib/terrain"
-import { Plane } from '@react-three/drei'
-import { proxy, useSnapshot } from 'valtio'
+import { Edges, MeshDiscardMaterial, Plane } from '@react-three/drei'
+import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
 import { socket } from "./Client"
@@ -11,15 +11,13 @@ import { merc } from "./Terrains"
 import { guiState } from "@/lib/client/gui";
 import { cameraControlsState } from "./cameras-and-controls/CameraControls"
 import { coordinateToEuler, eulerToCoordinate, move } from "@/lib/gis"
+import { terrainsState } from '@/lib/client/terrains'
 
-const state = proxy({
-  currentTileX: -1,
-  currentTileY: -1,
-  hoveredTileX: -1,
-  hoveredTileY: -1,
-});
+function NewTerrainTile({ tileX, tileY }: { tileX: number, tileY: number }) {
+  const { hoveredTileX, hoveredTileY } = useSnapshot(terrainsState);
 
-function NewTerrainTile({ tileX, tileY, isHovered }: { tileX: number, tileY: number, isHovered: boolean }) {
+  const isHovered = hoveredTileX === tileX && hoveredTileY === tileY;
+
   const terrainSize = distance(
     merc.ll([0, tileY * 256], terrainZoom),
     merc.ll([0, (tileY + 1) * 256], terrainZoom),
@@ -36,20 +34,21 @@ function NewTerrainTile({ tileX, tileY, isHovered }: { tileX: number, tileY: num
         socket.send(JSON.stringify([FROM_CLIENT_GET_HEIGHTMAP, [tileX, tileY]]))
       }}
       onPointerOver={() => {
-        state.hoveredTileX = tileX
-        state.hoveredTileY = tileY
+        terrainsState.hoveredTileX = tileX;
+        terrainsState.hoveredTileY = tileY;
       }}
       onPointerOut={() => {
-        if (state.hoveredTileX === tileX && state.hoveredTileY === tileY) {
-          state.hoveredTileX = -1
-          state.hoveredTileY = -1
+        if (terrainsState.hoveredTileX === tileX && terrainsState.hoveredTileY === tileY) {
+          terrainsState.hoveredTileX = -1;
+          terrainsState.hoveredTileY = -1;
         }
       }}
     >
       {isHovered
         ? <meshBasicMaterial color="yellow" />
-        : <meshStandardMaterial />
+        : <MeshDiscardMaterial />
       }
+      <Edges />
     </Plane>
   </FeatureObject>;
 }
@@ -60,7 +59,6 @@ export default function TerrainGenerator() {
   const { terrains, originCoordinate } = useSnapshot(gameState.data);
   const { selectedTab } = useSnapshot(guiState);
   const { target } = useSnapshot(cameraControlsState);
-  const { hoveredTileX, hoveredTileY } = useSnapshot(state);
 
   if (selectedTab !== "terrains") return null;
 
@@ -83,7 +81,7 @@ export default function TerrainGenerator() {
         // 既に地形が存在する場所は作成できないようにする
         if (terrains[tileY]?.[tileX]) return null;
 
-        return <NewTerrainTile key={index} tileX={tileX} tileY={tileY} isHovered={hoveredTileX === tileX && hoveredTileY === tileY} />;
+        return <NewTerrainTile key={index} tileX={tileX} tileY={tileY} />;
       })}
   </>;
 }

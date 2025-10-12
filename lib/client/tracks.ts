@@ -18,7 +18,7 @@ export const tracksState = proxy<{
 export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
 
 export function getNumberOfCurvePoints(length: number, radius: number) {
-  return Math.max(1, Math.ceil(length * railModelFactor / Math.abs(radius)))
+  return Math.max(2, Math.ceil(length * railModelFactor / Math.abs(radius)))
 }
 
 export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3, rotationX: number) {

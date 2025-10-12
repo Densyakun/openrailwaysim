@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
-import { Track, TransitionCurve, getCant, getHeight, getLength, getPosition, getRotation } from '@/lib/tracks'
+import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
@@ -16,6 +16,7 @@ import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
 import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
+import { ThreeEvent } from '@react-three/fiber'
 
 function TrackModel({
   track,
@@ -82,9 +83,42 @@ function TrackModel({
   </group>;
 }
 
+function TrackLine({
+  points,
+  color,
+  onClick,
+  onPointerOver,
+  onPointerMove,
+  onPointerOut,
+}: {
+  points: THREE.Vector3[];
+  color?: THREE.ColorRepresentation;
+  onClick?: (event: ThreeEvent<MouseEvent>) => void;
+  onPointerOver?: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerMove?: (event: ThreeEvent<PointerEvent>) => void;
+  onPointerOut?: (event: ThreeEvent<PointerEvent>) => void;
+}) {
+  return <>
+    <Line
+      points={points}
+      lineWidth={48}
+      transparent
+      opacity={0}
+      onClick={onClick}
+      onPointerOver={onPointerOver}
+      onPointerMove={onPointerMove}
+      onPointerOut={onPointerOut}
+    />
+    <Line
+      points={points}
+      color={color}
+    />
+  </>;
+}
+
 function AddingTracks() {
   const { selectedTab } = useSnapshot(guiState);
-  const { isAddingCurve } = useSnapshot(tracksSubMenuState);
+  const { isAddingCurve, hoveredAddingTracks } = useSnapshot(tracksSubMenuState);
   const { addingCurves, addingTransitionsAB, addingTransitionsCD } = useSnapshot(curveEditMenuState);
   const { straightTracks } = useSnapshot(featureCollectionsTabPanelState);
 
@@ -98,117 +132,80 @@ function AddingTracks() {
     {addingCurves.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { position, length, radius } = curve;
+      const lengthOfPoints = getLengthOfPoints(curve as Track);
+      const points = lengthOfPoints.map(length => getPosition(curve, length));
 
-      let points = []
-      if (radius === 0)
-        points = [position, getPosition(curve, length)]
-      else {
-        const numberOfPointsA = getNumberOfCurvePoints(length, radius)
-        for (let i = 0; i <= numberOfPointsA; i++)
-          points.push(getPosition(curve, length * i / numberOfPointsA))
-      }
-
-      return <React.Fragment key={trackIndex}>
-        <Line
-          points={points}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onClick={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              onClickAddingTrack(trackIndex)
-          }}
-          onPointerOver={() => {
-            tracksSubMenuState.hoveredAddingTracks = trackIndex
-          }}
-          onPointerOut={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              tracksSubMenuState.hoveredAddingTracks = -1
-          }}
-        />
-        <Line
-          points={points}
-          color={
-            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-              "#000"
-          }
-        />
-      </React.Fragment>
+      return <TrackLine
+        key={trackIndex}
+        points={points}
+        color={
+          hoveredAddingTracks === trackIndex ? "#ff0" :
+            "#000"
+        }
+        onPointerMove={() => {
+          tracksSubMenuState.hoveredAddingTracks = trackIndex
+        }}
+        onPointerOut={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            tracksSubMenuState.hoveredAddingTracks = -1
+        }}
+        onClick={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            onClickAddingTrack(trackIndex)
+        }}
+      />
     })}
     {addingTransitionsAB.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve);
+      const points = lengthOfPoints.map(length => getPosition(curve, length));
 
-      let points = [];
-      for (let i = 0; i < transitionCurves.length; i++)
-        points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-      points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-
-      return <React.Fragment key={trackIndex}>
-        <Line
-          points={points}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onClick={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              onClickAddingTrack(trackIndex)
-          }}
-          onPointerOver={() => {
-            tracksSubMenuState.hoveredAddingTracks = trackIndex
-          }}
-          onPointerOut={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              tracksSubMenuState.hoveredAddingTracks = -1
-          }}
-        />
-        <Line
-          points={points}
-          color={
-            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-              "#f0f"
-          }
-        />
-      </React.Fragment>
+      return <TrackLine
+        key={trackIndex}
+        points={points}
+        color={
+          hoveredAddingTracks === trackIndex ? "#ff0" :
+            "#f0f"
+        }
+        onPointerMove={() => {
+          tracksSubMenuState.hoveredAddingTracks = trackIndex
+        }}
+        onPointerOut={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            tracksSubMenuState.hoveredAddingTracks = -1
+        }}
+        onClick={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            onClickAddingTrack(trackIndex)
+        }}
+      />
     })}
     {addingTransitionsCD.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const { position, rotationY, transitionCurves, endPosition, curveDirection } = curve;
+      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve);
+      const points = lengthOfPoints.map(length => getPosition(curve, length));
 
-      let points = [];
-      for (let i = 0; i < transitionCurves.length; i++)
-        points.push(position.clone().add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-      points.push(position.clone().add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))));
-
-      return <React.Fragment key={trackIndex}>
-        <Line
-          points={points}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onClick={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              onClickAddingTrack(trackIndex)
-          }}
-          onPointerOver={() => {
-            tracksSubMenuState.hoveredAddingTracks = trackIndex
-          }}
-          onPointerOut={() => {
-            if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
-              tracksSubMenuState.hoveredAddingTracks = -1
-          }}
-        />
-        <Line
-          points={points}
-          color={
-            tracksSubMenuState.hoveredAddingTracks === trackIndex ? "#ff0" :
-              "#f0f"
-          }
-        />
-      </React.Fragment>
+      return <TrackLine
+        key={trackIndex}
+        points={points}
+        color={
+          hoveredAddingTracks === trackIndex ? "#ff0" :
+            "#f0f"
+        }
+        onPointerMove={() => {
+          tracksSubMenuState.hoveredAddingTracks = trackIndex
+        }}
+        onPointerOut={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            tracksSubMenuState.hoveredAddingTracks = -1
+        }}
+        onClick={() => {
+          if (tracksSubMenuState.hoveredAddingTracks === trackIndex)
+            onClickAddingTrack(trackIndex)
+        }}
+      />
     })}
   </>;
 }
@@ -247,42 +244,14 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrainId, isAddingTrain, pointOnTrack } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex } = useSnapshot(diagramsTabPanelState);
 
-  const { length, radius, beginRotationX, endRotationX, trackModels, gradients } = track;
+  const { length, trackModels } = track;
+  const lengthOfPoints = getLengthOfPoints(track);
+  const points = lengthOfPoints.map(length => getPosition(track, length));
+
   let rotationXList: number[] = [];
-  let lengthOfPoints: number[] = [];
-  if ((track as TransitionCurve).endPosition === undefined) {
-    if (radius === 0) {
-      const g = Object.keys(gradients).length;
-      if (1 < g) {
-        const numberOfPoints = Math.ceil(length / 5); // TODO
-        for (let i = 0; i <= numberOfPoints; i++)
-          lengthOfPoints.push(length * i / numberOfPoints);
-      } else if (beginRotationX === endRotationX) {
-        lengthOfPoints = [0, length];
-      } else {
-        // 直線でカントが変化する場合
-        const numberOfPoints = 2; // TODO
-        for (let i = 0; i <= numberOfPoints; i++)
-          lengthOfPoints.push(length * i / numberOfPoints);
-      }
-    } else {
-      const numberOfPointsA = getNumberOfCurvePoints(length, radius)
-      for (let i = 0; i <= numberOfPointsA; i++)
-        lengthOfPoints.push(length * i / numberOfPointsA);
-    }
-  } else {
-    const { transitionCurves } = track as TransitionCurve;
-
-    for (let i = 0; i < transitionCurves.length; i++)
-      lengthOfPoints.push(length * i / transitionCurves.length);
-    lengthOfPoints.push(length);
-  }
-
   for (let i = 1; i < lengthOfPoints.length; i++)
-    //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (lengthOfPoints.length - 1));
     rotationXList.push(getCant(track, (i - 0.5) * length / (lengthOfPoints.length - 1)));
 
-  const points = lengthOfPoints.map(length => getPosition(track, length));
   const color = useTrackColorOnTrackMode(trackId);
 
   return <>
@@ -359,186 +328,115 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         )}
       </React.Fragment>;
     })}
-    {selectedTab === "tracks" && <>
-      <Line
-        points={points}
-        lineWidth={48}
-        transparent
-        opacity={0}
-        onClick={() => {
-          if (tracksSubMenuState.isAddingCurve) return
+    {selectedTab === "tracks" && <TrackLine
+      points={points}
+      color={color || "#000"}
+      onPointerOver={() => {
+        if (tracksSubMenuState.isAddingCurve) return
 
-          const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
+        tracksState.hoveredTracks.push(trackId)
+      }}
+      onPointerOut={() => {
+        const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
 
-          if (0 <= index)
-            tracksState.selectedTrackIds.splice(index, 1)
-          else
-            tracksState.selectedTrackIds.push(trackId)
-        }}
-        onPointerOver={() => {
-          if (tracksSubMenuState.isAddingCurve) return
+        if (0 <= index)
+          tracksState.hoveredTracks.splice(index, 1)
+      }}
+      onClick={() => {
+        if (tracksSubMenuState.isAddingCurve) return
 
-          tracksState.hoveredTracks.push(trackId)
-        }}
-        onPointerOut={() => {
-          const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
+        const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
 
-          if (0 <= index)
-            tracksState.hoveredTracks.splice(index, 1)
-        }}
-      />
-      <Line
-        points={points}
-        color={color || "#000"}
-      />
-    </>}
+        if (0 <= index)
+          tracksState.selectedTrackIds.splice(index, 1)
+        else
+          tracksState.selectedTrackIds.push(trackId)
+      }}
+    />}
     {selectedTab === "trains" &&
       (isAddingTrain || editingTrainId) &&
-      !pointOnTrack && <>
-        <Line
-          points={points}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onPointerMove={e => {
-            const point = e.intersections[0].point
+      !pointOnTrack && <TrackLine
+        points={points}
+        color={color || "#000"}
+        onPointerMove={e => {
+          const point = e.intersections[0].point
 
-            tracksState.pointingOnTrack = {
-              trackId,
-              length: Math.min(track.length, Math.max(0, getLength(point, track))),
-            }
-          }}
-          onPointerOut={() => {
-            if (tracksState.pointingOnTrack?.trackId === trackId)
-              tracksState.pointingOnTrack = undefined
-          }}
-          onClick={() => {
-            if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+          tracksState.pointingOnTrack = {
+            trackId,
+            length: Math.min(track.length, Math.max(0, getLength(point, track))),
+          }
+        }}
+        onPointerOut={() => {
+          if (tracksState.pointingOnTrack?.trackId === trackId)
+            tracksState.pointingOnTrack = undefined
+        }}
+        onClick={() => {
+          if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
 
-            trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
-            tracksState.pointingOnTrack = undefined;
-          }}
-        />
-        <Line
-          points={points}
-          color={color || "#000"}
-        />
-      </>}
+          trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
+          tracksState.pointingOnTrack = undefined;
+        }}
+      />}
     {selectedTab === "diagrams" &&
       editingSectionsInDiagramId &&
-      0 <= selectingDiagramSectionIndex && <>
-        <Line
-          points={points}
-          lineWidth={48}
-          transparent
-          opacity={0}
-          onPointerOver={() => {
-            if (!diagramsTabPanelState.tracksIsEditing) return;
+      0 <= selectingDiagramSectionIndex && <TrackLine
+        points={points}
+        color={color || "#000"}
+        onPointerMove={e => {
+          if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
-            const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
+          const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
+          if (diagramsTabPanelState.tracksIsEditing) {
             if (trackRoute.trackIds.length) return;
-
             tracksState.hoveredTracks.push(trackId);
-          }}
-          onPointerMove={e => {
-            if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
+          } else if (trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1])
+            return;
 
-            const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
-            if (diagramsTabPanelState.tracksIsEditing
-              ? trackRoute.trackIds.length
-              : trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
-            ) return;
+          const point = e.intersections[0].point;
 
-            const point = e.intersections[0].point;
+          tracksState.pointingOnTrack = {
+            trackId,
+            length: Math.min(track.length, Math.max(0, getLength(point, track))),
+          };
+        }}
+        onPointerOut={() => {
+          const index = tracksState.hoveredTracks.findIndex(value => value === trackId);
 
-            tracksState.pointingOnTrack = {
-              trackId,
-              length: Math.min(track.length, Math.max(0, getLength(point, track))),
-            };
-          }}
-          onPointerOut={() => {
-            const index = tracksState.hoveredTracks.findIndex(value => value === trackId);
+          if (0 <= index)
+            tracksState.hoveredTracks.splice(index, 1);
 
-            if (0 <= index)
-              tracksState.hoveredTracks.splice(index, 1);
+          if (tracksState.pointingOnTrack?.trackId === trackId)
+            tracksState.pointingOnTrack = undefined;
+        }}
+        onClick={() => {
+          if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
-            if (tracksState.pointingOnTrack?.trackId === trackId)
-              tracksState.pointingOnTrack = undefined;
-          }}
-          onClick={() => {
-            if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
+          const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
+          if (diagramsTabPanelState.tracksIsEditing) {
+            if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
 
-            const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
-            if (diagramsTabPanelState.tracksIsEditing) {
-              if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
-
-              trackRoute.trackIds.push(tracksState.pointingOnTrack.trackId);
-              trackRoute.stopOffset = tracksState.pointingOnTrack.length;
-              onUpdateTrackList();
-              return;
-            }
-
-            if (
-              !tracksState.pointingOnTrack
-              || trackId !== tracksState.pointingOnTrack.trackId
-              || trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
-            ) return;
+            trackRoute.trackIds.push(tracksState.pointingOnTrack.trackId);
             trackRoute.stopOffset = tracksState.pointingOnTrack.length;
-          }}
-        />
-        <Line
-          points={points}
-          color={color || "#000"}
-        />
-      </>}
+            onUpdateTrackList();
+            return;
+          }
+
+          if (
+            !tracksState.pointingOnTrack
+            || trackId !== tracksState.pointingOnTrack.trackId
+            || trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
+          ) return;
+          trackRoute.stopOffset = tracksState.pointingOnTrack.length;
+        }}
+      />}
   </>;
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
   const switches = useSnapshot(gameState.data.switches);
 
-  const { position, rotationY, length, radius, beginRotationX, endRotationX, gradients } = track
-  let points: THREE.Vector3[] = []
-  let rotationXList: number[] = []
-  if ((track as TransitionCurve).endPosition === undefined) {
-    if (radius === 0) {
-      const g = Object.keys(gradients).length
-      if (1 < g) {
-        const numberOfPoints = Math.ceil(length / 5) // TODO
-        for (let i = 0; i <= numberOfPoints; i++)
-          points.push(getPosition(track, length * i / numberOfPoints))
-      } else if (beginRotationX === endRotationX)
-        points = [position, getPosition(track, length / 2), getPosition(track, length)]
-      else {
-        // 直線でカントが変化する場合
-        const numberOfPoints = 3 // 3 <= numberOfPoints
-        for (let i = 0; i <= numberOfPoints; i++)
-          points.push(getPosition(track, length * i / numberOfPoints))
-      }
-    } else {
-      const numberOfPointsA = Math.max(2, getNumberOfCurvePoints(length, radius))
-      for (let i = 0; i <= numberOfPointsA; i++)
-        points.push(getPosition(track, length * i / numberOfPointsA))
-    }
-  } else {
-    const { transitionCurves, endPosition, curveDirection } = track as TransitionCurve;
-
-    for (let i = 0; i < transitionCurves.length; i++)
-      points.push(
-        position.clone()
-          .add(transitionCurves[i].position.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
-            .add(new THREE.Vector3(0, getHeight(length * i / transitionCurves.length, gradients)))
-          ));
-    points.push(
-      position.clone()
-        .add(endPosition.clone().multiply(new THREE.Vector3(1, 1, curveDirection ? 1 : -1)).applyEuler(new THREE.Euler(0, rotationY))
-          .add(new THREE.Vector3(0, getHeight(length, gradients)))
-        ));
-  }
-
-  for (let i = 1; i < points.length; i++)
-    //rotationXList.push(beginRotationX + (endRotationX - beginRotationX) * (i - 0.5) / (points.length - 1));
-    rotationXList.push(getCant(track, (i - 0.5) * length / (points.length - 1)));
+  const lengthOfPoints = getLengthOfPoints(track, true);
+  const points = lengthOfPoints.map(length => getPosition(track, length));
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
@@ -560,11 +458,9 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   }
 
   return <>
-    <Line
+    <TrackLine
       points={points.slice(0, points.length / 2 + 1)}
-      lineWidth={48}
-      transparent
-      opacity={0}
+      color={colorStart || "#000"}
       onPointerOver={() => {
         Object.keys(switches).forEach(switchId => {
           const { connectedTrackIds, isConnectedToEnd } = switches[switchId];
@@ -595,15 +491,9 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         }
       }}
     />
-    <Line
-      points={points.slice(0, points.length / 2 + 1)}
-      color={colorStart || "#000"}
-    />
-    <Line
+    <TrackLine
       points={points.slice(points.length / 2)}
-      lineWidth={48}
-      transparent
-      opacity={0}
+      color={colorEnd || "#000"}
       onPointerOver={() => {
         Object.keys(switches).forEach(switchId => {
           const { connectedTrackIds, isConnectedToEnd } = switches[switchId];
@@ -633,11 +523,42 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
         }
       }}
     />
-    <Line
-      points={points.slice(points.length / 2)}
-      color={colorEnd || "#000"}
-    />
   </>;
+}
+
+function getLengthOfPoints(track: Track, isSwitchMode = false) {
+  const { length, radius, beginRotationX, endRotationX, gradients } = track;
+
+  let lengthOfPoints: number[] = [];
+  if ((track as TransitionCurve).endPosition === undefined) {
+    if (radius === 0) {
+      const g = Object.keys(gradients).length;
+      if (1 < g) {
+        const numberOfPoints = Math.ceil(length / 5); // TODO
+        for (let i = 0; i <= numberOfPoints; i++)
+          lengthOfPoints.push(length * i / numberOfPoints);
+      } else if (beginRotationX === endRotationX)
+        lengthOfPoints = isSwitchMode ? [0, length / 2, length] : [0, length];
+      else {
+        // 直線でカントが変化する場合
+        const numberOfPoints = isSwitchMode ? 3 : 2;
+        for (let i = 0; i <= numberOfPoints; i++)
+          lengthOfPoints.push(length * i / numberOfPoints);
+      }
+    } else {
+      const numberOfPointsA = getNumberOfCurvePoints(length, radius);
+      for (let i = 0; i <= numberOfPointsA; i++)
+        lengthOfPoints.push(length * i / numberOfPointsA);
+    }
+  } else {
+    const { transitionCurves } = track as TransitionCurve;
+
+    for (let i = 0; i < transitionCurves.length; i++)
+      lengthOfPoints.push(length * i / transitionCurves.length);
+    lengthOfPoints.push(length);
+  }
+
+  return lengthOfPoints;
 }
 
 function useTrackColorOnTrackMode(trackId: string) {

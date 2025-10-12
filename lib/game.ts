@@ -164,8 +164,8 @@ export function toSerializableSaveData(type: string, value: any): any {
       connectedFromEndIsTrack,
       connectedFromStartIsToEnd,
       connectedFromEndIsToEnd,
-      beginRotationX,
-      endRotationX,
+      beginCant,
+      endCant,
       trackModels,
     }: Track = value;
 
@@ -181,8 +181,8 @@ export function toSerializableSaveData(type: string, value: any): any {
       connectedFromEndIsTrack,
       connectedFromStartIsToEnd,
       connectedFromEndIsToEnd,
-      beginRotationX,
-      endRotationX,
+      beginCant: beginCant,
+      endCant: endCant,
       trackModels,
     };
 
@@ -404,8 +404,8 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       connectedFromEndIsTrack,
       connectedFromStartIsToEnd,
       connectedFromEndIsToEnd,
-      beginRotationX,
-      endRotationX,
+      beginCant,
+      endCant,
       trackModels,
     }: SerializableTrack = value;
 
@@ -421,8 +421,8 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       connectedFromEndIsTrack,
       connectedFromStartIsToEnd,
       connectedFromEndIsToEnd,
-      beginRotationX,
-      endRotationX,
+      beginCant: beginCant,
+      endCant: endCant,
       trackModels,
     };
 

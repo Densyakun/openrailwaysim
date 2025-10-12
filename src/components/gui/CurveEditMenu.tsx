@@ -25,7 +25,7 @@ export type CurveEditStateType = {
   curveRadius: number;
   transitionABLength: number;
   transitionCDLength: number;
-  rotationX: number;
+  cant: number;
 }
 
 export const curveEditMenuState = proxy<NextCurveEditStateType & CurveEditStateType>({
@@ -41,7 +41,7 @@ export const curveEditMenuState = proxy<NextCurveEditStateType & CurveEditStateT
   curveRadius: 400,
   transitionABLength: 60,
   transitionCDLength: 60,
-  rotationX: 0.0963,
+  cant: 0.0963,
 });
 
 export function updateAddingTracks() {
@@ -217,8 +217,8 @@ export function updateAddingTracks() {
       connectedFromEndIsTrack: true,
       connectedFromStartIsToEnd: false,
       connectedFromEndIsToEnd: false,
-      beginRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
-      endRotationX: 2 <= index && index < 6 ? curveEditMenuState.rotationX : -curveEditMenuState.rotationX,
+      beginCant: 2 <= index && index < 6 ? curveEditMenuState.cant : -curveEditMenuState.cant,
+      endCant: 2 <= index && index < 6 ? curveEditMenuState.cant : -curveEditMenuState.cant,
       gradients: { 0: 0 },
       trackModels: [],
     } as Track;
@@ -359,8 +359,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     curve,
     0,
     1,
-    curve.beginRotationX,
-    curve.endRotationX,
+    curve.beginCant,
+    curve.endCant,
     AB.trackModels,
   );
   const sCurveId = uuidv4();
@@ -370,8 +370,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       transitionCurveAB,
       0,
       1,
-      AB.beginRotationX,
-      curve.beginRotationX,
+      AB.beginCant,
+      curve.beginCant,
       AB.trackModels,
     ),
     transitionCurveAB
@@ -383,8 +383,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
       transitionCurveCD,
       0,
       1,
-      curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7 ? CD.beginRotationX : -CD.beginRotationX,
-      -curve.endRotationX,
+      curveIndex === 1 || curveIndex === 2 || curveIndex === 4 || curveIndex === 7 ? CD.beginCant : -CD.beginCant,
+      -curve.endCant,
       CD.trackModels,
     ),
     transitionCurveCD
@@ -478,8 +478,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           AB,
           s,
           1,
-          AB.beginRotationX,
-          AB.beginRotationX,
+          AB.beginCant,
+          AB.beginCant,
           AB.trackModels,
         );
 
@@ -504,8 +504,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           AB,
           0,
           s,
-          AB.beginRotationX,
-          AB.beginRotationX,
+          AB.beginCant,
+          AB.beginCant,
           AB.trackModels,
         );
 
@@ -635,8 +635,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           CD,
           t,
           1,
-          CD.beginRotationX,
-          CD.beginRotationX,
+          CD.beginCant,
+          CD.beginCant,
           CD.trackModels,
         );
 
@@ -660,8 +660,8 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
           CD,
           0,
           t,
-          CD.beginRotationX,
-          CD.beginRotationX,
+          CD.beginCant,
+          CD.beginCant,
           CD.trackModels,
         );
 
@@ -775,13 +775,13 @@ export default function CurveEditMenu() {
         }}
       />
       <TextField
-        label="Rotation X"
-        defaultValue={curveEditMenuState.rotationX}
+        label="Cant"
+        defaultValue={curveEditMenuState.cant}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-          const rotationX = parseFloat(event.target.value);
-          if (Number.isNaN(rotationX)) return;
+          const cant = parseFloat(event.target.value);
+          if (Number.isNaN(cant)) return;
 
-          curveEditMenuState.rotationX = rotationX;
+          curveEditMenuState.cant = cant;
           updateAddingTracks();
         }}
       />

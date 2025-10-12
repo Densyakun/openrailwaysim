@@ -14,10 +14,10 @@ export function loadSaveData() {
 
   // 開発用にセーブデータをアップデート
   /*Object.keys(saveData.tracks).forEach(trackId => {
-    saveData.tracks[trackId].trackModels.forEach(trackModel => {
-      trackModel.minDistance = 0;
-      trackModel.maxDistance = 0;
-    })
+    if (typeof (saveData.tracks[trackId] as any)["beginRotationX"] !== "undefined") {
+      saveData.tracks[trackId].beginCant = (saveData.tracks[trackId] as any)["beginRotationX"];
+      saveData.tracks[trackId].endCant = (saveData.tracks[trackId] as any)["endRotationX"];
+    }
   });*/
 
   return saveData;

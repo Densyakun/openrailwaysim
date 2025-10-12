@@ -265,9 +265,9 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const lengthOfPoints = getLengthOfPoints(track);
   const points = lengthOfPoints.map(length => getPosition(track, length));
 
-  let rotationXList: number[] = [];
+  let cantList: number[] = [];
   for (let i = 1; i < lengthOfPoints.length; i++)
-    rotationXList.push(getCant(track, (i - 0.5) * length / (lengthOfPoints.length - 1)));
+    cantList.push(getCant(track, (i - 0.5) * length / (lengthOfPoints.length - 1)));
 
   const color = useTrackColorOnTrackMode(trackId);
 
@@ -317,7 +317,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             from={Math.max(lengthOfPoints[pointIndex - 1], trackModel.start)}
             to={Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end)}
             isInclined={trackModel.isInclined}
-            tilt={trackModel.isTilting ? rotationXList[pointIndex - 1] : 0}
+            tilt={trackModel.isTilting ? cantList[pointIndex - 1] : 0}
             modelPath={trackModel.modelPath}
             minDistance={trackModel.minDistance}
             maxDistance={trackModel.maxDistance}
@@ -534,7 +534,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
 }
 
 function getLengthOfPoints(track: Track, isSwitchMode = false) {
-  const { length, radius, beginRotationX, endRotationX, gradients } = track;
+  const { length, radius, beginCant, endCant, gradients } = track;
 
   let lengthOfPoints: number[] = [];
   if ((track as TransitionCurve).endPosition === undefined) {
@@ -544,7 +544,7 @@ function getLengthOfPoints(track: Track, isSwitchMode = false) {
         const numberOfPoints = Math.ceil(length / 5); // TODO
         for (let i = 0; i <= numberOfPoints; i++)
           lengthOfPoints.push(length * i / numberOfPoints);
-      } else if (beginRotationX === endRotationX)
+      } else if (beginCant === endCant)
         lengthOfPoints = isSwitchMode ? [0, length / 2, length] : [0, length];
       else {
         // 直線でカントが変化する場合

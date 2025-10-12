@@ -136,7 +136,11 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
   const onUpdateTime = function () {
     const newTime = new Date().getTime();
-    updateTime(saveData, (newTime - time) / 1000);
+    try {
+      updateTime(saveData, (newTime - time) / 1000);
+    } catch (e) {
+      console.error(e);
+    }
     time = newTime;
   };
 

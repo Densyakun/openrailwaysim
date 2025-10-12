@@ -71,10 +71,14 @@ export default function Client() {
   }
 
   useFrame(({ }, delta) => {
-    updateTime(gameState.data, delta)
-    updateClientOnTime(gameState.data, delta)
+    try {
+      updateTime(gameState.data, delta)
+      updateClientOnTime(gameState.data, delta)
 
-    onFrameTrains()
+      onFrameTrains()
+    } catch (e) {
+      console.error(e);
+    }
   })
 
   useEffect(() => {

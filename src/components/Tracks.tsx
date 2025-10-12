@@ -216,7 +216,23 @@ function PointingOnTrack() {
 
   if (!pointingOnTrack) return null;
 
-  return <mesh position={getPosition(tracks[pointingOnTrack.trackId], pointingOnTrack.length)}>
+  return <PointingOnTrackMesh position={getPosition(tracks[pointingOnTrack.trackId], pointingOnTrack.length)} />;
+}
+
+function PointingOnTrackDiagramSectionRoute() {
+  const tracks = useSnapshot(gameState.data.tracks);
+  const { sections, selectingDiagramSectionIndex, selectingRouteIndex } = useSnapshot(diagramsTabPanelState);
+
+  if (!sections || selectingDiagramSectionIndex < 0 || selectingRouteIndex < 0) return null;
+
+  const trackRoute = sections[selectingDiagramSectionIndex].routes[selectingRouteIndex];
+  if (!trackRoute.trackIds.length) return null;
+
+  return <PointingOnTrackMesh position={getPosition(tracks[trackRoute.trackIds[0]], trackRoute.stopOffset)} />;
+}
+
+function PointingOnTrackMesh({ position }: { position: THREE.Vector3 }) {
+  return <mesh position={position}>
     <sphereGeometry />
     <meshBasicMaterial color={"#f00"} />
   </mesh>;
@@ -236,13 +252,14 @@ export default function Tracks() {
     })}
     <AddingTracks />
     <PointingOnTrack />
+    <PointingOnTrackDiagramSectionRoute />
   </>;
 }
 
 function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }) {
   const { selectedTab } = useSnapshot(guiState);
-  const { editingTrainId, isAddingTrain, pointOnTrack } = useSnapshot(trainsTabPanelState);
-  const { editingSectionsInDiagramId, selectingDiagramSectionIndex } = useSnapshot(diagramsTabPanelState);
+  const { editingTrainId, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
+  const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
 
   const { length, trackModels } = track;
   const lengthOfPoints = getLengthOfPoints(track);
@@ -253,6 +270,33 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     rotationXList.push(getCant(track, (i - 0.5) * length / (lengthOfPoints.length - 1)));
 
   const color = useTrackColorOnTrackMode(trackId);
+
+  // イベントの条件
+  const T = selectedTab === "trains" // 名前変更
+    && (isAddingTrain || editingTrainId)
+    && !pointOnTrackOfTrainsTab;
+  const D = selectedTab === "diagrams"
+    && editingSectionsInDiagramId
+    && 0 <= selectingDiagramSectionIndex;
+  const eventIsEnable =
+    selectedTab === "tracks"
+    || T
+    || D;
+  const isSelectable =
+    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve;
+  let isHoverable = isSelectable;
+  let isPointableOnTrack = T;
+
+  if (D && sections && 0 <= selectingRouteIndex) {
+    const trackRoute = sections[selectingDiagramSectionIndex].routes[selectingRouteIndex];
+    if (tracksIsEditing) {
+      if (!trackRoute.trackIds.length) {
+        isHoverable = true;
+        isPointableOnTrack = true;
+      }
+    } else if (trackId === trackRoute.trackIds[trackRoute.trackIds.length - 1])
+      isPointableOnTrack = true;
+  }
 
   return <>
     {points.map((_, pointIndex) => {
@@ -328,87 +372,49 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         )}
       </React.Fragment>;
     })}
-    {selectedTab === "tracks" && <TrackLine
+    {eventIsEnable && <TrackLine
       points={points}
       color={color || "#000"}
       onPointerOver={() => {
-        if (tracksSubMenuState.isAddingCurve) return
+        if (!isHoverable) return;
 
-        tracksState.hoveredTracks.push(trackId)
+        tracksState.hoveredTracks.push(trackId);
+      }}
+      onPointerMove={e => {
+        if (!isPointableOnTrack) return;
+
+        tracksState.pointingOnTrack = {
+          trackId,
+          length: Math.min(track.length, Math.max(0, getLength(e.intersections[0].point, track))),
+        };
       }}
       onPointerOut={() => {
-        const index = tracksState.hoveredTracks.findIndex(value => value === trackId)
+        const index = tracksState.hoveredTracks.findIndex(value => value === trackId);
 
         if (0 <= index)
-          tracksState.hoveredTracks.splice(index, 1)
+          tracksState.hoveredTracks.splice(index, 1);
+
+        if (tracksState.pointingOnTrack?.trackId === trackId)
+          tracksState.pointingOnTrack = undefined;
       }}
       onClick={() => {
-        if (tracksSubMenuState.isAddingCurve) return
+        if (isSelectable) {
+          const index = tracksState.selectedTrackIds.findIndex(value => value === trackId);
 
-        const index = tracksState.selectedTrackIds.findIndex(value => value === trackId)
+          if (0 <= index)
+            tracksState.selectedTrackIds.splice(index, 1);
+          else
+            tracksState.selectedTrackIds.push(trackId);
+        }
 
-        if (0 <= index)
-          tracksState.selectedTrackIds.splice(index, 1)
-        else
-          tracksState.selectedTrackIds.push(trackId)
-      }}
-    />}
-    {selectedTab === "trains" &&
-      (isAddingTrain || editingTrainId) &&
-      !pointOnTrack && <TrackLine
-        points={points}
-        color={color || "#000"}
-        onPointerMove={e => {
-          const point = e.intersections[0].point
-
-          tracksState.pointingOnTrack = {
-            trackId,
-            length: Math.min(track.length, Math.max(0, getLength(point, track))),
-          }
-        }}
-        onPointerOut={() => {
-          if (tracksState.pointingOnTrack?.trackId === trackId)
-            tracksState.pointingOnTrack = undefined
-        }}
-        onClick={() => {
+        if (T) {
           if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
 
           trainsTabPanelState.pointOnTrack = tracksState.pointingOnTrack;
           tracksState.pointingOnTrack = undefined;
-        }}
-      />}
-    {selectedTab === "diagrams" &&
-      editingSectionsInDiagramId &&
-      0 <= selectingDiagramSectionIndex && <TrackLine
-        points={points}
-        color={color || "#000"}
-        onPointerMove={e => {
-          if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
+        }
 
-          const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
-          if (diagramsTabPanelState.tracksIsEditing) {
-            if (trackRoute.trackIds.length) return;
-            tracksState.hoveredTracks.push(trackId);
-          } else if (trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1])
-            return;
-
-          const point = e.intersections[0].point;
-
-          tracksState.pointingOnTrack = {
-            trackId,
-            length: Math.min(track.length, Math.max(0, getLength(point, track))),
-          };
-        }}
-        onPointerOut={() => {
-          const index = tracksState.hoveredTracks.findIndex(value => value === trackId);
-
-          if (0 <= index)
-            tracksState.hoveredTracks.splice(index, 1);
-
-          if (tracksState.pointingOnTrack?.trackId === trackId)
-            tracksState.pointingOnTrack = undefined;
-        }}
-        onClick={() => {
+        if (D) {
           if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
           const trackRoute = diagramsTabPanelState.sections[diagramsTabPanelState.selectingDiagramSectionIndex].routes[diagramsTabPanelState.selectingRouteIndex];
@@ -427,8 +433,9 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             || trackId !== trackRoute.trackIds[trackRoute.trackIds.length - 1]
           ) return;
           trackRoute.stopOffset = tracksState.pointingOnTrack.length;
-        }}
-      />}
+        }
+      }}
+    />}
   </>;
 }
 

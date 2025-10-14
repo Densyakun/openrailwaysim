@@ -5,11 +5,14 @@ import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
+import { useSnapshot } from 'valtio';
 
 export default function FeatureCollectionsWithDreiSegment() {
+  const { featureCollections } = useSnapshot(gameState.data);
+
   return (
     <>
-      {Object.keys(gameState.data.featureCollections).map(id =>
+      {Object.keys(featureCollections).map(id =>
         <FeatureCollection key={id} id={id} />
       )}
     </>
@@ -17,9 +20,11 @@ export default function FeatureCollectionsWithDreiSegment() {
 }
 
 function FeatureCollection({ id }: { id: string }) {
+  const { featureCollections } = useSnapshot(gameState.data);
+
   return (
     <>
-      {gameState.data.featureCollections[id].value.features.map((feature, index) => {
+      {featureCollections[id].value.features.map((feature, index) => {
         switch (feature.geometry.type) {
           case "LineString":
             const lineString = feature.geometry as LineString

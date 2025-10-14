@@ -234,6 +234,9 @@ function TerrainTile({
 export default function Terrains() {
   useSnapshot(clientState);
   const terrains = useSnapshot(gameState.data.terrains);
+  const { isVisible } = useSnapshot(terrainsState);
+
+  if (!isVisible) return null;
 
   return <>
     {Object.keys(terrains).map(tileY_ =>

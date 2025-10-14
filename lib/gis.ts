@@ -13,7 +13,7 @@ export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { un
 export type FeatureAt = {
   featureCollectionId: string;
   featureIndex: number;
-  segmentIndex?: number;
+  segmentIndex: number;
 }
 
 export function equalFeatureAt(featureAt: FeatureAt, featureAt1: FeatureAt) {
@@ -65,6 +65,7 @@ export function getBearing(coordinate: Position, originCoordinate: Position) {
 }
 
 export function getRelativePosition(coordinate: Position, originCoordinate: Position) {
+  // Azimuthal equidistant projection
   const distance = turfDistance(originCoordinate, coordinate, { units: 'meters' })
 
   const angle = getBearing(coordinate, originCoordinate)

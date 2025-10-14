@@ -2,7 +2,6 @@ import { Canvas } from '@react-three/fiber'
 import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
 import SunAndSky from './SunAndSky'
-import DreiSegments from './DreiSegments'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
 import Trains from './Trains'
@@ -22,7 +21,6 @@ export default function CanvasContainer() {
     <Cameras />
     <CameraControls />
     <SunAndSky />
-    <DreiSegments />
     <FeatureCollections />
     <Tracks />
     <Trains />

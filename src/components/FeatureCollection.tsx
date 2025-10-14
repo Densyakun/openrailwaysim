@@ -20,7 +20,7 @@ export default function FeatureCollectionComponent({
             const lineString = feature.geometry as LineString
 
             return (
-              <CoordinatesLine key={index} featureCollectionId={featureCollectionId} featureIndex={index} coordinates={lineString.coordinates} centerCoordinate={originCoordinate as number[]} />
+              <CoordinatesLine key={index} featureCollectionId={featureCollectionId} featureIndex={index} coordinates={lineString.coordinates} />
             )
           case "Point":
             const point = feature.geometry as Point

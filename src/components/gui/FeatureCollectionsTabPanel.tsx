@@ -459,15 +459,15 @@ function CreateTrackMenu() {
                   <ButtonGroup variant="contained">
                     <Button variant='contained' disabled={!nextSegmentList.length} onClick={() => {
                       featureCollectionsTabPanelState.focusedNextSegmentIndex--;
-                      if (focusedNextSegmentIndex < 0)
-                        featureCollectionsTabPanelState.focusedNextSegmentIndex = nextSegmentList.length - 1;
+                      if (featureCollectionsTabPanelState.focusedNextSegmentIndex < 0)
+                        featureCollectionsTabPanelState.focusedNextSegmentIndex = featureCollectionsTabPanelState.nextSegmentList.length - 1;
                       focusingNextSegmentIndex();
                     }}>
                       {"<"}
                     </Button>
                     <Button variant='contained' disabled={!nextSegmentList.length} onClick={() => {
                       featureCollectionsTabPanelState.focusedNextSegmentIndex++;
-                      if (nextSegmentList.length <= focusedNextSegmentIndex)
+                      if (featureCollectionsTabPanelState.nextSegmentList.length <= featureCollectionsTabPanelState.focusedNextSegmentIndex)
                         featureCollectionsTabPanelState.focusedNextSegmentIndex = 0;
                       focusingNextSegmentIndex();
                     }}>
@@ -482,14 +482,14 @@ function CreateTrackMenu() {
                   </Stack>
                   <ButtonGroup variant="contained">
                     <Button variant='contained' startIcon={<StraightIcon />} onClick={() => {
-                      featureCollectionsTabPanelState.segmentList.push(nextSegmentList[focusedNextSegmentIndex]);
+                      featureCollectionsTabPanelState.segmentList.push(featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]);
                       featureCollectionsTabPanelState.isStraightList.push(true);
                       onUpdateSegmentList();
                     }}>
                       Straight
                     </Button>
                     <Button variant='contained' startIcon={<CircleOutlinedIcon />} onClick={() => {
-                      featureCollectionsTabPanelState.segmentList.push(nextSegmentList[focusedNextSegmentIndex]);
+                      featureCollectionsTabPanelState.segmentList.push(featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex]);
                       featureCollectionsTabPanelState.isStraightList.push(false);
                       onUpdateSegmentList();
                     }}>

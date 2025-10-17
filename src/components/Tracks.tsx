@@ -1,4 +1,3 @@
-import * as React from 'react'
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
@@ -8,7 +7,7 @@ import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary';
 import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints, tracksState } from '@/lib/client/tracks';
@@ -17,6 +16,19 @@ import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
 import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
 import { ThreeEvent } from '@react-three/fiber'
+import { Fragment, useEffect } from 'react'
+import { gltfState } from '@/lib/client/gltf'
+
+function ErrorFallback({ }: FallbackProps) {
+  const { resetBoundary } = useErrorBoundary();
+
+  useEffect(() => {
+    // エラーが発生しても、アプリを再起動せずに他のモデルを読み込めるようにするために、エラーをリセットする関数を保管する
+    gltfState.errorBoundaryResetFuncList.push(resetBoundary);
+  }, []);
+
+  return null;
+}
 
 function TrackModel({
   track,
@@ -41,22 +53,25 @@ function TrackModel({
   isRail?: boolean;
   color?: string;
 }) {
-  const children = <ErrorBoundary fallback={null}>
-    <React.Suspense fallback={null}>
-      <Detailed distances={maxDistance === 0 ? [0, minDistance] : [0, minDistance, maxDistance]}>
-        <group />
-        <group>
-          <GLTFModel
-            modelPath={modelPath}
-            meshProps={
-              color ? { material: new THREE.MeshBasicMaterial({ color }) }
-                : undefined
-            }
-          />
-        </group>
-        <group />
-      </Detailed>
-    </React.Suspense>
+  useEffect(() => {
+    gltfState.errorBoundaryResetFuncList.forEach(func => func());
+    gltfState.errorBoundaryResetFuncList.splice(0);
+  }, [modelPath]);
+
+  const children = <ErrorBoundary FallbackComponent={ErrorFallback}>
+    <Detailed distances={maxDistance === 0 ? [0, minDistance] : [0, minDistance, maxDistance]}>
+      <group />
+      <group>
+        <GLTFModel
+          modelPath={modelPath}
+          meshProps={
+            color ? { material: new THREE.MeshBasicMaterial({ color }) }
+              : undefined
+          }
+        />
+      </group>
+      <group />
+    </Detailed>
   </ErrorBoundary>;
 
   const fromPos = getPosition(track, from);
@@ -302,7 +317,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     {points.map((_, pointIndex) => {
       if (pointIndex === 0) return null;
 
-      return <React.Fragment key={pointIndex}>
+      return <Fragment key={pointIndex}>
         {trackModels.map((trackModel, modelIndex) => {
           // レール用の3Dモデル
           if (
@@ -325,7 +340,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             color={color}
           />;
         })}
-      </React.Fragment>;
+      </Fragment>;
     })}
     {trackModels.map((trackModel, modelIndex) => {
       // 非連続設置の3Dモデル
@@ -344,12 +359,13 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         />;
 
       // 非レール用の3Dモデル
+      return;
       if (trackModel.interval === 0) return;
 
       const length = (trackModel.end === -1 ? track.length : trackModel.end) - trackModel.start;
       const modelCount = Math.round(length / trackModel.interval);
 
-      return <React.Fragment key={modelIndex}>
+      return <Fragment key={modelIndex}>
         {[...Array(modelCount)].map((_, index) =>
           <TrackModel
             key={index}
@@ -370,7 +386,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             color={color}
           />
         )}
-      </React.Fragment>;
+      </Fragment>;
     })}
     {eventIsEnable && <TrackLine
       points={points}

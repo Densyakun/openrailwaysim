@@ -111,7 +111,9 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         )
       }
 
-      if (path[0] === "terrains") {
+      if (path[0] === "originCoordinate") {
+        push()
+      } else if (path[0] === "terrains") {
         push()
       } else if (path[0] === "nowDate") {
         push()

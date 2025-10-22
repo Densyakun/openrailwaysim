@@ -725,14 +725,16 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     ["tracks", sCurveId],
     sCurve
   ]]);
-  messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
-    ["tracks", sTransitionCurveABId],
-    sTransitionCurveAB
-  ]]);
-  messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
-    ["tracks", sTransitionCurveCDId],
-    sTransitionCurveCD
-  ]]);
+  if (sTransitionCurveAB)
+    messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
+      ["tracks", sTransitionCurveABId],
+      sTransitionCurveAB
+    ]]);
+  if (sTransitionCurveCD)
+    messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
+      ["tracks", sTransitionCurveCDId],
+      sTransitionCurveCD
+    ]]);
 
   send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
 

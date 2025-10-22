@@ -359,7 +359,6 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         />;
 
       // 非レール用の3Dモデル
-      return;
       if (trackModel.interval === 0) return;
 
       const length = (trackModel.end === -1 ? track.length : trackModel.end) - trackModel.start;

@@ -1,14 +1,19 @@
-import * as React from 'react';
+import React, { useRef } from 'react';
 import { clientState, gameState } from '@/lib/client';
 import { Segment, SegmentObject } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
 import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { useSnapshot } from 'valtio';
+import { guiState } from '@/lib/client/gui';
+import { useFrame } from '@react-three/fiber';
 
 export default function FeatureCollectionsWithDreiSegment() {
+  const { selectedTab } = useSnapshot(guiState);
   const { featureCollections } = useSnapshot(gameState.data);
+
+  if (selectedTab !== "featureCollections")
+    return null;
 
   return (
     <>
@@ -25,16 +30,10 @@ function FeatureCollection({ id }: { id: string }) {
   return (
     <>
       {featureCollections[id].value.features.map((feature, index) => {
-        switch (feature.geometry.type) {
-          case "LineString":
-            const lineString = feature.geometry as LineString
+        if (feature.geometry.type !== "LineString") return;
 
-            return (
-              <CoordinatesLineWithDreiSegment key={index} featureCollectionId={id} featureIndex={index} coordinates={lineString.coordinates} />
-            )
-          default:
-            return undefined
-        }
+        const lineString = feature.geometry as LineString;
+        return <CoordinatesLineWithDreiSegment key={index} featureCollectionId={id} featureIndex={index} coordinates={lineString.coordinates} />;
       })}
     </>
   )
@@ -44,12 +43,10 @@ function CoordinatesLineWithDreiSegment({
   featureCollectionId,
   featureIndex,
   coordinates,
-  y = 0
 }: {
   featureCollectionId: string,
   featureIndex: number,
-  coordinates: Position[],
-  y?: number
+  coordinates: Position[]
 }) {
   return <>
     {coordinates.map((nextCoordinate, nextCoordinateIndex) => nextCoordinateIndex === 0 ? null :
@@ -77,7 +74,7 @@ function LineStringSegment({
   startCoordinate: Position,
   endCoordinate: Position
 }) {
-  const ref = React.useRef<SegmentObject>(null);
+  const ref = useRef<SegmentObject>(null);
 
   useFrame(() => {
     if (!ref.current) return;
@@ -88,67 +85,63 @@ function LineStringSegment({
       return;
     }
 
-    // Azimuthal equidistant projection
     const start = getRelativePosition(startCoordinate, gameState.data.originCoordinate);
     const end = getRelativePosition(endCoordinate, gameState.data.originCoordinate);
 
     ref.current.start.copy(start);
     ref.current.end.copy(end);
 
-    if (featureCollectionsTabPanelState.segmentList.length) {
-      const i = featureCollectionsTabPanelState.segmentList.findIndex(value =>
-        value
-        && equalFeatureAt(segment, value)
-      );
-
-      if (i !== -1) {
-        if (featureCollectionsTabPanelState.isStraightList[i])
-          ref.current.color.setRGB(1, 0, 1);
-        else
-          ref.current.color.setRGB(0, 0, 0);
-        return;
-      }
-
-      if (featureCollectionsTabPanelState.nextSegmentList.length) {
-        if (0 <= featureCollectionsTabPanelState.focusedNextSegmentIndex
-          && equalFeatureAt(segment, featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex])) {
-          ref.current.color.setRGB(1, 0, 0);
-          return;
-        } else if (featureCollectionsTabPanelState.nextSegmentList.find(value =>
-          value
-          && equalFeatureAt(segment, value)
-        )) {
-          ref.current.color.setRGB(1, 1, 0);
-          return;
-        }
-      }
-
-      if (!(featureCollectionsTabPanelState.nextSegmentList.length
-        ? featureCollectionsTabPanelState.nextSegmentList.find(segment1 =>
-          segment.featureCollectionId === segment1.featureCollectionId
-          && segment.featureIndex === segment1.featureIndex
-        )
-        : true)) {
-        ref.current.color.setRGB(0.1, 0.1, 0.1);
-      } else
-        ref.current.color.setRGB(0, 0, 0);
-    } else if (gisState.hoveredFeatures.find(value =>
-      value
-      && equalFeatureAt(segment, value)
-    ))
-      ref.current.color.setRGB(1, 1, 0);
-    else if (gisState.selectedFeatures.find(value =>
-      value
-      && equalFeatureAt(segment, value)
-    ))
-      ref.current.color.setRGB(1, 0, 0);
-    else
-      ref.current.color.setRGB(0, 0, 0);
+    ref.current.color.setRGB(...getColor(segment));
   });
 
-  return <Segment
-    ref={ref}
-    start={[0, 0, 0]}
-    end={[0, 0, 0]}
-  />;
+  return <Segment ref={ref} start={[0, 0, 0]} end={[0, 0, 0]} />;
+}
+
+function getColor(segment: FeatureAt): [number, number, number] {
+  const { segmentList, isStraightList, nextSegmentList, focusedNextSegmentIndex } = featureCollectionsTabPanelState;
+  const { hoveredFeatures, selectedFeatures } = gisState;
+
+  if (segmentList.length) {
+    const i = segmentList.findIndex(value =>
+      value
+      && equalFeatureAt(segment, value)
+    );
+
+    if (i !== -1)
+      if (isStraightList[i])
+        return [1, 0, 1];
+      else
+        return [0, 0, 0];
+
+    if (nextSegmentList.length)
+      if (0 <= focusedNextSegmentIndex
+        && equalFeatureAt(segment, nextSegmentList[focusedNextSegmentIndex]))
+        return [1, 0, 0];
+      else if (nextSegmentList.find(value =>
+        value
+        && equalFeatureAt(segment, value)
+      ))
+        return [1, 1, 0];
+
+    if (!(nextSegmentList.length
+      ? nextSegmentList.find(segment1 =>
+        segment.featureCollectionId === segment1.featureCollectionId
+        && segment.featureIndex === segment1.featureIndex
+      )
+      : true))
+      return [0.1, 0.1, 0.1];
+    else
+      return [0, 0, 0];
+  } else if (hoveredFeatures.find(value =>
+    value
+    && equalFeatureAt(segment, value)
+  ))
+    return [1, 1, 0];
+  else if (selectedFeatures.find(value =>
+    value
+    && equalFeatureAt(segment, value)
+  ))
+    return [1, 0, 0];
+  else
+    return [0, 0, 0];
 }

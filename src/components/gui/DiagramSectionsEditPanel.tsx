@@ -4,11 +4,11 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RouteIcon from '@mui/icons-material/Route';
 import SaveIcon from '@mui/icons-material/Save';
-import { FROM_CLIENT_SET_PROP } from "@/lib/game";
 import { socket } from "../Client";
 import { diagramsTabPanelState, resetEditingDiagramState } from "@/lib/client/diagrams";
 import EditTracksInDiagramPanel, { onUpdateTrackList } from "./EditTracksInDiagramPanel";
 import { useEffect, useState } from "react";
+import { MessageCode, send } from "@/lib/ws";
 
 const formState = proxy<{
   fromDisplayName: string;
@@ -79,24 +79,24 @@ function AddRouteButton() {
 function DiagramRouteMapEditor() {
   const { fromDisplayName, toDisplayName, fromTimezone, toTimezone } = useSnapshot(formState, { sync: true });
   const {
-    editingSectionsInDiagramId: editingRouteMapsInDiagramId,
-    sections: routeMap,
+    editingSectionsInDiagramId,
+    sections,
     selectingDiagramSectionIndex,
   } = useSnapshot(diagramsTabPanelState);
 
   useEffect(() => {
-    if (!routeMap.length) return;
-    const section = routeMap[selectingDiagramSectionIndex];
+    if (!sections.length) return;
+    const section = sections[selectingDiagramSectionIndex];
     formState.fromDisplayName = section.fromDisplayName;
     formState.toDisplayName = section.toDisplayName;
     formState.fromTimezone = section.fromTimezone;
     formState.toTimezone = section.toTimezone;
-  }, [routeMap, selectingDiagramSectionIndex]);
+  }, [sections, selectingDiagramSectionIndex]);
 
   const [changed, setChanged] = useState(true);
-  useEffect(() => setChanged(true), [routeMap]);
+  useEffect(() => setChanged(true), [sections]);
 
-  const invalidSectionIndex = routeMap.findIndex(section => !section.routes.length || section.routes.find(route => !route.trackIds.length));
+  const invalidSectionIndex = sections.findIndex(section => !section.routes.length || section.routes.find(route => !route.trackIds.length));
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -107,23 +107,23 @@ function DiagramRouteMapEditor() {
         Back
       </Button>
       <Typography variant="h6" gutterBottom>{
-        `Edit a diagram "${editingRouteMapsInDiagramId}"`
+        `Edit a diagram "${editingSectionsInDiagramId}"`
       }</Typography>
     </Stack>
-    {routeMap.length
+    {sections.length
       ? <Stack spacing={1}>
         <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="h6" gutterBottom>Editing route lists {selectingDiagramSectionIndex + 1} / {routeMap.length}</Typography>
+          <Typography variant="h6" gutterBottom>Editing route lists {selectingDiagramSectionIndex + 1} / {sections.length}</Typography>
           <ButtonGroup variant="contained">
             <Button variant='contained' onClick={() =>
               diagramsTabPanelState.selectingDiagramSectionIndex = selectingDiagramSectionIndex === 0
-                ? routeMap.length - 1
+                ? sections.length - 1
                 : selectingDiagramSectionIndex - 1
             }>
               {"<"}
             </Button>
             <Button variant='contained' onClick={() =>
-              diagramsTabPanelState.selectingDiagramSectionIndex = selectingDiagramSectionIndex === routeMap.length - 1
+              diagramsTabPanelState.selectingDiagramSectionIndex = selectingDiagramSectionIndex === sections.length - 1
                 ? 0
                 : selectingDiagramSectionIndex + 1
             }>
@@ -133,7 +133,7 @@ function DiagramRouteMapEditor() {
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           <AddSectionButton />
-          <Button variant="contained" disabled={!routeMap.length} onClick={() =>
+          <Button variant="contained" disabled={!sections.length} onClick={() =>
             diagramsTabPanelState.selectingRouteIndex = 0
           }>
             Edit
@@ -195,12 +195,12 @@ function DiagramRouteMapEditor() {
     </Alert>
     }
     <Button variant="contained" startIcon={<SaveIcon />}
-      disabled={!changed || !routeMap.length || 0 <= invalidSectionIndex}
+      disabled={!changed || !sections.length || 0 <= invalidSectionIndex}
       onClick={() => {
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
-          ["diagrams", editingRouteMapsInDiagramId, "routeMap"],
-          routeMap
-        ]]));
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
+          ["diagrams", editingSectionsInDiagramId, "sections"],
+          diagramsTabPanelState.sections
+        ]);
         setChanged(false);
       }}>
       Save

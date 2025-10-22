@@ -8,10 +8,10 @@ import SaveIcon from '@mui/icons-material/Save';
 import { gameState } from '@/lib/client';
 import { getSelectedTracks, TrackModel } from '@/lib/tracks';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
 import { tracksState } from '@/lib/client/tracks';
 import React from 'react';
+import { MessageCode, send } from '@/lib/ws';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -196,7 +196,7 @@ function TrackModelSettings() {
           // TODO 0や-1を入力する代わりにチェックボックスで設定できるようにする
           // TODO レール用の場合に不要な入力を無効化する
           tracksState.selectedTrackIds.forEach(trackId => {
-            socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+            send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
               ["tracks", trackId, "trackModels"],
               tracksSubMenuState.trackModels.map(trackModel => {
                 const trackModel_: TrackModel = {
@@ -213,7 +213,7 @@ function TrackModelSettings() {
 
                 return trackModel_;
               })
-            ]]));
+            ]);
           });
         }}>
         Save
@@ -260,7 +260,7 @@ function MainMenu() {
           </Button>
           <Button variant='contained' startIcon={<DeleteIcon />} disabled={!selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId =>
-              socket.send(JSON.stringify([FROM_CLIENT_DELETE_OBJECT, ["tracks", trackId]]))
+              send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["tracks", trackId])
             )
           }>
             Delete tracks
@@ -279,14 +279,20 @@ function MainMenu() {
           </Button>
           <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() =>
             tracksState.selectedTrackIds.forEach(trackId => {
-              socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+              send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
                 ["tracks", trackId, "trackModels"],
                 [{
                   modelPath: "https://raw.githubusercontent.com/Densyakun/assets/main/railway/track/rail-50n-1067.gltf",
                   start: 0,
                   end: -1,
+                  isInclined: true,
+                  isTilting: true,
+                  span: 0,
+                  interval: 0,
+                  minDistance: 0,
+                  maxDistance: 0,
                 }]
-              ]]));
+              ]);
             })
           }>
             Test model

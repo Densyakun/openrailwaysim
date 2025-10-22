@@ -6,6 +6,7 @@ import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
 import { Diagram } from './diagram';
+import { MessageCode, MessageValueMap } from './ws';
 
 export type GameStateType = {
   data: SaveDataType;
@@ -29,6 +30,36 @@ export type SaveDataType = {
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };
+
+// Prevent infinite recursion in types with circular references by limiting recursion depth
+export type Path<T, D extends number = 6> = [D] extends [never]
+  ? []
+  : T extends object
+  ? {
+    [K in keyof T]:
+    K extends string | number
+    ? T[K] extends object
+    ? [K] | [K, ...Path<T[K], Prev[D]>]
+    : [K]
+    : never
+  }[keyof T]
+  : [];
+
+// Helper type to decrement depth
+type Prev = [never, 0, 1, 2, 3, 4, 5, 6];
+
+export type PathValue<
+  T,
+  P extends readonly (string | number)[]
+> = P extends [infer K, ...infer R]
+  ? K extends keyof T
+  ? R extends []
+  ? T[K]
+  : R extends (string | number)[]
+  ? PathValue<T[K], R>
+  : never
+  : never
+  : T;
 
 export type SerializableSaveDataType = { [key: string]: any } & {
   originCoordinate: Position;
@@ -82,7 +113,7 @@ export const jointTypeId = "joint";
 export const threeVector3TypeId = "THREE.Vector3";
 export const threeEulerTypeId = "THREE.Euler";
 
-export function getTypeIdByPath(path: string[]) {
+export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
   if (!path.length) return saveDataTypeId;
   if (path[0] === "tracks") {
     if (path.length === 1) return tracksObjectTypeId;
@@ -674,8 +705,8 @@ export function updateTime(saveData: SaveDataType, delta: number) {
   })
 }
 
-export type OnMessageInClient = (id: number, value: any, ws: WebSocket | WebSocket) => void;
-export type OnMessageInServer = (id: number, value: any, ws: WebSocket | WebSocketInNode) => void;
+export type OnMessageInClient = <C extends MessageCode>(code: C, value: MessageValueMap[C], ws: WebSocket | WebSocket) => void;
+export type OnMessageInServer = <C extends MessageCode>(code: C, value: MessageValueMap[C], ws: WebSocket | WebSocketInNode) => void;
 
 export class MessageEmitter extends EventEmitter {
   isInvalidMessage: boolean
@@ -700,14 +731,3 @@ export class MessageEmitter extends EventEmitter {
       return super.emit(eventName, ...args)
   }
 }
-
-export const FROM_SERVER_STATE = 0
-export const FROM_SERVER_STATE_OPS = 1
-export const FROM_SERVER_CANCEL = 2
-export const FROM_CLIENT_DELETE_OBJECT = 4
-export const FROM_CLIENT_SAVE = 5
-export const FROM_CLIENT_SWITCH_TRACK = 6
-export const FROM_CLIENT_GET_HEIGHTMAP = 7
-export const FROM_CLIENT_SET_PROP = 9
-export const FROM_CLIENT_DELETE_PROP = 10
-export const FROM_CLIENT_SET_TRAIN = 11

@@ -18,12 +18,13 @@ import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_PROP, toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { toSerializableSaveData, trackTypeId } from '@/lib/game';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
 import FeatureCollectionTable from './FeatureCollectionTable';
 import EditOriginCoordinatePanel from './EditOriginCoordinatePanel';
 import { setCameraTargetPosition } from '@/lib/client/camera';
+import { MessageCode, send } from '@/lib/ws';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -241,13 +242,13 @@ export function finishCreateTracks() {
 
     const CDId = uuidv4();
 
-    socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+    send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", CDId],
       toSerializableSaveData(
         trackTypeId,
         CD
       ) as SerializableTrack
-    ]]));
+    ]);
 
     if (i !== 0) {
       const AB = featureCollectionsTabPanelState.straightTracks[i - 1];
@@ -394,10 +395,10 @@ function MainMenu() {
           )
         );
 
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           ["tracks", trackId],
           track
-        ]]));
+        ]);
       }}>
         Create new straight track
       </Button>

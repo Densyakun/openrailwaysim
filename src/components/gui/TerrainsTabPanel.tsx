@@ -3,8 +3,8 @@ import { Button, FormControlLabel, FormGroup, Paper, Stack, Switch } from '@mui/
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
 import { terrainsState } from '@/lib/client/terrains';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function TerrainsTabPanel() {
   const { isVisible, selectedTileX, selectedTileY } = useSnapshot(terrainsState);
@@ -27,7 +27,7 @@ export default function TerrainsTabPanel() {
           Deselect
         </Button>
         <Button variant='contained' startIcon={<DeleteIcon />} onClick={() => {
-          socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["terrains", terrainsState.selectedTileY, terrainsState.selectedTileX]]));
+          send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["terrains", terrainsState.selectedTileY.toString(), terrainsState.selectedTileX.toString()]);
           terrainsState.selectedTileX = -1;
           terrainsState.selectedTileY = -1;
         }}>

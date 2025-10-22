@@ -344,7 +344,7 @@ export function getLength(point: THREE.Vector3, track: Track): number {
   }
 }
 
-export function switchTrack(saveData: SaveDataType, switchId: number, newCurrentConnected: number) {
+export function switchTrack(saveData: SaveDataType, switchId: string, newCurrentConnected: number) {
   const railroadSwitch = saveData.switches[switchId];
 
   let connectedTo = "";

@@ -6,11 +6,11 @@ import TrainIcon from '@mui/icons-material/Train';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
 import { Train } from '@/lib/trains';
 import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains';
 import { useSnapshot } from 'valtio';
 import { setCameraTargetPosition } from '@/lib/client/camera';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
   const { trainGroups, trains } = useSnapshot(gameState.data);
@@ -70,7 +70,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
         </Tooltip>
       </>}
       handleDelete={(id => {
-        socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["trains", id]]));
+        send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["trains", id]);
       })}
       addable={false}
       editable={false}

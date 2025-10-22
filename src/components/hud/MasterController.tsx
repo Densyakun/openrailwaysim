@@ -2,8 +2,8 @@ import { Box, Paper, Slider } from '@mui/material';
 import { ControlStandType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { gameState } from '@/lib/client';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { trainsState } from '@/lib/client/trains';
+import { MessageCode, send } from '@/lib/ws';
 
 export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfig, setValue }: { value: number, uiOneHandleMasterControllerConfig: UIOneHandleMasterControllerConfig, setValue: (newValue: number) => void }) {
   const { marks, maxValue, nValue, stepRangeList, steps } = uiOneHandleMasterControllerConfig;
@@ -137,18 +137,18 @@ export default function MasterController({
       value={value}
       uiOneHandleMasterControllerConfig={gameState.data.uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
       setValue={newValue =>
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           [
             "trains",
             trainsState.activeTrainId,
             "otherBodies",
-            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
+            (trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length).toString(),
             "controlStand",
             "masterController",
             "value"
           ],
           newValue
-        ]]))
+        ])
       }
     />
   );

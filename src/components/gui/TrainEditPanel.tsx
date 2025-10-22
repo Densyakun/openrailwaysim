@@ -12,10 +12,11 @@ import { useEffect } from "react";
 import { createBogie, createOtherBody } from "@/lib/trainSamples";
 import { getPosition, runPointOnTrack } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { FROM_CLIENT_SET_TRAIN, toSerializableSaveData, trainTypeId } from "@/lib/game";
+import { toSerializableSaveData, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 import { setCameraTargetPosition } from "@/lib/client/camera";
+import { MessageCode, send } from "@/lib/ws";
 
 const formState = proxy<{
   newTrainId: string;
@@ -210,7 +211,13 @@ function saveEditingTrain() {
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
   const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
 
-  socket.send(JSON.stringify([FROM_CLIENT_SET_TRAIN, [[trainsTabPanelState.selectedTrainGroup, trainId], train]]));
+  const trainGroup = { ...gameState.data.trainGroups[trainsTabPanelState.selectedTrainGroup] };
+  trainGroup.push(trainId);
+
+  send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
+    [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainId], train]],
+    [MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", trainsTabPanelState.selectedTrainGroup], trainGroup]],
+  ]);
 
   trainsTabPanelState.isAddingTrain = false;
   resetEditingTrainState();

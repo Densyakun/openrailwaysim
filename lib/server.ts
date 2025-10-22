@@ -1,10 +1,11 @@
 import { subscribe } from "valtio";
-import { FROM_CLIENT_SET_TRAIN, FROM_CLIENT_DELETE_OBJECT, FROM_CLIENT_DELETE_PROP, FROM_CLIENT_GET_HEIGHTMAP, FROM_CLIENT_SAVE, FROM_CLIENT_SET_PROP, FROM_CLIENT_SWITCH_TRACK, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, GameStateType, MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SaveDataType, getNewSaveData, saveDataTypeId, SerializableSaveDataType, getTypeIdByPath } from "./game";
+import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SaveDataType, getNewSaveData, saveDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
 import { readFileSync, writeFileSync } from "fs";
 import { assignSchedulesToTrains } from "./diagram";
+import { MessageCode, send } from "./ws";
 
 export const saveFilePath = "./save.json";
 
@@ -15,150 +16,34 @@ export function loadSaveData() {
   // 開発用にセーブデータをアップデート
   /*Object.keys(saveData.tracks).forEach(trackId => {
     if (typeof (saveData.tracks[trackId] as any)["beginRotationX"] !== "undefined") {
-      saveData.tracks[trackId].beginCant = (saveData.tracks[trackId] as any)["beginRotationX"];
-      saveData.tracks[trackId].endCant = (saveData.tracks[trackId] as any)["endRotationX"];
+      saveData.tracks[trackId].beginCant = 0;
+      saveData.tracks[trackId].endCant = 0;
     }
   });*/
 
   return saveData;
 }
 
+const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
+
 export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
   let messageEmitter = new MessageEmitter();
 
   const unsubscribe = subscribe(saveData, ops => {
-    wss.clients.forEach(client => {
-      const ops_: [string, string[], any?][] = []
-      ops.forEach(([op_, path, value, prevValue]) => {
-        const push = function () {
-          ops_.push(op_ === 'delete' ? [op_, path as string[]] :
-            [op_, path as string[], toSerializableSaveData(getTypeIdByPath(path as string[]), value)]
-          )
-        }
+    const ops_: ["set" | "delete", Path<SerializableSaveDataType>, any?][] = []
+    ops.forEach(([op_, path_, value, prevValue]) => {
+      // SaveDataTypeのパスのうち、Serializableなデータのみをクライアントに送信する
+      // subscribeするsaveDataはSerializableでは無いため、送信するデータのパスに限り、SaveDataTypeとSerializableSaveDataTypeが一致する必要がある
+      const path = path_ as Path<SerializableSaveDataType>;
 
-        // 変更されたステートをクライアントに同期する
-        if (path[0] === "terrains") {
-          push()
-        } else if (path[0] === "nowDate") {
-          push()
-        } else if (path[0] === "trains") {
-          if (3 <= path.length) {
-            if (path[2] === "bogies") {
-              if (6 <= path.length) {
-                if (path[4] === "axles") {
-                  if (7 <= path.length)
-                    if (path[6] === "pointOnTrack")
-                      push()
-                    else if (path[6] === "rotationIsReversed")
-                      push()
-                }
-              }
-            } else if (path[2] === "otherBodies") {
-              if (6 <= path.length) {
-                if (path[4] === "controlStand")
-                  push()
-              }
-            } else if (path[2] === "speed") {
-              push()
-            } else if (path[2] === "currentDiagramId") {
-              push()
-            } else if (path[2] === "currentDiagramCurveIndex") {
-              push()
-            } else if (path[2] === "currentDiagramSectionIndex") {
-              push()
-            } else if (path[2] === "currentRouteIndex") {
-              push()
-            } else if (path[2] === "isStopping") {
-              push()
-            }
-          } else if (path.length === 2) {
-            push()
-            // 追加または削除された列車にダイヤを割り当てる
-            assignSchedulesToTrains(saveData)
-          }
-        } else if (path[0] === "trainGroups") {
-          push()
-        } else if (path[0] === "featureCollections") {
-          if (path.length === 2) {
-            push()
-          }
-        } else if (path[0] === "tracks") {
-          if (path.length === 2) {
-            push()
-          } else if (path.length === 3 && (
-            path[2] === "idOfTrackOrSwitchConnectedFromStart"
-            || path[2] === "idOfTrackOrSwitchConnectedFromEnd"
-            || path[2] === "connectedFromStartIsTrack"
-            || path[2] === "connectedFromEndIsTrack"
-            || path[2] === "connectedFromStartIsToEnd"
-            || path[2] === "connectedFromEndIsToEnd"
-            || path[2] === "trackModels"
-          )) {
-            push()
-          }
-        } else if (path[0] === "switches") {
-          if (path.length === 2) {
-            push()
-          } else if (path.length === 3 && path[2] === "currentConnected") {
-            push()
-          }
-        } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
-          if (path.length === 2) {
-            push()
-          }
-        } else if (path[0] === "diagrams") {
-          push()
-
-          // 追加または削除された列車にダイヤを割り当てる
-          if (path.length === 2)
-            assignSchedulesToTrains(saveData)
-        }
-      })
-
-      client.send(JSON.stringify([FROM_SERVER_STATE_OPS, ops_]))
-    });
-  });
-
-  wss.on('connection', function connection(ws) {
-    ws.on('error', console.error);
-
-    ws.on('message', function message(data) {
-      const [id, value] = JSON.parse(data.toString());
-
-      messageEmitter.emit("message", id, value, ws);
-    });
-
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
-    ws.send(JSON.stringify([FROM_SERVER_STATE, serializableGameState]));
-  });
-
-  let time = new Date().getTime();
-
-  const onUpdateTime = function () {
-    const newTime = new Date().getTime();
-    try {
-      updateTime(saveData, (newTime - time) / 1000);
-    } catch (e) {
-      console.error(e);
-    }
-    time = newTime;
-  };
-
-  // 1秒毎に時間を進行する。列車の走行中は加速度が変化する。列車の位置の誤差を少なくするために必要
-  const timer = setInterval(onUpdateTime, 1000);
-
-  const onMessage: OnMessageInServer = (id, value, ws) => {
-    onUpdateTime();
-
-    try {
-      switch (id) {
-        case FROM_CLIENT_DELETE_OBJECT: {
-          const [objectKey, id] = value as [string, string];
-
-          if (objectKey === "tracks") {
+      // 削除するデータに依存するデータを変更する
+      if (op_ === 'delete') {
+        if (path.length == 2) {
+          if (path[0] === "tracks") {
+            const trackId = path[1] as string;
             Object.keys(saveData.switches).forEach(switchId => {
               const trackSwitch = saveData.switches[switchId];
-              const index = trackSwitch.connectedTrackIds.indexOf(id);
+              const index = trackSwitch.connectedTrackIds.indexOf(trackId);
               if (index !== -1) {
                 if (trackSwitch.currentConnected === index) trackSwitch.currentConnected = -1;
                 trackSwitch.connectedTrackIds.splice(index, 1);
@@ -183,23 +68,170 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
             });
             Object.keys(saveData.trains).forEach(trainId => {
               const train = saveData.trains[trainId];
-              if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === id)))
+              if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === trackId)))
                 delete saveData.trains[trainId];
             });
             Object.keys(saveData.tracks).forEach(trackId => {
               const track = saveData.tracks[trackId];
-              if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === id)
+              if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === trackId)
                 track.idOfTrackOrSwitchConnectedFromStart = "";
-              else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === id)
+              else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === trackId)
                 track.idOfTrackOrSwitchConnectedFromEnd = "";
             });
+          } else if (path[0] === "trains") {
+            const trainId = path[1] as string;
+            for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
+              const index = saveData["trainGroups"][trainGroupId].indexOf(trainId);
+              if (index !== -1)
+                saveData["trainGroups"][trainGroupId].splice(index, 1);
+            }
+          } else if (path[0] === "trainGroups") {
+            const trainGroupId = path[1] as string;
+            for (const diagramId of Object.keys(saveData["diagrams"])) {
+              const index = saveData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
+              if (index !== -1)
+                saveData["diagrams"][diagramId].trainGroups.splice(index, 1);
+            }
+          } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
+            const uiOptionId = path[1] as string;
+            for (const trainId of Object.keys(saveData["trains"])) {
+              for (const otherBody of saveData["trains"][trainId].otherBodies) {
+                if (otherBody.controlStand?.masterController.uiOptionId === uiOptionId)
+                  otherBody.controlStand.masterController.uiOptionId = "";
+              }
+            }
           }
-          delete (saveData as any)[objectKey][id];
-
-          messageEmitter.isInvalidMessage = false;
-          break;
         }
-        case FROM_CLIENT_SAVE: {
+      }
+
+      // 変更されたステートをクライアントに同期する
+      const push = function () {
+        ops_.push(op_ === 'delete' ? [op_, path] :
+          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value)]
+        )
+      }
+
+      if (path[0] === "terrains") {
+        push()
+      } else if (path[0] === "nowDate") {
+        push()
+      } else if (path[0] === "trains") {
+        if (3 <= path.length) {
+          if (path[2] === "bogies") {
+            if (6 <= path.length) {
+              if (path[4] === "axles") {
+                if (7 <= path.length)
+                  if (path[6] === "pointOnTrack")
+                    push()
+                  else if (path[6] === "rotationIsReversed")
+                    push()
+              }
+            }
+          } else if (path[2] === "otherBodies") {
+            if (6 <= path.length) {
+              if (path[4] === "controlStand")
+                push()
+            }
+          } else if (path[2] === "speed") {
+            push()
+          } else if (path[2] === "currentDiagramId") {
+            push()
+          } else if (path[2] === "currentDiagramCurveIndex") {
+            push()
+          } else if (path[2] === "currentDiagramSectionIndex") {
+            push()
+          } else if (path[2] === "currentRouteIndex") {
+            push()
+          } else if (path[2] === "isStopping") {
+            push()
+          }
+        } else if (path.length === 2) {
+          push()
+          // 追加または削除された列車にダイヤを割り当てる
+          assignSchedulesToTrains(saveData)
+        }
+      } else if (path[0] === "trainGroups") {
+        push()
+      } else if (path[0] === "featureCollections") {
+        if (path.length === 2) {
+          push()
+        }
+      } else if (path[0] === "tracks") {
+        if (path.length === 2) {
+          push()
+        } else if (path.length === 3 && (
+          path[2] === "idOfTrackOrSwitchConnectedFromStart"
+          || path[2] === "idOfTrackOrSwitchConnectedFromEnd"
+          || path[2] === "connectedFromStartIsTrack"
+          || path[2] === "connectedFromEndIsTrack"
+          || path[2] === "connectedFromStartIsToEnd"
+          || path[2] === "connectedFromEndIsToEnd"
+          || path[2] === "trackModels"
+        )) {
+          push()
+        }
+      } else if (path[0] === "switches") {
+        if (path.length === 2) {
+          push()
+        } else if (path.length === 3 && path[2] === "currentConnected") {
+          push()
+        }
+      } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
+        if (path.length === 2) {
+          push()
+        }
+      } else if (path[0] === "diagrams") {
+        push()
+
+        // 追加または削除された列車にダイヤを割り当てる
+        if (path.length === 2)
+          assignSchedulesToTrains(saveData)
+      }
+    });
+
+    wss.clients.forEach(client =>
+      send(client, MessageCode.FROM_SERVER_STATE_OPS, ops_)
+    );
+  });
+
+  wss.on('connection', function connection(ws) {
+    ws.on('error', console.error);
+
+    ws.on('message', function message(data) {
+      const [id, value] = JSON.parse(data.toString());
+
+      messageEmitter.emit("message", id, value, ws);
+    });
+
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
+    send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
+  });
+
+  let time = new Date().getTime();
+
+  const onUpdateTime = function () {
+    const newTime = new Date().getTime();
+    const delta = (newTime - time) / 1000;
+    // 頻繁に更新しないようにする
+    if (delta < TIME_PERIOD_TO_SKIP_UPDATE) return;
+
+    try {
+      updateTime(saveData, delta);
+    } catch (e) {
+      console.error(e);
+    }
+    time = newTime;
+  };
+
+  // 1秒毎に時間を進行する。列車の走行中は加速度が変化する。列車の位置の誤差を少なくするために必要
+  const timer = setInterval(onUpdateTime, 1000);
+
+  const onMessage: OnMessageInServer = (code, value, ws) => {
+    onUpdateTime();
+
+    try {
+      switch (code) {
+        case MessageCode.FROM_CLIENT_SAVE: {
           const gameState_: SaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
@@ -207,16 +239,18 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_SWITCH_TRACK: {
-          const [switchId, newCurrentConnected] = value;
+        case MessageCode.FROM_CLIENT_SWITCH_TRACK: {
+          if (!Array.isArray(value)) break;
+          const [switchId, newCurrentConnected] = value as [string, number];
 
           switchTrack(saveData, switchId, newCurrentConnected);
 
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_GET_HEIGHTMAP: {
-          const [tileX, tileY] = value;
+        case MessageCode.FROM_CLIENT_GET_HEIGHTMAP: {
+          if (!Array.isArray(value) || value.length < 2) break;
+          const [tileX, tileY] = value as [number, number];
 
           fetchHeightmap(tileX, tileY)
             .then(heightmap =>
@@ -227,61 +261,70 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_SET_PROP: {
-          const [propPath, newValue, oldPath] = value as [string[], any, string[] | undefined];
+        case MessageCode.FROM_CLIENT_SET_PROP: {
+          const [propPath, newValue, oldPath] = value as [Path<SerializableSaveDataType>, any, Path<SerializableSaveDataType> | undefined];
 
+          // 新しいキーを設定
           let object = saveData;
-          if (oldPath) {
-            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
-            for (let n = 0; n < oldPath.length - 1; n++)
-              object = (object as any)[oldPath[n]];
-            delete (object as any)[oldPath[oldPath.length - 1]];
-
-            object = saveData;
-          }
           for (let n = 0; n < propPath.length - 1; n++)
             object = (object as any)[propPath[n]];
           (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, saveData);
 
+          // 依存するデータの参照を新しくする
+          if (oldPath) {
+            if (oldPath[0] === "trains") {
+              const trainId = oldPath[1] as string;
+              for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
+                const index = saveData["trainGroups"][trainGroupId].indexOf(trainId);
+                if (index !== -1)
+                  saveData["trainGroups"][trainGroupId].splice(index, 1, propPath[1] as string);
+              }
+            } else if (oldPath[0] === "trainGroups") {
+              const trainGroupId = oldPath[1] as string;
+              for (const diagramId of Object.keys(saveData["diagrams"])) {
+                const index = saveData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
+                if (index !== -1)
+                  saveData["diagrams"][diagramId].trainGroups.splice(index, 1, propPath[1] as string);
+              }
+            } else if (oldPath[0] === "uiOneHandleMasterControllerConfigs") {
+              const uiOptionId = oldPath[1] as string;
+              for (const trainId of Object.keys(saveData["trains"])) {
+                for (const otherBody of saveData["trains"][trainId].otherBodies) {
+                  if (otherBody.controlStand?.masterController.uiOptionId === uiOptionId)
+                    otherBody.controlStand.masterController.uiOptionId = propPath[1] as string;
+                }
+              }
+            }
+          }
+
+          // 古いキーを削除
+          if (oldPath) {
+            object = saveData;
+            for (let n = 0; n < oldPath.length - 1; n++)
+              object = (object as any)[oldPath[n]];
+            delete (object as any)[oldPath[oldPath.length - 1]];
+          }
+
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_DELETE_PROP: {
+        case MessageCode.FROM_CLIENT_DELETE_PROP: {
           const propPath = value as string[];
 
-          // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
-          if (propPath.length == 2 && propPath[0] === "trains") {
-            for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
-              const index = saveData["trainGroups"][trainGroupId].indexOf(propPath[1]);
-              if (index !== -1)
-                saveData["trainGroups"][trainGroupId].splice(index, 1);
-            }
-            delete saveData["trains"][propPath[1]];
-          } else {
-            let object = saveData;
-            for (let n = 0; n < propPath.length - 1; n++)
-              object = (object as any)[propPath[n]];
-            delete (object as any)[propPath[propPath.length - 1]];
-          }
+          let object = saveData;
+          for (let n = 0; n < propPath.length - 1; n++)
+            object = (object as any)[propPath[n]];
+          delete (object as any)[propPath[propPath.length - 1]];
 
           messageEmitter.isInvalidMessage = false;
           break;
         }
-        case FROM_CLIENT_SET_TRAIN: {
-          const [[trainGroupId, trainId], newValue, oldPath] = value as [string[], any, string[] | undefined];
+        case MessageCode.FROM_CLIENT_MESSAGES: {
+          const messages = value as [number, any][];
 
-          // TODO データの検証
-
-          if (oldPath) {
-            if (saveData["trains"][trainId]) break;
-
-            const [oldTrainGroupId, oldTrainId] = oldPath;
-            // TODO FROM_CLIENT_DELETE_OBJECTと同様に、オブジェクトの参照も変更する
-            saveData["trainGroups"][oldTrainGroupId].splice(saveData["trainGroups"][oldTrainGroupId].indexOf(oldTrainId), 1);
-            delete saveData["trains"][oldTrainId];
-          }
-          saveData["trains"][trainId] = fromSerializableSaveData(getTypeIdByPath(["trains", trainId]), newValue, saveData);
-          saveData["trainGroups"][trainGroupId].push(trainId);
+          messages.forEach(([code, value_]) =>
+            onMessage(code, value_, ws)
+          );
 
           messageEmitter.isInvalidMessage = false;
           break;

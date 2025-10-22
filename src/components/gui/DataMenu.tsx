@@ -7,7 +7,8 @@ import { Button, IconButton, List, ListItem, ListItemText, Stack, TextField, Too
 import * as React from 'react';
 import { Control, Controller, DefaultValues, FieldErrors, UseFormReturn, useForm } from 'react-hook-form';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP } from '@/lib/game';
+import { MessageCode, send } from '@/lib/ws';
+import { Path, SerializableSaveDataType } from '@/lib/game';
 
 export default function DataMenu<FormValues extends { id: string }>({
   defaultValues,
@@ -134,9 +135,10 @@ export default function DataMenu<FormValues extends { id: string }>({
                           </Tooltip>
                         }
                         <Tooltip title="Delete" disableInteractive>
-                          <IconButton edge="end" onClick={handleDelete_ ? (() => handleDelete_(id)) : (() =>
-                            socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, [objectKey, id]]))
-                          )}>
+                          <IconButton edge="end" onClick={handleDelete_ ? (() => handleDelete_(id)) : (() => {
+                            if (typeof objectKey !== "undefined")
+                              send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, [objectKey, id] as Path<SerializableSaveDataType>);
+                          })}>
                             <DeleteIcon />
                           </IconButton>
                         </Tooltip>

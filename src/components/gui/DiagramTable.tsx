@@ -7,9 +7,9 @@ import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { diagramsTabPanelState, resetEditingDiagramState } from '@/lib/client/diagrams';
-import { Diagram, DiagramSection, DiagramTrackRoute } from '@/lib/diagram';
+import { Diagram, DiagramSection } from '@/lib/diagram';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function DiagramTable() {
   useSnapshot(gameState.data);
@@ -78,7 +78,7 @@ export default function DiagramTable() {
         </Tooltip>
       </>}
       handleSubmit={((inputs, editingId) => {
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["diagrams", inputs.id],
           gameState.data.diagrams[editingId],
           ["diagrams", editingId],
@@ -92,10 +92,10 @@ export default function DiagramTable() {
             state: "",
             region: "",
           } as Diagram,
-        ]]));
+        ]);
       })}
       handleDelete={(id =>
-        socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["diagrams", id]]))
+        send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["diagrams", id])
       )}
     />
   </Paper>;

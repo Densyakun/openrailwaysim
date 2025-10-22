@@ -10,12 +10,12 @@ import DataMenu from './DataMenu';
 import * as turf from "@turf/turf";
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import { getRelativePosition } from '@/lib/gis';
 import { camerasState } from '../cameras-and-controls/Cameras';
 import { PerspectiveCamera } from 'three';
 import { cameraControlsState } from '../cameras-and-controls/CameraControls';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function FeatureCollectionTable() {
   useSnapshot(gameState.data);
@@ -123,17 +123,17 @@ export default function FeatureCollectionTable() {
         </>
       }
       handleSubmit={((inputs, editingId) =>
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["featureCollections", inputs.id],
           { value: JSON.parse(inputs.value) },
           ["featureCollections", editingId],
         ] : [
           ["featureCollections", inputs.id],
           { value: JSON.parse(inputs.value) },
-        ]]))
+        ])
       )}
       handleDelete={(id =>
-        socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["featureCollections", id]]))
+        send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["featureCollections", id])
       )}
     />
   </Paper>;

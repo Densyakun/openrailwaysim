@@ -5,8 +5,8 @@ import { Button, Paper, Stack, TextField, Typography } from '@mui/material';
 import { proxy, useSnapshot } from 'valtio';
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
 import { socket } from '../Client';
-import { FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { useEffect } from 'react';
+import { MessageCode, send } from '@/lib/ws';
 
 const formState = proxy<{
   lon: string;
@@ -71,10 +71,10 @@ export default function EditOriginCoordinatePanel() {
       />
       <Button variant="contained" startIcon={<SaveIcon />}
         onClick={() =>
-          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+          send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["originCoordinate"],
-            { value: [featureCollectionsTabPanelState.lon, featureCollectionsTabPanelState.lat] },
-          ]]))
+            [featureCollectionsTabPanelState.lon, featureCollectionsTabPanelState.lat],
+          ])
         }>
         Save
       </Button>

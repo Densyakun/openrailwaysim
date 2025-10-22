@@ -1,32 +1,33 @@
 'use client'
 
 import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client"
-import { FROM_SERVER_CANCEL, FROM_SERVER_STATE, FROM_SERVER_STATE_OPS, OnMessageInClient, fromSerializableSaveData, getTypeIdByPath, saveDataTypeId, updateTime } from "@/lib/game"
+import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, saveDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { subscribe } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
 import { tracksState } from "@/lib/client/tracks"
+import { MessageCode } from "@/lib/ws"
 
 export let socket: WebSocket
 
 export default function Client() {
-  const onMessage: OnMessageInClient = (id, value, ws) => {
-    switch (id) {
-      case FROM_SERVER_STATE:
+  const onMessage: OnMessageInClient = (code, value, ws) => {
+    switch (code) {
+      case MessageCode.FROM_SERVER_STATE:
         gameState.data = fromSerializableSaveData(saveDataTypeId, value, gameState.data)
 
         clientState.isSynced = true
 
         messageEmitter.isInvalidMessage = false
         break
-      case FROM_SERVER_STATE_OPS:
+      case MessageCode.FROM_SERVER_STATE_OPS:
         (value as Parameters<Parameters<typeof subscribe>[1]>[0]).forEach(op => {
-          const path = op[1] as string[]
+          const path = op[1] as Path<SerializableSaveDataType>
 
           switch (op[0]) {
             case "set":
-              const setObj = function (obj: any, path: string[], value: any, n = 0) {
+              const setObj = function (obj: any, path: Path<SerializableSaveDataType>, value: any, n = 0) {
                 if (n + 1 === path.length)
                   obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, gameState.data)
                 else
@@ -41,7 +42,7 @@ export default function Client() {
                 if (index !== -1) tracksState.selectedTrackIds.splice(index, 1);
               }
 
-              const deleteObj = function (obj: any, path: string[], n = 0) {
+              const deleteObj = function (obj: any, path: Path<SerializableSaveDataType>, n = 0) {
                 if (n + 1 === path.length)
                   delete obj[path[n]]
                 else
@@ -60,9 +61,6 @@ export default function Client() {
           }
         })
 
-        messageEmitter.isInvalidMessage = false
-        break
-      case FROM_SERVER_CANCEL:
         messageEmitter.isInvalidMessage = false
         break
       default:
@@ -88,7 +86,7 @@ export default function Client() {
     messageEmitter.on('message', onMessage)
 
     socket.addEventListener("message", (event) => {
-      const [id, data] = JSON.parse(event.data)
+      const [id, data] = JSON.parse(event.data.toString())
 
       messageEmitter.emit("message", id, data, socket)
     })

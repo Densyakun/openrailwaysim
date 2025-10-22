@@ -6,8 +6,8 @@ import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { socket } from '../Client';
-import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { trainsTabPanelState } from '@/lib/client/trains';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function TrainGroupTable() {
   useSnapshot(gameState.data);
@@ -46,17 +46,17 @@ export default function TrainGroupTable() {
         </Tooltip>
       </>}
       handleSubmit={((inputs, editingId) =>
-        socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
+        send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["trainGroups", inputs.id],
           gameState.data.trainGroups[editingId],
           ["trainGroups", editingId],
         ] : [
           ["trainGroups", inputs.id],
           gameState.data.trainGroups[inputs.id] || [],
-        ]]))
+        ])
       )}
       handleDelete={(id =>
-        socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["trainGroups", id]]))
+        send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["trainGroups", id])
       )}
     />
   </Paper>;

@@ -3,12 +3,12 @@ import { Alert, Button, ButtonGroup, Checkbox, FormControlLabel, Paper, Stack, T
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import { FROM_CLIENT_SET_PROP } from "@/lib/game";
 import { socket } from "../Client";
 import { diagramsTabPanelState, resetEditingDiagramState } from "@/lib/client/diagrams";
 import { useEffect, useState } from "react";
 import { gameState } from "@/lib/client";
 import { TIME_IS_NOT_SET } from "@/lib/diagram";
+import { MessageCode, send } from "@/lib/ws";
 
 const formState = proxy<{
   scheduledRouteIndex: string;
@@ -80,10 +80,10 @@ function DiagramCurveEditor() {
       <Button variant="contained" startIcon={<SaveIcon />}
         disabled={!changed/* || 0 <= invalidSectionIndex*/}
         onClick={() => {
-          socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, [
+          send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["diagrams", editingDiagramCurvesInDiagramId, "diagramCurves"],
-            diagramCurves
-          ]]));
+            diagramsTabPanelState.diagramCurves
+          ]);
           setChanged(false);
         }}>
         Save

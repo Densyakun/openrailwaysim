@@ -8,8 +8,8 @@ import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { MasterControllerSlider } from '../hud/MasterController';
 import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainSamples';
-import { FROM_CLIENT_DELETE_PROP, FROM_CLIENT_SET_PROP } from '@/lib/game';
 import { socket } from '../Client';
+import { MessageCode, send } from '@/lib/ws';
 
 type UIOneHandleMasterControllerConfigFormValues = {
   id: string;
@@ -230,7 +230,7 @@ export default function UIOneHandleMasterControllerConfigTable() {
     objects={gameState.data.uiOneHandleMasterControllerConfigs}
     valueControllers={(control, errors, form) => <Controllers control={control} errors={errors} form={form} />}
     handleSubmit={((inputs, editingId) =>
-      socket.send(JSON.stringify([FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
+      send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
         ["uiOneHandleMasterControllerConfigs", inputs.id],
         {
           steps: inputs.steps,
@@ -249,10 +249,10 @@ export default function UIOneHandleMasterControllerConfigTable() {
           nValue: inputs.nValue,
           stepRangeList: JSON.parse(inputs.stepRangeList),
         } as UIOneHandleMasterControllerConfig,
-      ]]))
+      ])
     )}
     handleDelete={(id =>
-      socket.send(JSON.stringify([FROM_CLIENT_DELETE_PROP, ["uiOneHandleMasterControllerConfigs", id]]))
+      send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["uiOneHandleMasterControllerConfigs", id])
     )}
   />
 }

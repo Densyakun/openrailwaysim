@@ -4,7 +4,6 @@ import { Detailed, Line } from '@react-three/drei'
 import { gameState } from '@/lib/client'
 import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
-import { FROM_CLIENT_SWITCH_TRACK } from '@/lib/game'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary';
@@ -18,6 +17,7 @@ import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInD
 import { ThreeEvent } from '@react-three/fiber'
 import { Fragment, useEffect } from 'react'
 import { gltfState } from '@/lib/client/gltf'
+import { MessageCode, send } from '@/lib/ws'
 
 function ErrorFallback({ }: FallbackProps) {
   const { resetBoundary } = useErrorBoundary();
@@ -510,7 +510,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
           let newCurrentConnected = railroadSwitch.currentConnected + 1;
           if (railroadSwitch.connectedTrackIds.length <= newCurrentConnected) newCurrentConnected = -1;
 
-          socket.send(JSON.stringify([FROM_CLIENT_SWITCH_TRACK, [tracksState.hoveredSwitch, newCurrentConnected]]));
+          send(socket, MessageCode.FROM_CLIENT_SWITCH_TRACK, [tracksState.hoveredSwitch, newCurrentConnected]);
         }
       }}
     />
@@ -542,7 +542,7 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
           let newCurrentConnected = railroadSwitch.currentConnected + 1;
           if (railroadSwitch.connectedTrackIds.length <= newCurrentConnected) newCurrentConnected = -1;
 
-          socket.send(JSON.stringify([FROM_CLIENT_SWITCH_TRACK, [tracksState.hoveredSwitch, newCurrentConnected]]));
+          send(socket, MessageCode.FROM_CLIENT_SWITCH_TRACK, [tracksState.hoveredSwitch, newCurrentConnected]);
         }
       }}
     />

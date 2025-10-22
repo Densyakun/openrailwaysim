@@ -3,8 +3,8 @@ import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
 import { Button, Paper, Stack, Typography } from '@mui/material';
 import { socket } from '../Client';
-import { FROM_CLIENT_SAVE } from '@/lib/game';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
+import { MessageCode, send } from '@/lib/ws';
 
 export default function Settings() {
   return <Paper square sx={{
@@ -22,7 +22,7 @@ export default function Settings() {
       <CameraFarTextField />
       <Typography variant="h5" component="h1">Controls settings</Typography>
       <CameraControlsSwitch />
-      <Button variant="contained" startIcon={<SaveIcon />} onClick={() => socket.send(JSON.stringify([FROM_CLIENT_SAVE]))}>
+      <Button variant="contained" startIcon={<SaveIcon />} onClick={() => send(socket, MessageCode.FROM_CLIENT_SAVE)}>
         Save world
       </Button>
     </Stack>

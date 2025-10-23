@@ -5,15 +5,10 @@ import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { useSnapshot } from 'valtio';
-import { guiState } from '@/lib/client/gui';
 import { useFrame } from '@react-three/fiber';
 
 export default function FeatureCollectionsWithDreiSegment() {
-  const { selectedTab } = useSnapshot(guiState);
   const { featureCollections } = useSnapshot(gameState.data);
-
-  if (selectedTab !== "featureCollections")
-    return null;
 
   return (
     <>

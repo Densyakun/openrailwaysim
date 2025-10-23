@@ -41,6 +41,16 @@ function Group(props: GroupProps & { childrenObjects: THREE.Object3D[], meshProp
           meshProps={props.meshProps}
         />;
 
+      if (child.type === "DirectionalLight")
+        return <directionalLight
+          key={index}
+          color={(child as THREE.DirectionalLight).color}
+          intensity={(child as THREE.DirectionalLight).intensity}
+        />;
+
+      if (child.type === "PerspectiveCamera")
+        return null;
+
       return null;
     })}
   </group>;

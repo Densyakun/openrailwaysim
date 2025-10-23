@@ -10,7 +10,7 @@ import { trainsTabPanelState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
 
 export default function TrainGroupTable() {
-  useSnapshot(gameState.data);
+  const { trainGroups } = useSnapshot(gameState.data);
 
   return <Paper square sx={{
     width: "100%",
@@ -37,7 +37,7 @@ export default function TrainGroupTable() {
               "Train groups"}</Typography>
         </Stack>
       )}
-      objects={gameState.data.trainGroups}
+      objects={trainGroups}
       listItemButtons={id => <>
         <Tooltip title="Open train list" disableInteractive>
           <IconButton edge="end" onClick={() => trainsTabPanelState.selectedTrainGroup = id}>

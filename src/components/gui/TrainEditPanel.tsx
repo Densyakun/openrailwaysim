@@ -360,6 +360,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   } = trainsTabPanelState;
 
   const { newTrainId: newTrainId_ } = useSnapshot(formState, { sync: true });
+  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
 
   useEffect(() => {
     focusCamera();
@@ -367,7 +368,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   }, []);
 
   const invalidControlStandIndex = controlStands.findIndex(controlStand =>
-    controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
+    controlStand && !Object.keys(uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
   );
 
   return <Stack spacing={1}>
@@ -384,7 +385,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         : `Edit a train "${editingTrainId}"`
       }</Typography>
     </Stack>
-    {isAddingTrain && Object.keys(gameState.data.trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
+    {isAddingTrain && Object.keys(trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
       IDが重複しています
     </Alert>
     }
@@ -627,6 +628,7 @@ function AxlesEditor() {
 }
 
 function OtherBodiesEditor() {
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
   const { carBodyOffset, carBodyWeight, controlStand, directionIsReversed, reverser, masterController } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, axleTable, otherBodyOffsets, otherBodyWeights, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
@@ -703,7 +705,7 @@ function OtherBodiesEditor() {
       }}
     />
     <Typography variant="h6">Control stand</Typography>
-    {controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId) && <Alert
+    {controlStand && !Object.keys(uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId) && <Alert
       severity="error"
     >
       マスコンの形式IDが間違っています
@@ -724,9 +726,9 @@ function OtherBodiesEditor() {
           value={masterController.uiOptionId}
           label="Master controller type ID"
           onChange={event => formState.masterController.uiOptionId = event.target.value}
-          error={!Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId)}
+          error={!Object.keys(uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId)}
         >
-          {Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).map(id =>
+          {Object.keys(uiOneHandleMasterControllerConfigs).map(id =>
             <MenuItem key={id} value={id}>{id}</MenuItem>
           )}
         </Select>

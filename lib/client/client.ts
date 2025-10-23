@@ -26,3 +26,7 @@ export function updateClientOnTime(saveData: SaveDataType, delta: number) {
 
   updateTrainOnTime(saveData, trainsTabPanelState.editingTrain, delta);
 }
+
+export function getDate(timeZoneOffset: number) {
+  return new Date(gameState.data.nowDate + timeZoneOffset);
+}

@@ -4,6 +4,7 @@ import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
+import { useSnapshot } from 'valtio';
 
 export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfig, setValue }: { value: number, uiOneHandleMasterControllerConfig: UIOneHandleMasterControllerConfig, setValue: (newValue: number) => void }) {
   const { marks, maxValue, nValue, stepRangeList, steps } = uiOneHandleMasterControllerConfig;
@@ -127,15 +128,16 @@ export default function MasterController({
 }: {
   controlStand: ControlStandType;
 }) {
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
 
   const { uiOptionId, value } = controlStand.masterController;
 
-  if (!gameState.data.uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
+  if (!uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
 
   return (
     <MasterControllerSlider
       value={value}
-      uiOneHandleMasterControllerConfig={gameState.data.uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
+      uiOneHandleMasterControllerConfig={uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
       setValue={newValue =>
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           [

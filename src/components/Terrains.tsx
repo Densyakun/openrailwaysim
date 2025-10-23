@@ -4,7 +4,7 @@ import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
 import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
-import { clientState, gameState } from "@/lib/client/client"
+import { gameState } from "@/lib/client/client"
 import { useSnapshot } from "valtio"
 import { terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"
@@ -232,8 +232,7 @@ function TerrainTile({
 }
 
 export default function Terrains() {
-  useSnapshot(clientState);
-  const terrains = useSnapshot(gameState.data.terrains);
+  const { terrains } = useSnapshot(gameState.data);
   const { isVisible } = useSnapshot(terrainsState);
 
   if (!isVisible) return null;

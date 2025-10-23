@@ -126,6 +126,7 @@ function DiagramCurveEditor() {
 }
 
 function SectionEditor() {
+  const { diagrams } = useSnapshot(gameState.data);
   const { scheduledRouteIndex, passTime, stopTime, isPasses } = useSnapshot(formState, { sync: true });
   const {
     diagramCurves,
@@ -144,7 +145,7 @@ function SectionEditor() {
   }, [diagramCurves, selectingDiagramCurveIndex, selectingDiagramSectionIndexInDiagramCurve]);
 
   const diagramCurve = diagramsTabPanelState.diagramCurves[selectingDiagramCurveIndex];
-  const section = gameState.data.diagrams[editingDiagramCurvesInDiagramId].sections[selectingDiagramSectionIndexInDiagramCurve];
+  const section = diagrams[editingDiagramCurvesInDiagramId].sections[selectingDiagramSectionIndexInDiagramCurve];
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">

@@ -12,7 +12,7 @@ import { Diagram, DiagramSection } from '@/lib/diagram';
 import { MessageCode, send } from '@/lib/ws';
 
 export default function DiagramTable() {
-  useSnapshot(gameState.data);
+  const { diagrams } = useSnapshot(gameState.data);
 
   return <Paper square sx={{
     width: "100%",
@@ -38,7 +38,7 @@ export default function DiagramTable() {
               "Diagrams"}</Typography>
         </Stack>
       )}
-      objects={gameState.data.diagrams}
+      objects={diagrams}
       listItemButtons={id => <>
         <Tooltip title="Edit route maps" disableInteractive>
           <IconButton edge="end" onClick={() => {

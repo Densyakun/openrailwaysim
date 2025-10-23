@@ -18,7 +18,7 @@ import { cameraControlsState } from '../cameras-and-controls/CameraControls';
 import { MessageCode, send } from '@/lib/ws';
 
 export default function FeatureCollectionTable() {
-  useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(gameState.data);
 
   return <Paper square sx={{
     width: "100%",
@@ -59,7 +59,7 @@ export default function FeatureCollectionTable() {
         id,
         value: JSON.parse(value),
       })}
-      objects={gameState.data.featureCollections}
+      objects={featureCollections}
       valueControllers={(control, errors) =>
         <Controller
           name="value"

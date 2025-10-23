@@ -9,7 +9,7 @@ import { SaveDataType, toSerializableSaveData, trainTypeId } from '@/lib/game';
 import { gameState } from '@/lib/client/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
-import { getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
+import { DiagramTrackRoute, getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
 import { MessageCode, send } from '@/lib/ws';
 
 const Box_ = Box as (props: {
@@ -19,16 +19,18 @@ const Box_ = Box as (props: {
   sx?: SxProps;
 }) => JSX.Element;
 
-function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, train: Train, controlStand?: ControlStandType }) {
+function TrainDiagramCurve({ train, controlStand }: { train: Train, controlStand?: ControlStandType }) {
+  const { diagrams } = useSnapshot(gameState.data);
+
   if (!train.currentDiagramId)
     return <Paper>列車ダイヤ未設定</Paper>;
 
-  const diagram = data.diagrams[train.currentDiagramId];
+  const diagram = diagrams[train.currentDiagramId];
   const section = diagram.sections[train.currentDiagramSectionIndex];
   const trackRoute = section.routes[train.currentRouteIndex];
   const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
-  const distance = getDistanceToNextStop(data, train, trackRoute);
+  const distance = getDistanceToNextStop(gameState.data, train, trackRoute as DiagramTrackRoute);
 
   // TODO 夏時間に対応するため、getTimeTextに渡すDateに日付を追加する
   if (train.isStopping)
@@ -61,12 +63,12 @@ function TrainDiagramCurve({ data, train, controlStand }: { data: SaveDataType, 
 }
 
 export default function ControlStand() {
-  const data = useSnapshot(gameState.data);
+  const { trains } = useSnapshot(gameState.data);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;
 
-  const train = data.trains[trainsState.activeTrainId];
+  const train = trains[trainsState.activeTrainId];
   if (!train) return null;
 
   const controlStand = trainsState.activeBodyIndex < train.bogies.length
@@ -100,7 +102,7 @@ export default function ControlStand() {
           <MasterController controlStand={controlStand} />
         </>}
         <Speed />
-        <TrainDiagramCurve data={data as SaveDataType} train={train as Train} controlStand={controlStand as ControlStandType | undefined} />
+        <TrainDiagramCurve train={train as Train} controlStand={controlStand as ControlStandType | undefined} />
         <Button variant='contained' startIcon={<CloseIcon />} onClick={() => {
           trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""

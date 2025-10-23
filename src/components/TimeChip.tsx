@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Chip from '@mui/material/Chip';
 import { proxy, subscribe } from 'valtio';
-import { gameState } from '@/lib/client/client';
+import { gameState, getDate } from '@/lib/client/client';
 
 export const state = proxy<{
   timeZoneOffset: number;
@@ -12,10 +12,10 @@ export const state = proxy<{
 })
 
 export default function TimeChip() {
-  const [date, setDate] = React.useState(new Date(gameState.data.nowDate + state.timeZoneOffset));
+  const [date, setDate] = React.useState(getDate(state.timeZoneOffset));
 
   React.useEffect(() => subscribe(gameState, () => {
-    const newDate = new Date(gameState.data.nowDate + state.timeZoneOffset);
+    const newDate = getDate(state.timeZoneOffset);
 
     if (!(
       date.getUTCSeconds() === newDate.getUTCSeconds()

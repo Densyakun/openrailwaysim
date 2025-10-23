@@ -197,7 +197,7 @@ function Controllers({
 }
 
 export default function UIOneHandleMasterControllerConfigTable() {
-  useSnapshot(gameState.data);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
 
   return <DataMenu
     defaultValues={{
@@ -227,7 +227,7 @@ export default function UIOneHandleMasterControllerConfigTable() {
       </Stack>
     )}
     getSaveValueOnEdit={getSaveValueOnEdit}
-    objects={gameState.data.uiOneHandleMasterControllerConfigs}
+    objects={uiOneHandleMasterControllerConfigs}
     valueControllers={(control, errors, form) => <Controllers control={control} errors={errors} form={form} />}
     handleSubmit={((inputs, editingId) =>
       send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [

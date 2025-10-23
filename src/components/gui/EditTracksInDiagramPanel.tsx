@@ -1,7 +1,7 @@
 import { proxy, useSnapshot } from 'valtio';
 import { Alert, Button, ButtonGroup, Paper, Stack } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import { getPosition, selectConnectedTracks } from '@/lib/tracks';
 import { diagramsTabPanelState } from '@/lib/client/diagrams';
 import { tracksState } from '@/lib/client/tracks';

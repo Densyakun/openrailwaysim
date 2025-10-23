@@ -1,6 +1,6 @@
 import { Paper } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import { trainsState } from '@/lib/client/trains';
 
 export default function Speed() {

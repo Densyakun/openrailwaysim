@@ -6,7 +6,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import { socket } from "../Client";
 import { diagramsTabPanelState, resetEditingDiagramState } from "@/lib/client/diagrams";
 import { useEffect, useState } from "react";
-import { gameState } from "@/lib/client";
+import { gameState } from "@/lib/client/client";
 import { TIME_IS_NOT_SET } from "@/lib/diagram";
 import { MessageCode, send } from "@/lib/ws";
 

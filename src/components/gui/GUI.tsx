@@ -9,7 +9,7 @@ import TrainIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
 import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
-import SyncedChip from '../SyncedChip';
+import ConnectionChip from '../ConnectionChip';
 import Settings from './Settings';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
@@ -32,8 +32,8 @@ function TopInfo() {
       direction={'row'}
       spacing={1}
     >
+      <ConnectionChip />
       <TimeChip />
-      <SyncedChip />
       <CameraPositionChip />
     </Stack>
   </Box>;

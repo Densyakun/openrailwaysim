@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
 import { socket } from "./Client"
-import { gameState } from "@/lib/client"
+import { gameState } from "@/lib/client/client"
 import { merc } from "./Terrains"
 import { guiState } from "@/lib/client/gui";
 import { cameraControlsState } from "./cameras-and-controls/CameraControls"

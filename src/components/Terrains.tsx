@@ -4,7 +4,7 @@ import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
 import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
-import { clientState, gameState } from "@/lib/client"
+import { clientState, gameState } from "@/lib/client/client"
 import { useSnapshot } from "valtio"
 import { terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"

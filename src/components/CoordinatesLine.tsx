@@ -4,7 +4,7 @@ import { Position } from 'geojson'
 import { equalFeatureAt, FeatureAt, getRelativePosition, gisState } from '@/lib/gis'
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel'
 import { useSnapshot } from 'valtio'
-import { gameState } from '@/lib/client'
+import { gameState } from '@/lib/client/client'
 
 export default function CoordinatesLine({
   featureCollectionId,

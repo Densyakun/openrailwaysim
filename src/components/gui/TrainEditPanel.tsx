@@ -6,7 +6,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import ScreenRotationIcon from '@mui/icons-material/ScreenRotation';
 import TuneIcon from '@mui/icons-material/Tune';
 import { BodySupporterJoint, Bogie, CarBody, createTrain, Joint, OneHandleMasterController, SerializableTrain } from "@/lib/trains";
-import { gameState } from "@/lib/client";
+import { gameState } from "@/lib/client/client";
 import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
 import { useEffect } from "react";
 import { createBogie, createOtherBody } from "@/lib/trainSamples";

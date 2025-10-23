@@ -1,4 +1,4 @@
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';

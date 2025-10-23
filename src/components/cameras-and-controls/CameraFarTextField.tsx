@@ -1,4 +1,4 @@
-import { clientState } from "@/lib/client";
+import { clientState } from "@/lib/client/client";
 import { TextField } from "@mui/material";
 import { useSnapshot } from "valtio";
 

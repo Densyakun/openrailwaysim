@@ -11,7 +11,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { FeatureAt, SelectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import { Feature, LineString, Point, Position } from 'geojson';
 import { lineString } from '@turf/helpers';
 import centroid from '@turf/centroid';

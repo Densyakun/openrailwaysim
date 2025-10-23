@@ -1,5 +1,5 @@
 import FeatureCollectionComponent from './FeatureCollection';
-import { clientState, gameState } from '@/lib/client';
+import { clientState, gameState } from '@/lib/client/client';
 import { useSnapshot } from 'valtio';
 import { guiState } from '@/lib/client/gui';
 

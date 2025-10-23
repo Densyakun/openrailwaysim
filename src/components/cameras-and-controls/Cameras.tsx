@@ -2,7 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { PerspectiveCamera, OrthographicCamera } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
-import { clientState } from '@/lib/client'
+import { clientState } from '@/lib/client/client'
 
 export type CameraRefs = {
   [key: string]: THREE.Camera

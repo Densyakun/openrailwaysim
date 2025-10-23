@@ -5,7 +5,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import SaveIcon from '@mui/icons-material/Save';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import { getSelectedTracks, TrackModel } from '@/lib/tracks';
 import { socket } from '../Client';
 import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';

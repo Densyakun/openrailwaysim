@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Position } from 'geojson'
 import { getRelativePosition, getRotation } from '@/lib/gis'
 import { useSnapshot } from 'valtio'
-import { gameState } from '@/lib/client'
+import { gameState } from '@/lib/client/client'
 
 export default function FeatureObject({
   children,

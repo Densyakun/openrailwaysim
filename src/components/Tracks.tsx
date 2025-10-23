@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
-import { gameState } from '@/lib/client'
+import { gameState } from '@/lib/client/client'
 import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'

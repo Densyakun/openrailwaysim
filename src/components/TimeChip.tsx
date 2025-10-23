@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Chip from '@mui/material/Chip';
 import { proxy, subscribe } from 'valtio';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 
 export const state = proxy<{
   timeZoneOffset: number;

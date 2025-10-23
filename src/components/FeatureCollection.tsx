@@ -1,6 +1,6 @@
 import { LineString } from 'geojson'
 import CoordinatesLine from './CoordinatesLine'
-import { gameState } from '@/lib/client'
+import { gameState } from '@/lib/client/client'
 import PointGeometry from './PointGeometry'
 
 export default function FeatureCollectionComponent({

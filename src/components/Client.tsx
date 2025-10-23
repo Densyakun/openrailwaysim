@@ -1,6 +1,4 @@
-'use client'
-
-import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client"
+import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
 import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, saveDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
@@ -82,8 +80,13 @@ export default function Client() {
   useEffect(() => {
     const address = `ws://${location.hostname}:8080/ws`
     socket = new WebSocket(address)
+    clientState.readyState = socket.readyState as 0
 
     messageEmitter.on('message', onMessage)
+
+    socket.addEventListener("open", () => {
+      clientState.readyState = socket.readyState as 1
+    })
 
     socket.addEventListener("message", (event) => {
       const [id, data] = JSON.parse(event.data.toString())
@@ -91,13 +94,20 @@ export default function Client() {
       messageEmitter.emit("message", id, data, socket)
     })
 
+    socket.addEventListener("error", () => {
+      clientState.readyState = socket.readyState as 3
+    })
+
     socket.addEventListener("close", () => {
+      clientState.readyState = socket.readyState as 3
       clientState.isSynced = false
       messageEmitter.off('message', onMessage)
     })
 
     return () => {
+      clientState.readyState = socket.readyState as 1
       socket.close()
+      clientState.readyState = socket.readyState as 2
     }
   }, [])
 

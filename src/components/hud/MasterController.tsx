@@ -1,6 +1,6 @@
 import { Box, Paper, Slider } from '@mui/material';
 import { ControlStandType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';

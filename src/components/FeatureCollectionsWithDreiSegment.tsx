@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { clientState, gameState } from '@/lib/client';
+import { clientState, gameState } from '@/lib/client/client';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';

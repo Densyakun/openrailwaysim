@@ -1,4 +1,4 @@
-import { gameState } from "@/lib/client";
+import { gameState } from "@/lib/client/client";
 import { getRelativePosition } from "@/lib/gis";
 import { Billboard, ScreenSizer, Text } from "@react-three/drei";
 import { Feature, GeoJsonProperties, Geometry, Point } from "geojson";

@@ -1,4 +1,4 @@
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
 import RouteIcon from '@mui/icons-material/Route';

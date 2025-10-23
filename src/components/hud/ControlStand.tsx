@@ -6,7 +6,7 @@ import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
 import { SaveDataType, toSerializableSaveData, trainTypeId } from '@/lib/game';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
 import { getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';

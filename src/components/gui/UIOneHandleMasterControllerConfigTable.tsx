@@ -3,7 +3,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import { Button, Checkbox, FormControlLabel, FormGroup, Stack, TextField, Typography } from '@mui/material';
 import { Control, Controller, FieldErrors, UseFormReturn } from 'react-hook-form';
 import { useSnapshot } from 'valtio';
-import { gameState } from '@/lib/client';
+import { gameState } from '@/lib/client/client';
 import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { MasterControllerSlider } from '../hud/MasterController';

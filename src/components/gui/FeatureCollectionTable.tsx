@@ -19,6 +19,7 @@ import { MessageCode, send } from '@/lib/ws';
 
 export default function FeatureCollectionTable() {
   const { featureCollections } = useSnapshot(gameState.data);
+  const { visibleFeatureCollections } = useSnapshot(clientState);
 
   return <Paper square sx={{
     width: "100%",
@@ -88,7 +89,7 @@ export default function FeatureCollectionTable() {
               else
                 clientState.visibleFeatureCollections.splice(index, 1);
             }}>
-              {clientState.visibleFeatureCollections.includes(id) ? <VisibilityIcon /> : <VisibilityOffIcon />}
+              {visibleFeatureCollections.includes(id) ? <VisibilityIcon /> : <VisibilityOffIcon />}
             </IconButton>
           </Tooltip>
           <Tooltip title="Move camera to object">

@@ -169,6 +169,8 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           || path[2] === "connectedFromStartIsToEnd"
           || path[2] === "connectedFromEndIsToEnd"
           || path[2] === "trackModels"
+          || path[2] === "beginCant"
+          || path[2] === "endCant"
         )) {
           push()
         }

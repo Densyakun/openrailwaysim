@@ -277,6 +277,60 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrainId, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
+  const { editingTrackId, beginCant, endCant } = useSnapshot(tracksSubMenuState);
+  const switches = useSnapshot(gameState.data.switches);
+
+  track = { ...track };
+  if (editingTrackId) {
+    if (trackId === editingTrackId) {
+      if (!isNaN(parseFloat(beginCant)))
+        track.beginCant = parseFloat(beginCant);
+      if (!isNaN(parseFloat(endCant)))
+        track.endCant = parseFloat(endCant);
+    }
+    if (track.idOfTrackOrSwitchConnectedFromStart) {
+      if (track.connectedFromStartIsTrack) {
+        if (track.idOfTrackOrSwitchConnectedFromStart === editingTrackId) {
+          if (track.connectedFromStartIsToEnd) {
+            if (!isNaN(parseFloat(endCant)))
+              track.beginCant = parseFloat(endCant);
+          } else if (!isNaN(parseFloat(beginCant)))
+            track.beginCant = -parseFloat(beginCant);
+        }
+      } else {
+        const railroadSwitch = switches[track.idOfTrackOrSwitchConnectedFromStart];
+        const connectedTrackId = railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected];
+        if (connectedTrackId === editingTrackId) {
+          if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+            if (!isNaN(parseFloat(endCant)))
+              track.beginCant = parseFloat(endCant);
+          } else if (!isNaN(parseFloat(beginCant)))
+            track.beginCant = -parseFloat(beginCant);
+        }
+      }
+    }
+    if (track.idOfTrackOrSwitchConnectedFromEnd) {
+      if (track.connectedFromEndIsTrack) {
+        if (track.idOfTrackOrSwitchConnectedFromEnd === editingTrackId) {
+          if (track.connectedFromEndIsToEnd) {
+            if (!isNaN(parseFloat(endCant)))
+              track.endCant = -parseFloat(endCant);
+          } else if (!isNaN(parseFloat(beginCant)))
+            track.endCant = parseFloat(beginCant);
+        }
+      } else {
+        const railroadSwitch = switches[track.idOfTrackOrSwitchConnectedFromEnd];
+        const connectedTrackId = railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected];
+        if (connectedTrackId === editingTrackId) {
+          if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
+            if (!isNaN(parseFloat(endCant)))
+              track.endCant = -parseFloat(endCant);
+          } else if (!isNaN(parseFloat(beginCant)))
+            track.endCant = parseFloat(beginCant);
+        }
+      }
+    }
+  }
 
   const { length, trackModels } = track;
   const lengthOfPoints = getLengthOfPoints(track);

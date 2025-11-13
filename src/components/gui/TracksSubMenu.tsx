@@ -8,10 +8,11 @@ import SaveIcon from '@mui/icons-material/Save';
 import { gameState } from '@/lib/client/client';
 import { getSelectedTracks, TrackModel } from '@/lib/tracks';
 import { socket } from '../Client';
-import CurveEditMenu, { curveEditMenuState } from './CurveEditMenu';
+import CurveEditMenu from './CurveEditMenu';
 import { tracksState } from '@/lib/client/tracks';
 import React from 'react';
 import { MessageCode, send } from '@/lib/ws';
+import { curveEditMenuState } from '@/lib/client/curveEditMenu';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;

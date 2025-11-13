@@ -1,7 +1,7 @@
 import * as React from 'react';
 import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
-import { proxy, useSnapshot } from 'valtio';
+import { useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, connectTwoTracks, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { socket } from '../Client';
@@ -9,41 +9,7 @@ import { Path, PathValue, SerializableSaveDataType, toSerializableSaveData, trac
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
 import { tracksState } from '@/lib/client/tracks';
 import { MessageCode, send } from '@/lib/ws';
-
-export type NextCurveEditStateType = {
-  addingCurves: (Track | undefined)[]; // 単曲線
-  addingTransitionsAB: (TransitionCurve | undefined)[]; // AB側の緩和曲線
-  addingTransitionsCD: (TransitionCurve | undefined)[]; // CD側の緩和曲線
-  S: number[]; // ベクトルABの係数
-  T: number[]; // ベクトルCDの係数
-}
-
-export type CurveEditStateType = {
-  AB: Track | undefined;
-  CD: Track | undefined;
-  ABLength: number;
-  CDLength: number;
-  curveRadius: number;
-  transitionABLength: number;
-  transitionCDLength: number;
-  cant: number;
-}
-
-export const curveEditMenuState = proxy<NextCurveEditStateType & CurveEditStateType>({
-  addingCurves: [],
-  addingTransitionsAB: [],
-  addingTransitionsCD: [],
-  S: [],
-  T: [],
-  AB: undefined,
-  CD: undefined,
-  ABLength: 0,
-  CDLength: 0,
-  curveRadius: 400,
-  transitionABLength: 60,
-  transitionCDLength: 60,
-  cant: 0.0963,
-});
+import { curveEditMenuState } from '@/lib/client/curveEditMenu';
 
 export function updateAddingTracks() {
   const AB = curveEditMenuState.AB;

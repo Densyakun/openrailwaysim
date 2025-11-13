@@ -7,7 +7,7 @@ import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
 import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary';
-import { curveEditMenuState, onClickAddingTrack } from './gui/CurveEditMenu';
+import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints, tracksState } from '@/lib/client/tracks';
 import { guiState } from '@/lib/client/gui';
@@ -18,6 +18,7 @@ import { ThreeEvent } from '@react-three/fiber'
 import { Fragment, useEffect } from 'react'
 import { gltfState } from '@/lib/client/gltf'
 import { MessageCode, send } from '@/lib/ws'
+import { curveEditMenuState } from '@/lib/client/curveEditMenu'
 
 function ErrorFallback({ }: FallbackProps) {
   const { resetBoundary } = useErrorBoundary();

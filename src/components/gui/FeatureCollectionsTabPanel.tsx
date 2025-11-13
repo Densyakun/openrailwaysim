@@ -19,12 +19,13 @@ import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
 import { toSerializableSaveData, trackTypeId } from '@/lib/game';
-import CurveEditMenu, { connectTwoStraightLinesWithCurve, curveEditMenuState, updateAddingTracks } from './CurveEditMenu';
+import CurveEditMenu, { connectTwoStraightLinesWithCurve, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
 import FeatureCollectionTable from './FeatureCollectionTable';
 import EditOriginCoordinatePanel from './EditOriginCoordinatePanel';
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import { MessageCode, send } from '@/lib/ws';
+import { curveEditMenuState } from '@/lib/client/curveEditMenu';
 
 export type CurveSegmentRange = {
   startIndex: number;

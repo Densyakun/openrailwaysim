@@ -211,7 +211,7 @@ function saveEditingTrain() {
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
   const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
 
-  const trainGroup = { ...gameState.data.trainGroups[trainsTabPanelState.selectedTrainGroup] };
+  const trainGroup = [...gameState.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);
 
   send(socket, MessageCode.FROM_CLIENT_MESSAGES, [

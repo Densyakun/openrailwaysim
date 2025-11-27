@@ -128,7 +128,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           // ->
           // セーブするためのシリアル化と、同期するためのシリアル化を分ける
           // また、セーブデータではなくステート/ストアに名前変更
-          if (path[2] === "bogies") {
+          /*if (path[2] === "bogies") {
             if (6 <= path.length) {
               if (path[4] === "axles") {
                 if (7 <= path.length)
@@ -143,7 +143,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
               if (path[4] === "controlStand")
                 push()
             }
-          } else if (path[2] === "speed") {
+          } else */if (path[2] === "speed") {
             push()
           } else if (path[2] === "currentDiagramId") {
             push()

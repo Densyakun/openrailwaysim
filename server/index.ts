@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
-import { GameStateType, getNewSaveData } from '../lib/game.js';
-import { loadSaveData, setupServer } from '../lib/server.js';
+import { GameStateType, getNewSaveData } from '@/lib/game';
+import { loadSaveData, setupServer } from '@/lib/server';
 import { proxy } from 'valtio';
 
 const host = process.env.HOST || 'localhost';

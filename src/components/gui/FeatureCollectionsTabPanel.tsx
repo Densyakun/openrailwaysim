@@ -10,7 +10,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import PlaceIcon from '@mui/icons-material/Place';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
-import { FeatureAt, SelectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
+import { FeatureAt, selectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
 import { gameState } from '@/lib/client/client';
 import { Feature, LineString, Point, Position } from 'geojson';
 import { lineString } from '@turf/helpers';
@@ -117,8 +117,8 @@ function onUpdateSegmentList() {
       points = [point1];
   };
 
-  featureCollectionsTabPanelState.nextSegmentList = SelectAdjoinedLineStringSegments(
-    gameState,
+  featureCollectionsTabPanelState.nextSegmentList = selectAdjoinedLineStringSegments(
+    gameState.data,
     points,
     lastFeatureAt.featureCollectionId,
     featureCollectionsTabPanelState.segmentList,

@@ -4,7 +4,7 @@ import TableViewIcon from '@mui/icons-material/TableView';
 import ControlStand from '../hud/ControlStand';
 import TrainGroupTable from './TrainGroupTable';
 import TrainTable from './TrainTable';
-import TrainEditPanel from './TrainEditPanel';
+import TrainFormatEditPanel from './TrainFormatEditPanel';
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
@@ -29,18 +29,19 @@ function TrainsMenu() {
 }
 
 export default function TrainsTabPanel() {
-  const { isShowTable, selectedTrainGroup, isAddingTrain, editingTrainId } = useSnapshot(trainsTabPanelState);
+  const { isShowTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId } = useSnapshot(trainsTabPanelState);
   const { activeTrainId } = useSnapshot(trainsState);
 
   useEffect(() => {
-    guiState.alignItems = (isAddingTrain || editingTrainId) ? "end" : "center";
-  }, [isAddingTrain, editingTrainId]);
+    guiState.alignItems = (isAddingTrainFormat || editingTrainFormatId) ? "end" : "center";
+  }, [isAddingTrainFormat, editingTrainFormatId]);
 
+  // TODO
   return isShowTable
     ? selectedTrainGroup
-      ? isAddingTrain || editingTrainId
-        ? <TrainEditPanel />
-        : <TrainTable trainGroupId={selectedTrainGroup} />
+      ? /*isAddingTrainFormat || editingTrainFormatId
+        ? <TrainFormatEditPanel />
+        : */<TrainTable trainGroupId={selectedTrainGroup} />
       : <TrainGroupTable />
     : activeTrainId
       ? <ControlStand />

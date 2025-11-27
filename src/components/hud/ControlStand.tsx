@@ -1,11 +1,11 @@
 import { useSnapshot } from 'valtio';
-import { ControlStandType, getDistanceToNextStop, SerializableTrain, Train } from '@/lib/trains';
+import { CabFormatType, getDistanceToNextStop, SerializableTrain, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
 import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
-import { SaveDataType, toSerializableSaveData, trainTypeId } from '@/lib/game';
+import { toSerializableSaveData, trainTypeId } from '@/lib/game';
 import { gameState } from '@/lib/client/client';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
@@ -19,7 +19,7 @@ const Box_ = Box as (props: {
   sx?: SxProps;
 }) => JSX.Element;
 
-function TrainDiagramCurve({ train, controlStand }: { train: Train, controlStand?: ControlStandType }) {
+function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: CabFormatType }) {
   const { diagrams } = useSnapshot(gameState.data);
 
   if (!train.currentDiagramId)
@@ -57,23 +57,28 @@ function TrainDiagramCurve({ train, controlStand }: { train: Train, controlStand
         ? `通過${diagramCurve.passTime[nextSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.passTime[nextSectionIndex]), section.toTimezone)}` : ""}`
         : `停車${diagramCurve.stopTime[train.currentDiagramSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.stopTime[train.currentDiagramSectionIndex]), section.toTimezone)}` : ""}`
       }`
-      + (distance === undefined ? "" : ` あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (controlStand?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
+      + (distance === undefined ? "" : ` あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (cabFormat?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
     }
   </Paper>;
 }
 
 export default function ControlStand() {
-  const { trains } = useSnapshot(gameState.data);
+  const { trains, trainFormats } = useSnapshot(gameState.data);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;
 
   const train = trains[trainsState.activeTrainId];
   if (!train) return null;
+  const trainFormat = trainFormats[train.trainFormatId];
+  if (!trainFormat) return null;
 
-  const controlStand = trainsState.activeBodyIndex < train.bogies.length
+  const cabFormat = trainsState.activeBodyIndex < train.bogies.length
     ? null
-    : train.otherBodies[trainsState.activeBodyIndex - train.bogies.length].controlStand;
+    : trainFormat.cabFormats[trainsState.activeBodyIndex - train.bogies.length];
+  const cabState = trainsState.activeBodyIndex < train.bogies.length
+    ? null
+    : train.cabStates[trainsState.activeBodyIndex - train.bogies.length];
 
   return <Stack
     direction="row"
@@ -97,12 +102,12 @@ export default function ControlStand() {
         pointerEvents: 'auto',
         userSelect: 'none',
       }}>
-        {controlStand && <>
-          <Reverser controlStand={controlStand} />
-          <MasterController controlStand={controlStand} />
+        {cabFormat && cabState && <>
+          <Reverser cabState={cabState} />
+          <MasterController cabFormat={cabFormat} cabState={cabState} />
         </>}
         <Speed />
-        <TrainDiagramCurve train={train as Train} controlStand={controlStand as ControlStandType | undefined} />
+        <TrainDiagramCurve train={train as Train} cabFormat={cabFormat || undefined} />
         <Button variant='contained' startIcon={<CloseIcon />} onClick={() => {
           trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""
@@ -115,7 +120,8 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId]
+              gameState.data.trains[trainsState.activeTrainId],
+              gameState.data
             ) as SerializableTrain])
         }}>
           {`<`}
@@ -126,7 +132,8 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId]
+              gameState.data.trains[trainsState.activeTrainId],
+              gameState.data
             ) as SerializableTrain])
         }}>
           {`o`}
@@ -137,7 +144,8 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId]
+              gameState.data.trains[trainsState.activeTrainId],
+              gameState.data
             ) as SerializableTrain])
         }}>
           {`>`}

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SaveDataType, SerializableEuler } from "./game";
+import { SaveDataType } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
 
@@ -12,55 +12,28 @@ export const runningResistanceC = 0.0001381; // 走行抵抗の定数C。空気�
 
 export type Axle = {
   pointOnTrack: PointOnTrack;
-  z: number;
-  //segment?: Segment;
   position: THREE.Vector3;
   rotation: THREE.Euler;
-  diameter: number;
   rotationX: number;
-  hasMotor: boolean;
   rotationIsReversed: boolean;
 };
 
 export type SerializableAxle = {
   pointOnTrack: PointOnTrack;
-  z: number;
   position: THREE.Vector3Tuple;
   rotation: [number, number, number, THREE.EulerOrder];
-  diameter: number;
-  hasMotor: boolean;
   rotationIsReversed: boolean;
 };
 
 export type CarBody = {
   position: THREE.Vector3;
   rotation: THREE.Euler;
-  pointOnTrack: PointOnTrack;
   weight: number; // ton
-}
-
-export type SerializableCarBody = {
-  position: THREE.Vector3Tuple;
-  rotation: SerializableEuler;
-  pointOnTrack: PointOnTrack;
-  weight: number;
 }
 
 // 台車。CarBodyの一種
 export type Bogie = CarBody & {
   axles: Axle[];
-};
-
-export type SerializableBogie = SerializableCarBody & {
-  axles: SerializableAxle[];
-};
-
-export type OtherBody = CarBody & {
-  controlStand?: ControlStandType;
-};
-
-export type SerializableOtherBody = SerializableCarBody & {
-  controlStand?: ControlStandType;
 };
 
 // BogieとotherBodyを接続するジョイント
@@ -78,6 +51,9 @@ export type SerializableBodySupporterJoint = {
   bogiePosition: THREE.Vector3Tuple;
 };
 
+/**
+ * CarBody同士を接続するジョイント。連結器や、マレー式機関車の関節、複式ボギーの台車以外の接続に使う
+ */
 export type Joint = {
   bodyIndexA: number;
   positionA: THREE.Vector3;
@@ -92,17 +68,44 @@ export type SerializableJoint = {
   positionB: THREE.Vector3Tuple;
 };
 
+export type BogieFormat = {
+  offset: number;
+  axles: {
+    z: number;
+    diameter: number;
+    hasMotor: boolean;
+  }[];
+  weight: number;
+};
+
+export type TrainFormat = {
+  bogies: BogieFormat[];
+  otherBodyOffsets: number[];
+  otherBodyWeights: number[];
+  cabFormats: (CabFormatType | null)[];
+  bodySupporterJoints: BodySupporterJoint[];
+  otherJoints: Joint[];
+};
+
+export type SerializableTrainFormat = {
+  bogies: BogieFormat[];
+  otherBodyOffsets: number[];
+  otherBodyWeights: number[];
+  cabFormats: (CabFormatType | null)[];
+  bodySupporterJoints: SerializableBodySupporterJoint[];
+  otherJoints: SerializableJoint[];
+};
+
 // ジョイントで繋いだ複数のCarBody
 export type Train = {
+  trainFormatId: string;
   bogies: Bogie[];
-  otherBodies: OtherBody[]; // 台車を除くCarBody
-  bodySupporterJoints: BodySupporterJoint[];
-  otherJoints: Joint[]; // CarBody同士を接続するジョイント。連結器や、マレー式機関車の関節、複式ボギーの台車以外の接続に使う
+  otherBodies: CarBody[]; // 台車を除くCarBody
+  cabStates: (CabStateType | null)[];
   fromJointIndexes: number[];
   toJointIndexes: number[];
   speed: number; // m/s
   weight: number; // ton
-  centroidZ: number; // 第一軸から重心に近い軌道上の相対位置
   motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
@@ -112,72 +115,192 @@ export type Train = {
 };
 
 export type SerializableTrain = {
-  bogies: SerializableBogie[];
-  otherBodies: SerializableOtherBody[];
-  bodySupporterJoints: SerializableBodySupporterJoint[];
-  otherJoints: SerializableJoint[];
+  trainFormatId: string;
+  cabStates: (CabStateType | null)[];
   speed: number;
-  motors: number;
   currentDiagramId: string;
   currentDiagramCurveIndex: number;
   currentDiagramSectionIndex: number;
   currentRouteIndex: number;
   isStopping: boolean;
+  pointOnTrack: PointOnTrack;
+  directionIsReversed: boolean;
 };
 
-export function createTrain(saveData: SaveDataType, bogies: Bogie[], otherBodies: CarBody[] = [], bodySupporterJoints: BodySupporterJoint[] = [], otherJoints: Joint[] = [], speed = 0, motors?: number): Train {
-  let weight_ = 0
-  bogies.forEach(bogie => weight_! += bogie.weight)
-  otherBodies.forEach(body => weight_! += body.weight)
+/**
+ * 列車を設置して、設置した列車と判定結果を返す。ワールドに設置する列車には後からtrainFormatIdを設定する必要がある
+ * @param saveData セーブデータ
+ * @param trainFormat 列車形式
+ * @param pointOnTrack 列車を設置する位置
+ * @param directionIsReversed 軌道に対して向きを反転させるかどうか
+ * @returns 設置した列車と判定結果。輪軸やOtherBodyが軌道の外に設置される場合、isDeadEndがtrueとなる。不正な列車形式データを使用する場合、trainはundefinedを返す
+ */
+export function placeTrain(
+  saveData: SaveDataType,
+  trainFormat: TrainFormat,
+  pointOnTrack: PointOnTrack,
+  directionIsReversed: boolean,
+): {
+  train?: Train;
+  isDeadEnd: boolean;
+} {
+  if (!trainFormat.bogies.length) return { isDeadEnd: false };
 
-  if (weight_ === 0)
-    weight_ = 30
+  let isDeadEnd_ = false;
 
-  // 重心を計算
-  // TODO CarBodyなどの重量を含め、列車の重心を計算する
-  // TODO 軌道の接続に対応したら、異なるTrackから重心を求める
-  let centroidZ = 0
-  let axleCount = 0
-  bogies.forEach(bogie => {
-    bogie.axles.forEach(axle => centroidZ += axle.pointOnTrack.length)
-    axleCount += bogie.axles.length
-  })
-  centroidZ /= axleCount
-  centroidZ -= bogies[0].axles[0].pointOnTrack.length
+  const bogies: Bogie[] = [];
+  for (let bogieIndex = 0; bogieIndex < trainFormat.bogies.length; bogieIndex++) {
+    const axleFormats = trainFormat.bogies[bogieIndex].axles;
 
-  let motors_ = motors
-  if (motors_ === undefined) {
-    motors_ = 0
-    bogies.forEach(bogie => {
-      bogie.axles.forEach(axle => {
-        if (axle.hasMotor) motors_!++
-      })
-    })
+    const axles: Axle[] = [];
+    for (const axleFormat of axleFormats) {
+      const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
+        saveData,
+        pointOnTrack,
+        directionIsReversed,
+        trainFormat.bogies[bogieIndex].offset + axleFormat.z,
+      );
+
+      if (isDeadEnd) isDeadEnd_ = isDeadEnd;
+
+      axles.push({
+        pointOnTrack: newPointOnTrack,
+        position: new THREE.Vector3(),
+        rotation: new THREE.Euler(),
+        rotationX: 0,
+        rotationIsReversed: newDirectionIsReversed,
+      });
+    }
+
+    bogies.push({
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
+      weight: trainFormat.bogies[bogieIndex].weight,
+      axles,
+    });
   }
 
+  const otherBodies: CarBody[] = [];
+  const cabStates: (CabStateType | null)[] = [];
+  for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
+    const cabFormat = trainFormat.cabFormats[otherBodyIndex];
+    if (cabFormat && !saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId])
+      return { isDeadEnd: false };
+
+    cabStates.push(cabFormat && {
+      reverser: 0,
+      masterControllerValue: saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId].maxValue,
+    });
+
+    const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
+      saveData,
+      pointOnTrack,
+      directionIsReversed,
+      trainFormat.otherBodyOffsets[otherBodyIndex],
+    );
+
+    if (isDeadEnd) isDeadEnd_ = isDeadEnd;
+
+    const track = saveData.tracks[newPointOnTrack.trackId];
+    otherBodies.push({
+      position: getPosition(track, newPointOnTrack.length),
+      rotation: getAxleRotation(saveData, newPointOnTrack, newDirectionIsReversed),
+      weight: trainFormat.otherBodyWeights[otherBodyIndex],
+    });
+  }
+
+  const bodySupporterJoints_: BodySupporterJoint[] = [];
+  trainFormat.bodySupporterJoints.forEach(bodySupporterJoint => {
+    if (bodySupporterJoint.otherBodyIndex !== -1
+      && bodySupporterJoint.bogieIndex !== -1)
+      bodySupporterJoints_.push({
+        otherBodyIndex: bodySupporterJoint.otherBodyIndex,
+        otherBodyPosition: new THREE.Vector3(
+          -bodySupporterJoint.otherBodyPosition.x * (directionIsReversed ? -1 : 1),
+          bodySupporterJoint.otherBodyPosition.y,
+          bodySupporterJoint.otherBodyPosition.z * (directionIsReversed ? -1 : 1),
+        ),
+        bogieIndex: bodySupporterJoint.bogieIndex,
+        bogiePosition: new THREE.Vector3(
+          -bodySupporterJoint.bogiePosition.x * (directionIsReversed ? -1 : 1),
+          bodySupporterJoint.bogiePosition.y,
+          bodySupporterJoint.bogiePosition.z * (directionIsReversed ? -1 : 1),
+        ),
+      });
+  });
+
+  const otherJoints_: Joint[] = [];
+  trainFormat.otherJoints.forEach(joint => {
+    if (joint.bodyIndexA !== -1
+      && joint.bodyIndexB !== -1)
+      otherJoints_.push({
+        bodyIndexA: joint.bodyIndexA,
+        positionA: new THREE.Vector3(
+          -joint.positionA.x * (directionIsReversed ? -1 : 1),
+          joint.positionA.y,
+          joint.positionA.z * (directionIsReversed ? -1 : 1),
+        ),
+        bodyIndexB: joint.bodyIndexB,
+        positionB: new THREE.Vector3(
+          -joint.positionB.x * (directionIsReversed ? -1 : 1),
+          joint.positionB.y,
+          joint.positionB.z * (directionIsReversed ? -1 : 1),
+        ),
+      });
+  });
+
+  let trainWeight = trainFormat.otherBodyWeights.reduce((previous, weight) => previous + weight,
+    trainFormat.bogies.reduce((previous, bogie) => previous + bogie.weight, 0)
+  );
+  if (trainWeight <= 0) trainWeight = 30;
+
   const train: Train = {
+    trainFormatId: "",
     bogies,
     otherBodies,
-    bodySupporterJoints,
-    otherJoints,
+    cabStates,
     fromJointIndexes: [],
     toJointIndexes: [],
-    speed,
-    weight: weight_,
-    centroidZ,
-    motors: motors_,
+    speed: 0,
+    weight: trainWeight,
+    motors: 0,
     currentDiagramId: "",
     currentDiagramCurveIndex: -1,
     currentDiagramSectionIndex: 0,
     currentRouteIndex: 0,
     isStopping: true,
-  }
+  };
 
-  calcJointsToRotateBody(train)
+  train.motors = trainFormat.bogies.reduce((prev, bogie) => prev +
+    bogie.axles.reduce((prev, axle) => prev +
+      (axle.hasMotor ? 1 : 0),
+      0),
+    0);
 
-  placeTrain(saveData, train)
+  calcJointsToRotateBody(train, trainFormat);
 
-  return train
+  // TODO 編集中の列車も同期処理を行うため、ここでの仮置きしたOtherBodiesの同期は不要？
+  /*train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
+
+  syncOtherBodies(saveData, train);
+
+  train.bogies.forEach(fromBogie => axlesToBogie(saveData, fromBogie));*/
+
+  return {
+    train,
+    isDeadEnd: isDeadEnd_
+  };
+}
+
+export function getPointOnTrackByTrain(saveData: SaveDataType, train: Train) {
+  const trainFormat = saveData.trainFormats[train.trainFormatId];
+
+  return runPointOnTrack(
+    saveData,
+    train.bogies[0].axles[0].pointOnTrack,
+    !train.bogies[0].axles[0].rotationIsReversed,
+    trainFormat.bogies[0].offset + trainFormat.bogies[0].axles[0].z
+  );
 }
 
 export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3) {
@@ -246,7 +369,7 @@ export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {
   );
 }
 
-export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, position: THREE.Vector3) {
+export function updatePointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, position: THREE.Vector3) {
   const track = saveData.tracks[pointOnTrack.trackId];
 
   // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
@@ -257,16 +380,16 @@ export function pointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointO
   pointOnTrack.length = getLength(position, track);
 }
 
-export function axlesToBogie(saveData: SaveDataType, bogie: Bogie) {
-  bogie.axles.forEach(axle => {
+export function axlesToBogie(saveData: SaveDataType, bogie: Bogie, bogieFormat: BogieFormat) {
+  bogie.axles.forEach((axle, index) => {
     // axles to bogie
-    axle.position.copy(new THREE.Vector3(0, 0, axle.z)
+    axle.position.copy(new THREE.Vector3(0, 0, bogieFormat.axles[index].z)
       .applyEuler(bogie.rotation)
       .add(bogie.position));
     axle.rotation.copy(bogie.rotation);
 
     // axle.pointOnTrack to track
-    pointOnTrackToTrack(
+    updatePointOnTrackToTrack(
       saveData,
       axle.pointOnTrack,
       axle.position,
@@ -274,15 +397,9 @@ export function axlesToBogie(saveData: SaveDataType, bogie: Bogie) {
   });
 }
 
-export function axlesToBogies(saveData: SaveDataType, train: Train) {
-  train.bogies.forEach(bogie => axlesToBogie(saveData, bogie));
-
-  return train;
-}
-
 export function getBogiesQuaternion({ bogies }: Train) {
   return 2 <= bogies.length
-    ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), bogies[bogies.length - 1].position.clone().sub(bogies[0].position).normalize()) // TODO 向きが正しいか確認する
+    ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), bogies[bogies.length - 1].position.clone().sub(bogies[0].position).normalize())
     : new THREE.Quaternion().setFromEuler(bogies[0].rotation);
 }
 
@@ -302,14 +419,14 @@ export function getBodyFromBodyIndex(train: Train, bodyIndex: number) {
     : train.otherBodies[bodyIndex - train.bogies.length];
 }
 
-export function calcJointsToRotateBody(train: Train) {
+export function calcJointsToRotateBody(train: Train, trainFormat: TrainFormat) {
   train.bogies.forEach((_, fromBogieIndex) => {
     let fromJointZ = 0
     let toJointZ = 0
     let fromJointIndex = -1
     let toJointIndex = -1
 
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+    trainFormat.bodySupporterJoints.forEach((joint, jointIndex) => {
       if (fromBogieIndex === joint.bogieIndex) {
         if (fromJointIndex === -1 || joint.bogiePosition.z < fromJointZ) {
           fromJointZ = joint.bogiePosition.z
@@ -331,7 +448,7 @@ export function calcJointsToRotateBody(train: Train) {
     let fromJointIndex = -1
     let toJointIndex = -1
 
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+    trainFormat.bodySupporterJoints.forEach((joint, jointIndex) => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         if (fromJointIndex === -1 || joint.otherBodyPosition.z < fromJointZ) {
           fromJointZ = joint.otherBodyPosition.z
@@ -347,24 +464,24 @@ export function calcJointsToRotateBody(train: Train) {
     // 連結器のような、BogieとジョイントされていないotherBodyは、ジョイントされたotherBodyに合わせる。
     const fromBodyIndex = train.bogies.length + fromOtherBodyIndex
     if (fromJointIndex === -1 || toJointIndex === -1) {
-      train.otherJoints.forEach((joint, otherJointIndex) => {
+      trainFormat.otherJoints.forEach((joint, otherJointIndex) => {
         if (fromBodyIndex === joint.bodyIndexA) {
-          if (fromJointIndex === -1 || joint.positionA.z < fromJointZ && train.bodySupporterJoints.length <= fromJointIndex) {
+          if (fromJointIndex === -1 || joint.positionA.z < fromJointZ && trainFormat.bodySupporterJoints.length <= fromJointIndex) {
             fromJointZ = joint.positionA.z
-            fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+            fromJointIndex = trainFormat.bodySupporterJoints.length + otherJointIndex
           }
-          if (toJointIndex === -1 || toJointZ < joint.positionA.z && train.bodySupporterJoints.length <= fromJointIndex) {
+          if (toJointIndex === -1 || toJointZ < joint.positionA.z && trainFormat.bodySupporterJoints.length <= fromJointIndex) {
             toJointZ = joint.positionA.z
-            toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+            toJointIndex = trainFormat.bodySupporterJoints.length + otherJointIndex
           }
         } else if (fromBodyIndex === joint.bodyIndexB) {
-          if (fromJointIndex === -1 || joint.positionB.z < fromJointZ && train.bodySupporterJoints.length <= fromJointIndex) {
+          if (fromJointIndex === -1 || joint.positionB.z < fromJointZ && trainFormat.bodySupporterJoints.length <= fromJointIndex) {
             fromJointZ = joint.positionB.z
-            fromJointIndex = train.bodySupporterJoints.length + otherJointIndex
+            fromJointIndex = trainFormat.bodySupporterJoints.length + otherJointIndex
           }
-          if (toJointIndex === -1 || toJointZ < joint.positionB.z && train.bodySupporterJoints.length <= fromJointIndex) {
+          if (toJointIndex === -1 || toJointZ < joint.positionB.z && trainFormat.bodySupporterJoints.length <= fromJointIndex) {
             toJointZ = joint.positionB.z
-            toJointIndex = train.bodySupporterJoints.length + otherJointIndex
+            toJointIndex = trainFormat.bodySupporterJoints.length + otherJointIndex
           }
         }
       })
@@ -375,22 +492,14 @@ export function calcJointsToRotateBody(train: Train) {
   })
 }
 
-export function placeOtherBodies(saveData: SaveDataType, train: Train) {
-  train.otherBodies.forEach(otherBody => {
-    const track = saveData.tracks[otherBody.pointOnTrack.trackId];
-    otherBody.position.copy(getPosition(track, otherBody.pointOnTrack.length));
-    otherBody.rotation.copy(getAxleRotation(saveData, otherBody.pointOnTrack, false));
-  });
-}
-
-export function syncOtherBodies(saveData: SaveDataType, train: Train) {
+export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
   // 位置を設定する
   train.otherBodies.forEach((fromBody, fromOtherBodyIndex) => {
     const position = new THREE.Vector3();
     let jointCount = 0;
 
     const fromBodyIndex = train.bogies.length + fromOtherBodyIndex;
-    train.bodySupporterJoints.forEach(joint => {
+    trainFormat.bodySupporterJoints.forEach(joint => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         position.add(getFromPosition(
           fromBody,
@@ -402,7 +511,7 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
         jointCount++;
       }
     });
-    train.otherJoints.forEach(joint => {
+    trainFormat.otherJoints.forEach(joint => {
       if (fromBodyIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
@@ -430,13 +539,6 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
 
     if (jointCount)
       fromBody.position.copy(position.divideScalar(jointCount));
-
-    // Update pointOnTrack of other body
-    pointOnTrackToTrack(
-      saveData,
-      fromBody.pointOnTrack,
-      fromBody.position,
-    );
   });
 
   // 回転を設定する
@@ -447,7 +549,7 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
     let toJointPosition: THREE.Vector3;
 
     const fromBodyIndex = train.bogies.length + fromOtherBodyIndex;
-    train.bodySupporterJoints.forEach((joint, jointIndex) => {
+    trainFormat.bodySupporterJoints.forEach((joint, jointIndex) => {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
           fromJointEuler = train.bogies[joint.bogieIndex].rotation;
@@ -461,8 +563,8 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
         }
       }
     });
-    train.otherJoints.forEach((joint, otherJointIndex) => {
-      const jointIndex = train.bodySupporterJoints.length + otherJointIndex;
+    trainFormat.otherJoints.forEach((joint, otherJointIndex) => {
+      const jointIndex = trainFormat.bodySupporterJoints.length + otherJointIndex;
       if (fromBodyIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
@@ -507,25 +609,18 @@ export function syncOtherBodies(saveData: SaveDataType, train: Train) {
   });
 }
 
-export function placeTrain(saveData: SaveDataType, train: Train) {
-  // 連結器の向きを反転させないため
-  placeOtherBodies(saveData, train);
-
-  train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
-
-  syncOtherBodies(saveData, train);
-
-  train.bogies.forEach(fromBogie => axlesToBogie(saveData, fromBogie));
-}
-
 export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: number) {
+  const trainFormat = saveData.trainFormats[train.trainFormatId];
+
   // 自動でマスコンと主制御器（Control System）を接続する
   let accel = 0;
   let brake = 1;
-  train.otherBodies.forEach(body => {
-    if (!body.controlStand) return;
+  train.cabStates.forEach((cabState, index) => {
+    if (!cabState) return;
+    const cabFormat = trainFormat.cabFormats[index];
+    if (!cabFormat) return;
 
-    const [accel1, brake1] = getOneHandleMasterControllerOutput(saveData, body.controlStand);
+    const [accel1, brake1] = getOneHandleMasterControllerOutput(saveData, cabFormat, cabState);
 
     accel += accel1;
     brake = Math.min(brake, brake1)
@@ -556,7 +651,7 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
     g * (runningResistanceA + runningResistanceB * speedKMH + runningResistanceC * speedKMH * speedKMH)
   )
 
-  // 勾配抵抗を計算する。計算を単純化するため、重心に近い地点の勾配から抵抗を計算する
+  // TODO 勾配抵抗を輪軸にかかる重量から計算する
   // TODO grade
   // TODO train.bogies[0].axles[0].rotationIsReversed
   /*const track = saveData.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
@@ -574,7 +669,7 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
       : Math.min(0, train.speed + deceleration * delta)
 
   // Run a trains
-  rollAxles(saveData, train, train.speed * delta)
+  rollAxles(saveData, train, trainFormat, train.speed * delta)
 
   // 列車の停車、通過を判定する
   if (train.currentDiagramId) {
@@ -654,23 +749,23 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
   }
 }
 
-export function rollAxles(saveData: SaveDataType, train: Train, distance: number) {
+export function rollAxles(saveData: SaveDataType, train: Train, trainFormat: TrainFormat, distance: number) {
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
   const center = new THREE.Vector3();
   const newCenter = new THREE.Vector3();
-  train.bogies.forEach(bogie => {
+  train.bogies.forEach((bogie, bogieIndex) => {
     center.add(bogie.position);
 
     // 輪軸を転がす
-    bogie.axles.forEach(axle => {
+    bogie.axles.forEach((axle, axleIndex) => {
       const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(saveData, axle.pointOnTrack, axle.rotationIsReversed, distance);
 
       axle.pointOnTrack = newPointOnTrack;
       axle.rotationIsReversed = newDirectionIsReversed;
       if (isDeadEnd) train.speed = 0;
 
-      axle.rotationX += distance * axle.diameter;
+      axle.rotationX += distance * trainFormat.bogies[bogieIndex].axles[axleIndex].diameter;
     });
 
     // ボギーを輪軸に合わせる
@@ -698,13 +793,13 @@ export function rollAxles(saveData: SaveDataType, train: Train, distance: number
   });
 
   // ボギーを含むCarBodyの位置と向きをジョイントに合わせる
-  syncOtherBodies(saveData, train);
+  syncOtherBodies(train, trainFormat);
 
   train.bogies.forEach((fromBogie, fromBogieIndex) => {
     const position = new THREE.Vector3();
     let jointCount = 0;
 
-    train.bodySupporterJoints.forEach(joint => {
+    trainFormat.bodySupporterJoints.forEach(joint => {
       if (fromBogieIndex === joint.bogieIndex) {
         position.add(getFromPosition(
           fromBogie,
@@ -716,7 +811,7 @@ export function rollAxles(saveData: SaveDataType, train: Train, distance: number
         jointCount++;
       }
     });
-    train.otherJoints.forEach(joint => {
+    trainFormat.otherJoints.forEach(joint => {
       if (fromBogieIndex === joint.bodyIndexA) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexB);
 
@@ -746,16 +841,20 @@ export function rollAxles(saveData: SaveDataType, train: Train, distance: number
       fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
-    axlesToBogie(saveData, fromBogie);
+    axlesToBogie(saveData, fromBogie, saveData.trainFormats[train.trainFormatId].bogies[fromBogieIndex]);
   });
 
   train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
 }
 
-export type ControlStandType = {
+export type CabFormatType = {
   directionIsReversed: boolean;
+  oneHandleMasterControllerUIConfigId: string;
+}
+
+export type CabStateType = {
   reverser: number;
-  masterController: OneHandleMasterController;
+  masterControllerValue: number;
 }
 
 export type UIOneHandleMasterControllerConfig = {
@@ -769,23 +868,18 @@ export type UIOneHandleMasterControllerConfig = {
   stepRangeList: [number, number][];
 };
 
-export type OneHandleMasterController = {
-  value: number;
-  uiOptionId: string;
-};
-
-export function getOneHandleMasterControllerOutput(saveData: SaveDataType, controlStand: ControlStandType) {
+export function getOneHandleMasterControllerOutput(saveData: SaveDataType, cabFormat: CabFormatType, cabState: CabStateType) {
   // TODO Call different functions depending on the vehicle
-  return getOneHandleMasterControllerSimpleOutput(saveData, controlStand);
+  return getOneHandleMasterControllerSimpleOutput(saveData, cabFormat, cabState);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(saveData: SaveDataType, controlStand: ControlStandType) {
-  const config = saveData.uiOneHandleMasterControllerConfigs[controlStand.masterController.uiOptionId];
+export function getOneHandleMasterControllerSimpleOutput(saveData: SaveDataType, cabFormat: CabFormatType, cabState: CabStateType) {
+  const config = saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
   if (!config) return [0, 0];
 
   return [
-    (controlStand.directionIsReversed ? -1 : 1) * controlStand.reverser * Math.max(0, 1 - controlStand.masterController.value / config.nValue),
-    Math.max(0, (controlStand.masterController.value - config.nValue) / (config.maxValue - config.nValue))
+    (cabFormat.directionIsReversed ? -1 : 1) * cabState.reverser * Math.max(0, 1 - cabState.masterControllerValue / config.nValue),
+    Math.max(0, (cabState.masterControllerValue - config.nValue) / (config.maxValue - config.nValue))
   ];
 }
 

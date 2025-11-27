@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
-import { Axle, BodySupporterJoint, Bogie, Joint, OtherBody, SerializableAxle, SerializableBodySupporterJoint, SerializableBogie, SerializableJoint, SerializableOtherBody, SerializableTrain, Train, UIOneHandleMasterControllerConfig, createTrain, updateTrainOnTime } from "./trains";
+import { BodySupporterJoint, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrain, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
 import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
@@ -18,6 +18,7 @@ export type SaveDataType = {
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: Track | TransitionCurve };
   switches: { [key: string]: Switch };
+  trainFormats: { [key: string]: TrainFormat };
   trains: { [key: string]: Train };
   /**
    * Trainを文字列で分類する。
@@ -31,18 +32,17 @@ export type SaveDataType = {
   diagrams: { [key: string]: Diagram };
 };
 
+// TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 // Prevent infinite recursion in types with circular references by limiting recursion depth
 export type Path<T, D extends number = 6> = [D] extends [never]
   ? []
   : T extends object
   ? {
-    [K in keyof T]:
-    K extends string | number
-    ? T[K] extends object
+    [K in Extract<keyof T, string | number>]:
+    T[K] extends object
     ? [K] | [K, ...Path<T[K], Prev[D]>]
     : [K]
-    : never
-  }[keyof T]
+  }[Extract<keyof T, string | number>]
   : [];
 
 // Helper type to decrement depth
@@ -61,12 +61,13 @@ export type PathValue<
   : never
   : T;
 
-export type SerializableSaveDataType = { [key: string]: any } & {
+export type SerializableSaveDataType = {
   originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
   tracks: { [key: string]: SerializableTrack | SerializableTransitionCurve };
   switches: { [key: string]: Switch };
+  trainFormats: { [key: string]: SerializableTrainFormat };
   trains: { [key: string]: SerializableTrain };
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
@@ -83,6 +84,7 @@ export function getNewSaveData() {
     featureCollections: {},
     tracks: {},
     switches: {},
+    trainFormats: {},
     trains: {},
     trainGroups: {},
     uiOneHandleMasterControllerConfigs: {},
@@ -98,14 +100,14 @@ export const tracksObjectTypeId = "tracksObject";
 export const trackTypeId = "track";
 export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
 export const transitionCurveSegmentTypeId = "transitionCurveSegment";
+export const trainFormatsObjectTypeId = "trainFormatsObject";
+export const trainFormatTypeId = "trainFormat";
 export const trainsObjectTypeId = "trainsObject";
 export const trainTypeId = "train";
-export const bogieArrayTypeId = "bogieArray";
-export const bogieTypeId = "bogie";
-export const axleArrayTypeId = "axleArray";
+/*export const axleArrayTypeId = "axleArray";
 export const axleTypeId = "axle";
 export const otherBodyArrayTypeId = "otherBodyArray";
-export const otherBodyTypeId = "otherBody";
+export const otherBodyTypeId = "otherBody";*/
 export const bodySupporterJointArrayTypeId = "bodySupporterJointArray";
 export const bodySupporterJointTypeId = "bodySupporterJoint";
 export const jointArrayTypeId = "jointArray";
@@ -128,26 +130,10 @@ export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
       if (path[4] === "position") return threeVector3TypeId;
     }
   }
-  if (path[0] === "trains") {
-    if (path.length === 1) return trainsObjectTypeId;
-    if (path.length === 2) return trainTypeId;
-    if (path[2] === "bogies") {
-      if (path.length === 3) return bogieArrayTypeId;
-      if (path.length === 4) return bogieTypeId;
-      if (path[4] === "position") return threeVector3TypeId;
-      if (path[4] === "rotation") return threeEulerTypeId;
-      if (path[4] === "axles") {
-        if (path.length === 5) return axleArrayTypeId;
-        if (path.length === 6) return axleTypeId;
-        if (path[6] === "position") return threeVector3TypeId;
-        if (path[6] === "rotation") return threeEulerTypeId;
-      }
-    } else if (path[2] === "otherBodies") {
-      if (path.length === 3) return otherBodyArrayTypeId;
-      if (path.length === 4) return otherBodyTypeId;
-      if (path[4] === "position") return threeVector3TypeId;
-      if (path[4] === "rotation") return threeEulerTypeId;
-    } else if (path[2] === "bodySupporterJoints") {
+  if (path[0] === "trainFormats") {
+    if (path.length === 1) return trainFormatsObjectTypeId;
+    if (path.length === 2) return trainFormatTypeId;
+    if (path[2] === "bodySupporterJoints") {
       if (path.length === 3) return bodySupporterJointArrayTypeId;
       if (path.length === 4) return bodySupporterJointTypeId;
       if (
@@ -163,23 +149,30 @@ export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
       ) return threeVector3TypeId;
     }
   }
+  if (path[0] === "trains") {
+    if (path.length === 1) return trainsObjectTypeId;
+    if (path.length === 2) return trainTypeId;
+  }
   return "";
 }
 
-export function toSerializableSaveData(type: string, value: any): any {
+export function toSerializableSaveData(type: string, value: any, data: SaveDataType): any {
   if (type === saveDataTypeId) {
     const saveData: SaveDataType = value;
 
-    return {
+    const serializableSaveData: SerializableSaveDataType = {
       ...saveData,
-      tracks: toSerializableSaveData(tracksObjectTypeId, saveData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
-      trains: toSerializableSaveData(trainsObjectTypeId, saveData.trains) as { [key: string]: SerializableTrain },
-    } as SerializableSaveDataType;
+      tracks: toSerializableSaveData(tracksObjectTypeId, saveData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
+      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, saveData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
+      trains: toSerializableSaveData(trainsObjectTypeId, saveData.trains, data) as { [key: string]: SerializableTrain },
+    };
+
+    return serializableSaveData;
   } else if (type === tracksObjectTypeId) {
     const tracks: { [key: string]: Track | TransitionCurve } = value;
     const serializableTracks: { [key: string]: SerializableTrack | SerializableTransitionCurve } = {};
 
-    Object.keys(tracks).forEach(id => serializableTracks[id] = toSerializableSaveData(trackTypeId, tracks[id]) as SerializableTrack | SerializableTransitionCurve);
+    Object.keys(tracks).forEach(id => serializableTracks[id] = toSerializableSaveData(trackTypeId, tracks[id], data) as SerializableTrack | SerializableTransitionCurve);
 
     return serializableTracks;
   } else if (type === trackTypeId) {
@@ -201,7 +194,7 @@ export function toSerializableSaveData(type: string, value: any): any {
     }: Track = value;
 
     const serializableTrack: SerializableTrack = {
-      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
+      position: toSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3Tuple,
       rotationY,
       length,
       radius,
@@ -229,131 +222,97 @@ export function toSerializableSaveData(type: string, value: any): any {
         curveDirection,
       } = value as TransitionCurve;
 
-      return {
+      const serializableTransitionCurve: SerializableTransitionCurve = {
         ...serializableTrack,
         beginCurvature,
         endCurvature,
-        endPosition: toSerializableSaveData(threeVector3TypeId, endPosition) as THREE.Vector3Tuple,
+        endPosition: toSerializableSaveData(threeVector3TypeId, endPosition, data) as THREE.Vector3Tuple,
         endRotationY,
-        transitionCurves: toSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves) as SerializableTransitionCurveSegment[],
+        transitionCurves: toSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves, data) as SerializableTransitionCurveSegment[],
         curveDirection,
-      } as SerializableTransitionCurve;
+      };
+
+      return serializableTransitionCurve;
     }
   } else if (type === transitionCurveSegmentArrayTypeId) {
     const transitionCurves: TransitionCurveSegment[] = value;
 
-    return transitionCurves.map(transitionCurve => toSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve) as SerializableTransitionCurveSegment);
+    return transitionCurves.map(transitionCurve => toSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve, data) as SerializableTransitionCurveSegment);
   } else if (type === transitionCurveSegmentTypeId) {
     const { position, rotationY, curvature }: TransitionCurveSegment = value;
 
-    return {
-      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
+    const serializableTransitionCurveSegment: SerializableTransitionCurveSegment = {
+      position: toSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3Tuple,
       rotationY: rotationY,
       curvature: curvature,
-    } as SerializableTransitionCurveSegment;
+    };
+
+    return serializableTransitionCurveSegment;
+  } else if (type === trainFormatsObjectTypeId) {
+    const trainFormats: { [key: string]: TrainFormat } = value;
+    const serializableTrainFormats: { [key: string]: SerializableTrainFormat } = {};
+
+    Object.keys(trainFormats).forEach(id => serializableTrainFormats[id] = toSerializableSaveData(trainFormatTypeId, trainFormats[id], data) as SerializableTrainFormat);
+
+    return serializableTrainFormats;
+  } else if (type === trainFormatTypeId) {
+    const {
+      bogies,
+      otherBodyOffsets,
+      otherBodyWeights,
+      cabFormats,
+      bodySupporterJoints,
+      otherJoints,
+    }: TrainFormat = value;
+
+    const serializableTrainFormat: SerializableTrainFormat = {
+      bogies,
+      otherBodyOffsets,
+      otherBodyWeights,
+      cabFormats,
+      bodySupporterJoints: toSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as SerializableBodySupporterJoint[],
+      otherJoints: toSerializableSaveData(jointArrayTypeId, otherJoints, data) as SerializableJoint[],
+    };
+
+    return serializableTrainFormat;
   } else if (type === trainsObjectTypeId) {
     const trains: { [key: string]: Train } = value;
     const serializableTrains: { [key: string]: SerializableTrain } = {};
 
-    Object.keys(trains).forEach(id => serializableTrains[id] = toSerializableSaveData(trainTypeId, trains[id]) as SerializableTrain);
+    Object.keys(trains).forEach(id => serializableTrains[id] = toSerializableSaveData(trainTypeId, trains[id], data) as SerializableTrain);
 
     return serializableTrains;
   } else if (type === trainTypeId) {
+    const train: Train = value;
     const {
-      bogies,
-      otherBodies,
-      bodySupporterJoints,
-      otherJoints,
+      trainFormatId,
+      cabStates,
       speed,
-      motors,
       currentDiagramId,
       currentDiagramCurveIndex,
       currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
-    }: Train = value;
+    } = train;
 
-    return {
-      bogies: toSerializableSaveData(bogieArrayTypeId, bogies) as SerializableBogie[],
-      otherBodies: toSerializableSaveData(otherBodyArrayTypeId, otherBodies) as SerializableOtherBody[],
-      bodySupporterJoints: toSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints) as SerializableBodySupporterJoint[],
-      otherJoints: toSerializableSaveData(jointArrayTypeId, otherJoints) as SerializableJoint[],
+    const { newDirectionIsReversed, newPointOnTrack } = getPointOnTrackByTrain(data, train);
+    const serializableTrain: SerializableTrain = {
+      trainFormatId,
+      cabStates,
       speed,
-      motors,
       currentDiagramId,
       currentDiagramCurveIndex,
-      currentDiagramSectionIndex: currentDiagramSectionIndex,
+      currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
-    } as SerializableTrain;
-  } else if (type === bogieArrayTypeId) {
-    const bogies: Bogie[] = value;
-
-    return bogies.map(bogie => toSerializableSaveData(bogieTypeId, bogie) as SerializableBogie);
-  } else if (type === bogieTypeId) {
-    const {
-      position,
-      rotation,
-      pointOnTrack,
-      weight,
-      axles,
-    }: Bogie = value;
-
-    return {
-      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
-      rotation: toSerializableSaveData(threeEulerTypeId, rotation) as SerializableEuler,
-      pointOnTrack,
-      weight,
-      axles: toSerializableSaveData(axleArrayTypeId, axles) as SerializableAxle[],
-    } as SerializableBogie;
-  } else if (type === axleArrayTypeId) {
-    const axles: Axle[] = value;
-
-    return axles.map(axle => toSerializableSaveData(axleTypeId, axle) as SerializableAxle);
-  } else if (type === axleTypeId) {
-    const {
-      pointOnTrack,
-      z,
-      position,
-      rotation,
-      diameter,
-      hasMotor,
-      rotationIsReversed,
-    }: Axle = value;
-
-    return {
-      pointOnTrack,
-      z,
-      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
-      rotation: toSerializableSaveData(threeEulerTypeId, rotation) as SerializableEuler,
-      diameter,
-      hasMotor,
-      rotationIsReversed,
-    } as SerializableAxle;
-  } else if (type === otherBodyArrayTypeId) {
-    const otherBodies: OtherBody[] = value;
-
-    return otherBodies.map(otherBody => toSerializableSaveData(otherBodyTypeId, otherBody) as SerializableOtherBody);
-  } else if (type === otherBodyTypeId) {
-    const {
-      position,
-      rotation,
-      pointOnTrack,
-      weight,
-      controlStand,
-    }: OtherBody = value;
-
-    return {
-      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
-      rotation: toSerializableSaveData(threeEulerTypeId, rotation) as SerializableEuler,
-      pointOnTrack,
-      weight,
-      controlStand,
-    } as SerializableOtherBody;
+      pointOnTrack: newPointOnTrack,
+      directionIsReversed: newDirectionIsReversed,
+    };
+    return serializableTrain;
   } else if (type === bodySupporterJointArrayTypeId) {
     const bodySupporterJoints: BodySupporterJoint[] = value;
 
-    return bodySupporterJoints.map(bodySupporterJoint => toSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint) as SerializableBodySupporterJoint);
+    return bodySupporterJoints.map(bodySupporterJoint => toSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint, data) as SerializableBodySupporterJoint);
   } else if (type === bodySupporterJointTypeId) {
     const {
       otherBodyIndex,
@@ -362,16 +321,18 @@ export function toSerializableSaveData(type: string, value: any): any {
       bogiePosition,
     }: BodySupporterJoint = value;
 
-    return {
+    const serializableBodySupporterJoint: SerializableBodySupporterJoint = {
       otherBodyIndex,
-      otherBodyPosition: toSerializableSaveData(threeVector3TypeId, otherBodyPosition) as THREE.Vector3Tuple,
+      otherBodyPosition: toSerializableSaveData(threeVector3TypeId, otherBodyPosition, data) as THREE.Vector3Tuple,
       bogieIndex,
-      bogiePosition: toSerializableSaveData(threeVector3TypeId, bogiePosition) as THREE.Vector3Tuple,
-    } as SerializableBodySupporterJoint;
+      bogiePosition: toSerializableSaveData(threeVector3TypeId, bogiePosition, data) as THREE.Vector3Tuple,
+    };
+
+    return serializableBodySupporterJoint;
   } else if (type === jointArrayTypeId) {
     const joints: Joint[] = value;
 
-    return joints.map(joint => toSerializableSaveData(jointTypeId, joint) as SerializableJoint);
+    return joints.map(joint => toSerializableSaveData(jointTypeId, joint, data) as SerializableJoint);
   } else if (type === jointTypeId) {
     const {
       bodyIndexA,
@@ -380,12 +341,14 @@ export function toSerializableSaveData(type: string, value: any): any {
       positionB,
     }: Joint = value;
 
-    return {
+    const serializableJoint: SerializableJoint = {
       bodyIndexA,
-      positionA: toSerializableSaveData(threeVector3TypeId, positionA) as THREE.Vector3Tuple,
+      positionA: toSerializableSaveData(threeVector3TypeId, positionA, data) as THREE.Vector3Tuple,
       bodyIndexB,
-      positionB: toSerializableSaveData(threeVector3TypeId, positionB) as THREE.Vector3Tuple,
-    } as SerializableJoint;
+      positionB: toSerializableSaveData(threeVector3TypeId, positionB, data) as THREE.Vector3Tuple,
+    };
+
+    return serializableJoint;
   } else if (type === threeVector3TypeId) {
     const position: THREE.Vector3 = value;
 
@@ -407,6 +370,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
       ...getNewSaveData(),
       ...value,
       tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks, data) as { [key: string]: Track },
+      trainFormats: fromSerializableSaveData(trainFormatsObjectTypeId, serializableSaveData.trainFormats, data) as { [key: string]: TrainFormat },
     };
 
     // 他のデータを参照するため、後からデシリアライズする
@@ -503,40 +467,72 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
     };
 
     return transitionCurveSegment;
+  } else if (type === trainFormatsObjectTypeId) {
+    const serializableTrainFormats: { [key: string]: SerializableTrainFormat } = value;
+    const trainFormats: { [key: string]: TrainFormat } = {};
+
+    Object.keys(serializableTrainFormats).forEach(id =>
+      trainFormats[id] = fromSerializableSaveData(trainFormatTypeId, serializableTrainFormats[id], data) as TrainFormat
+    );
+
+    return trainFormats;
+  } else if (type === trainFormatTypeId) {
+    const {
+      bogies,
+      otherBodyOffsets,
+      otherBodyWeights,
+      cabFormats,
+      bodySupporterJoints,
+      otherJoints,
+    }: SerializableTrainFormat = value;
+
+    const trainFormat: TrainFormat = {
+      bogies,
+      otherBodyOffsets,
+      otherBodyWeights,
+      cabFormats,
+      bodySupporterJoints: fromSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as BodySupporterJoint[],
+      otherJoints: fromSerializableSaveData(jointArrayTypeId, otherJoints, data) as Joint[],
+    };
+
+    return trainFormat;
   } else if (type === trainsObjectTypeId) {
     const serializableTrains: { [key: string]: SerializableTrain } = value;
     const trains: { [key: string]: Train } = {};
 
-    Object.keys(serializableTrains).forEach(id =>
-      trains[id] = fromSerializableSaveData(trainTypeId, serializableTrains[id], data) as Train
-    );
+    Object.keys(serializableTrains).forEach(id => {
+      // Nullable
+      const train = fromSerializableSaveData(trainTypeId, serializableTrains[id], data) as Train | null;
+      if (train) trains[id] = train;
+    });
 
     return trains;
   } else if (type === trainTypeId) {
     const {
-      bogies,
-      otherBodies,
-      bodySupporterJoints,
-      otherJoints,
+      trainFormatId,
+      cabStates,
       speed,
-      motors,
       currentDiagramId,
       currentDiagramCurveIndex,
       currentDiagramSectionIndex,
       currentRouteIndex,
       isStopping,
+      pointOnTrack,
+      directionIsReversed,
     }: SerializableTrain = value;
 
-    const train = createTrain(
+    const { train } = placeTrain(
       data,
-      fromSerializableSaveData(bogieArrayTypeId, bogies, data) as Bogie[],
-      fromSerializableSaveData(otherBodyArrayTypeId, otherBodies, data) as OtherBody[],
-      fromSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as BodySupporterJoint[],
-      fromSerializableSaveData(jointArrayTypeId, otherJoints, data) as Joint[],
-      speed,
-      motors,
+      data.trainFormats[trainFormatId],
+      pointOnTrack,
+      directionIsReversed,
     );
 
+    if (!train) return null;
+
+    train.trainFormatId = trainFormatId;
+    train.cabStates = cabStates;
+    train.speed = speed;
     train.currentDiagramId = currentDiagramId;
     train.currentDiagramCurveIndex = currentDiagramCurveIndex;
     train.currentDiagramSectionIndex = currentDiagramSectionIndex;
@@ -544,89 +540,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
     train.isStopping = isStopping;
 
     return train;
-  } else if (type === bogieArrayTypeId) {
-    const serializableBogies: SerializableBogie[] = value;
-
-    const bogies: Bogie[] = serializableBogies.map(bogie =>
-      fromSerializableSaveData(bogieTypeId, bogie, data)
-    );
-
-    return bogies;
-  } else if (type === bogieTypeId) {
-    const {
-      position,
-      rotation,
-      pointOnTrack,
-      weight,
-      axles,
-    }: SerializableBogie = value;
-
-    const bogie: Bogie = {
-      position: fromSerializableSaveData(threeVector3TypeId, position, data),
-      rotation: fromSerializableSaveData(threeEulerTypeId, rotation, data),
-      pointOnTrack,
-      weight,
-      axles: fromSerializableSaveData(axleArrayTypeId, axles, data),
-    };
-
-    return bogie;
-  } else if (type === axleArrayTypeId) {
-    const serializableAxles: SerializableAxle[] = value;
-
-    const axles: Axle[] = serializableAxles.map(axle =>
-      fromSerializableSaveData(axleTypeId, axle, data)
-    );
-
-    return axles;
-  } else if (type === axleTypeId) {
-    const {
-      pointOnTrack,
-      z,
-      position,
-      rotation,
-      diameter,
-      hasMotor,
-      rotationIsReversed,
-    }: SerializableAxle = value;
-
-    const axle: Axle = {
-      pointOnTrack,
-      z,
-      position: fromSerializableSaveData(threeVector3TypeId, position, data),
-      rotation: fromSerializableSaveData(threeEulerTypeId, rotation, data),
-      diameter,
-      rotationX: 0,
-      hasMotor,
-      rotationIsReversed,
-    };
-
-    return axle;
-  } else if (type === otherBodyArrayTypeId) {
-    const serializableOtherBodies: SerializableOtherBody[] = value;
-
-    const otherBodies: OtherBody[] = serializableOtherBodies.map(otherBody =>
-      fromSerializableSaveData(otherBodyTypeId, otherBody, data)
-    );
-
-    return otherBodies;
-  } else if (type === otherBodyTypeId) {
-    const {
-      position,
-      rotation,
-      pointOnTrack,
-      weight,
-      controlStand,
-    }: SerializableOtherBody = value;
-
-    const otherBody: OtherBody = {
-      position: fromSerializableSaveData(threeVector3TypeId, position, data),
-      rotation: fromSerializableSaveData(threeEulerTypeId, rotation, data),
-      pointOnTrack,
-      weight,
-      controlStand,
-    };
-
-    return otherBody;
   } else if (type === bodySupporterJointArrayTypeId) {
     const serializableBodySupporterJoints: SerializableBodySupporterJoint[] = value;
 

@@ -41,7 +41,8 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
           </Button>
           <TrainIcon />
           <Typography variant="h5" gutterBottom>{trainGroupId}</Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
+          {/** TODO */}
+          {/*<Button variant="contained" startIcon={<AddIcon />} onClick={() => {
             trainsTabPanelState.isAddingTrain = true;
             resetEditingTrainState();
             trainsTabPanelState.bogieOffsets = [0];
@@ -53,7 +54,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
             }]];
           }}>
             Add
-          </Button>
+          </Button>*/}
         </Stack>
       )}
       objects={trains_}

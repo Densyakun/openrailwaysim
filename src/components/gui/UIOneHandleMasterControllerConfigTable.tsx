@@ -7,7 +7,7 @@ import { gameState } from '@/lib/client/client';
 import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { MasterControllerSlider } from '../hud/MasterController';
-import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainSamples';
+import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainExamples';
 import { socket } from '../Client';
 import { MessageCode, send } from '@/lib/ws';
 

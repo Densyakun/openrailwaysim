@@ -1,5 +1,5 @@
 import { Box, Paper, Slider } from '@mui/material';
-import { ControlStandType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
+import { CabFormatType, CabStateType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
@@ -124,13 +124,16 @@ export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfi
 }
 
 export default function MasterController({
-  controlStand,
+  cabFormat,
+  cabState,
 }: {
-  controlStand: ControlStandType;
+  cabFormat: CabFormatType;
+  cabState: CabStateType;
 }) {
   const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
 
-  const { uiOptionId, value } = controlStand.masterController;
+  const uiOptionId = cabFormat.oneHandleMasterControllerUIConfigId;
+  const value = cabState.masterControllerValue;
 
   if (!uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
 
@@ -143,14 +146,12 @@ export default function MasterController({
           [
             "trains",
             trainsState.activeTrainId,
-            "otherBodies",
-            (trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length).toString(),
-            "controlStand",
-            "masterController",
-            "value"
+            "cabStates",
+            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
+            "masterControllerValue"
           ],
           newValue
-        ])
+        ] as any)
       }
     />
   );

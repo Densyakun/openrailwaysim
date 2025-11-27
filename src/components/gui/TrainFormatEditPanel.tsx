@@ -1,3 +1,4 @@
+// TODO
 import * as THREE from "three";
 import { proxy, useSnapshot } from "valtio";
 import { Alert, Button, ButtonGroup, Checkbox, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack, TextField, ToggleButton, Typography } from "@mui/material";
@@ -5,12 +6,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import ScreenRotationIcon from '@mui/icons-material/ScreenRotation';
 import TuneIcon from '@mui/icons-material/Tune';
-import { BodySupporterJoint, Bogie, CarBody, createTrain, Joint, OneHandleMasterController, SerializableTrain } from "@/lib/trains";
+import { placeTrain, SerializableTrain } from "@/lib/trains";
 import { gameState } from "@/lib/client/client";
 import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
 import { useEffect } from "react";
-import { createBogie, createOtherBody } from "@/lib/trainSamples";
-import { getPosition, runPointOnTrack } from "@/lib/tracks";
+import { getPosition } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
 import { toSerializableSaveData, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
@@ -78,128 +78,27 @@ function focusCamera() {
 function updateEditingTrain() {
   const {
     pointOnTrack,
-    axleTable,
     directionIsReversed,
-    bogieOffsets,
-    bogieWeights,
-    otherBodyOffsets,
-    otherBodyWeights,
-    controlStands,
-    bodySupporterJoints,
-    otherJoints,
+    editingTrainFormat,
   } = trainsTabPanelState;
 
   if (!Object.keys(gameState.data.tracks).length) return;
-  if (!pointOnTrack) return;
+  if (!editingTrainFormat || !pointOnTrack) return;
 
-  const bogies: Bogie[] = [];
-  for (let bogieIndex = 0; bogieIndex < axleTable.length; bogieIndex++) {
-    const axles = axleTable[bogieIndex];
-    const { newPointOnTrack, isDeadEnd } = runPointOnTrack(
-      gameState.data,
-      pointOnTrack,
-      directionIsReversed,
-      bogieOffsets[bogieIndex],
-    );
-
-    if (isDeadEnd) {
-      trainsTabPanelState.trainIsDeadEnd = true;
-      break;
-    }
-
-    // TODO CarBodyの中心が軌道の外に出ているかどうかしか判定していないので、createBogieで台車を作成したときに、輪軸が軌道の外に出ているか判定する
-    bogies.push(createBogie(
-      newPointOnTrack,
-      axles.map(axle => ({
-        z: axle.z * (directionIsReversed ? -1 : 1),
-        diameter: axle.diameter,
-        hasMotor: axle.hasMotor,
-      })),
-      directionIsReversed,
-      bogieWeights[bogieIndex],
-    ));
-  }
-
-  const otherBodies: CarBody[] = [];
-  for (let otherBodyIndex = 0; otherBodyIndex < otherBodyOffsets.length; otherBodyIndex++) {
-    const { newPointOnTrack, isDeadEnd } = runPointOnTrack(
-      gameState.data,
-      pointOnTrack,
-      directionIsReversed,
-      otherBodyOffsets[otherBodyIndex],
-    );
-
-    if (isDeadEnd) {
-      trainsTabPanelState.trainIsDeadEnd = true;
-      break;
-    }
-
-    otherBodies.push(createOtherBody(
-      newPointOnTrack,
-      otherBodyWeights[otherBodyIndex],
-      controlStands[otherBodyIndex] || undefined,
-    ));
-  }
-
-  if (
-    !bogies.length
-    || trainsTabPanelState.trainIsDeadEnd
-    || controlStands.some(controlStand =>
-      controlStand && !Object.keys(gameState.data.uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
-    )
-  ) return;
-
-  const bodySupporterJoints_: BodySupporterJoint[] = [];
-  bodySupporterJoints.forEach(bodySupporterJoint => {
-    if (bodySupporterJoint.otherBodyIndex !== -1
-      && bodySupporterJoint.bogieIndex !== -1)
-      bodySupporterJoints_.push({
-        otherBodyIndex: bodySupporterJoint.otherBodyIndex,
-        otherBodyPosition: new THREE.Vector3(
-          -bodySupporterJoint.otherBodyPosition.x * (directionIsReversed ? -1 : 1),
-          bodySupporterJoint.otherBodyPosition.y,
-          bodySupporterJoint.otherBodyPosition.z * (directionIsReversed ? -1 : 1),
-        ),
-        bogieIndex: bodySupporterJoint.bogieIndex,
-        bogiePosition: new THREE.Vector3(
-          -bodySupporterJoint.bogiePosition.x * (directionIsReversed ? -1 : 1),
-          bodySupporterJoint.bogiePosition.y,
-          bodySupporterJoint.bogiePosition.z * (directionIsReversed ? -1 : 1),
-        ),
-      });
-  });
-
-  const otherJoints_: Joint[] = [];
-  otherJoints.forEach(joint => {
-    if (joint.bodyIndexA !== -1
-      && joint.bodyIndexB !== -1)
-      otherJoints_.push({
-        bodyIndexA: joint.bodyIndexA,
-        positionA: new THREE.Vector3(
-          -joint.positionA.x * (directionIsReversed ? -1 : 1),
-          joint.positionA.y,
-          joint.positionA.z * (directionIsReversed ? -1 : 1),
-        ),
-        bodyIndexB: joint.bodyIndexB,
-        positionB: new THREE.Vector3(
-          -joint.positionB.x * (directionIsReversed ? -1 : 1),
-          joint.positionB.y,
-          joint.positionB.z * (directionIsReversed ? -1 : 1),
-        ),
-      });
-  });
-
-  return trainsTabPanelState.editingTrain = createTrain(
+  const { train, isDeadEnd } = placeTrain(
     gameState.data,
-    bogies,
-    otherBodies,
-    bodySupporterJoints_,
-    otherJoints_,
+    editingTrainFormat,
+    pointOnTrack,
+    directionIsReversed,
   );
+
+  trainsTabPanelState.trainIsDeadEnd = isDeadEnd;
+
+  return trainsTabPanelState.editingTrain = train;
 }
 
 function saveEditingTrain() {
-  if (trainsTabPanelState.editingTrainId) {
+  if (trainsTabPanelState.editingTrainFormatId) {
     // TODO
     return;
   }
@@ -209,7 +108,7 @@ function saveEditingTrain() {
     return;
 
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
+  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), gameState.data);
 
   const trainGroup = [...gameState.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);
@@ -219,11 +118,11 @@ function saveEditingTrain() {
     [MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", trainsTabPanelState.selectedTrainGroup], trainGroup]],
   ]);
 
-  trainsTabPanelState.isAddingTrain = false;
+  trainsTabPanelState.isAddingTrainFormat = false;
   resetEditingTrainState();
 }
 
-export default function TrainEditPanel() {
+export default function TrainFormatEditPanel() {
   const {
     selectedTrainGroup,
     editingTrain,
@@ -345,9 +244,9 @@ function AddOtherJointButton() {
 
 function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const {
-    isAddingTrain,
+    isAddingTrainFormat,
     selectedTrainGroup,
-    editingTrainId,
+    editingTrainFormatId,
     newTrainId,
     pointOnTrack,
     axleTable,
@@ -374,18 +273,18 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() => {
-        trainsTabPanelState.isAddingTrain = false;
-        trainsTabPanelState.editingTrainId = "";
+        trainsTabPanelState.isAddingTrainFormat = false;
+        trainsTabPanelState.editingTrainFormatId = "";
         trainsTabPanelState.editingTrain = undefined;
       }}>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>{isAddingTrain
+      <Typography variant="h6" gutterBottom>{isAddingTrainFormat
         ? `Add a train to ${selectedTrainGroup}`
-        : `Edit a train "${editingTrainId}"`
+        : `Edit a train "${editingTrainFormatId}"`
       }</Typography>
     </Stack>
-    {isAddingTrain && Object.keys(trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
+    {isAddingTrainFormat && Object.keys(trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
       IDが重複しています
     </Alert>
     }

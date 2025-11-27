@@ -275,7 +275,7 @@ export default function Tracks() {
 
 function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }) {
   const { selectedTab } = useSnapshot(guiState);
-  const { editingTrainId, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
+  const { editingTrainFormatId, isAddingTrainFormat, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { editingTrackId, beginCant, endCant } = useSnapshot(tracksSubMenuState);
   const switches = useSnapshot(gameState.data.switches);
@@ -344,7 +344,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
 
   // イベントの条件
   const T = selectedTab === "trains" // 名前変更
-    && (isAddingTrain || editingTrainId)
+    && (isAddingTrainFormat || editingTrainFormatId)
     && !pointOnTrackOfTrainsTab;
   const D = selectedTab === "diagrams"
     && editingSectionsInDiagramId

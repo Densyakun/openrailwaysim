@@ -247,7 +247,8 @@ export function finishCreateTracks() {
       ["tracks", CDId],
       toSerializableSaveData(
         trackTypeId,
-        CD
+        CD,
+        gameState.data
       ) as SerializableTrack
     ]);
 
@@ -393,7 +394,8 @@ function MainMenu() {
           createStraightTrackFromLineStrings(
             gameState.data.originCoordinate,
             coordinatePairs,
-          )
+          ),
+          gameState.data
         );
 
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [

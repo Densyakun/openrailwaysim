@@ -1,6 +1,6 @@
 import { proxy } from "valtio";
 import { PointOnTrack } from "../tracks";
-import { BodySupporterJoint, ControlStandType, Joint, Train } from "../trains";
+import { Train, TrainFormat } from "../trains";
 
 export const trainsState = proxy<{
   hoveredTrainId: string;
@@ -17,26 +17,20 @@ export const trainsState = proxy<{
 export const trainsTabPanelState = proxy<{
   isShowTable: boolean;
   selectedTrainGroup: string;
-  isAddingTrain: boolean;
-  editingTrainId: string;
+  isAddingTrainFormat: boolean;
+  editingTrainFormatId: string; // TODO 編集機能（今回の目的→次のコミットで実装）
   newTrainId: string;
   pointOnTrack?: PointOnTrack;
   selectedCarBodyIndex: number;
   selectedAxleIndex: number;
   selectedBodySupporterJointIndex: number;
   selectedOtherJointIndex: number;
-  bogieOffsets: number[];
-  bogieWeights: number[];
-  axleTable: {
-    z: number,
-    diameter: number,
-    hasMotor: boolean,
-  }[][];
-  otherBodyOffsets: number[];
-  otherBodyWeights: number[];
-  controlStands: (ControlStandType | null)[];
-  bodySupporterJoints: BodySupporterJoint[];
-  otherJoints: Joint[];
+  editingTrainFormat?: TrainFormat; // TODO
+  trainFormatId: string; // TODO
+
+  // TODO
+  //isAddingTrain: boolean;
+  //editingTrainId: string;
   directionIsReversed: boolean;
   editingTrain?: Train;
   trainIsDeadEnd: boolean;
@@ -47,21 +41,14 @@ export const trainsTabPanelState = proxy<{
 }>({
   isShowTable: false,
   selectedTrainGroup: "",
-  isAddingTrain: false,
-  editingTrainId: "",
+  isAddingTrainFormat: false,
+  editingTrainFormatId: "",
   newTrainId: "",
   selectedCarBodyIndex: -1,
   selectedAxleIndex: -1,
   selectedBodySupporterJointIndex: -1,
   selectedOtherJointIndex: -1,
-  bogieOffsets: [],
-  bogieWeights: [],
-  axleTable: [],
-  otherBodyOffsets: [],
-  otherBodyWeights: [],
-  controlStands: [],
-  bodySupporterJoints: [],
-  otherJoints: [],
+  trainFormatId: "",
   directionIsReversed: false,
   trainIsDeadEnd: false,
   isShowOneHandleMasterControllerConfig: false,
@@ -73,14 +60,11 @@ export const trainsTabPanelState = proxy<{
 export function resetEditingTrainState() {
   trainsTabPanelState.newTrainId = "";
   trainsTabPanelState.pointOnTrack = undefined;
-  trainsTabPanelState.bogieOffsets = [];
-  trainsTabPanelState.bogieWeights = [];
-  trainsTabPanelState.axleTable = [];
-  trainsTabPanelState.otherBodyOffsets = [];
-  trainsTabPanelState.otherBodyWeights = [];
-  trainsTabPanelState.controlStands = [];
-  trainsTabPanelState.bodySupporterJoints = [];
-  trainsTabPanelState.otherJoints = [];
+  /*trainsTabPanelState.editingTrainFormat = {
+    bogies: [],
+  };*/
+
+  //trainsTabPanelState.editingTrainId = "";
   trainsTabPanelState.directionIsReversed = false;
   trainsTabPanelState.editingTrain = undefined;
   trainsTabPanelState.trainIsDeadEnd = false;

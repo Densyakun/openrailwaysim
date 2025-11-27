@@ -14,12 +14,10 @@ export function loadSaveData() {
   const saveData: SaveDataType = fromSerializableSaveData(saveDataTypeId, newState, getNewSaveData());
 
   // 開発用にセーブデータをアップデート
-  /*Object.keys(saveData.tracks).forEach(trackId => {
-    if (typeof (saveData.tracks[trackId] as any)["beginRotationX"] !== "undefined") {
-      saveData.tracks[trackId].beginCant = 0;
-      saveData.tracks[trackId].endCant = 0;
-    }
-  });*/
+  if (!saveData.trainFormats) {
+    saveData.trainFormats = {};
+    saveData.trains = {};
+  }
 
   return saveData;
 }
@@ -87,6 +85,13 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
             }
           } else if (path[0] === "trainGroups") {
             const trainGroupId = path[1] as string;
+
+            for (const trainId of Object.keys(saveData["trains"])) {
+              const trainIds = saveData["trainGroups"][trainGroupId];
+              if (trainIds.includes(trainId))
+                delete saveData["trains"][trainId];
+            }
+
             for (const diagramId of Object.keys(saveData["diagrams"])) {
               const index = saveData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
               if (index !== -1)
@@ -94,10 +99,10 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
             }
           } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
             const uiOptionId = path[1] as string;
-            for (const trainId of Object.keys(saveData["trains"])) {
-              for (const otherBody of saveData["trains"][trainId].otherBodies) {
-                if (otherBody.controlStand?.masterController.uiOptionId === uiOptionId)
-                  otherBody.controlStand.masterController.uiOptionId = "";
+            for (const trainFormatId of Object.keys(saveData["trainFormats"])) {
+              for (const cabFormat of saveData["trainFormats"][trainFormatId].cabFormats) {
+                if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
+                  cabFormat.oneHandleMasterControllerUIConfigId = "";
               }
             }
           }
@@ -107,7 +112,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
       // 変更されたステートをクライアントに同期する
       const push = function () {
         ops_.push(op_ === 'delete' ? [op_, path] :
-          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value)]
+          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value, saveData)]
         )
       }
 
@@ -119,6 +124,10 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         push()
       } else if (path[0] === "trains") {
         if (3 <= path.length) {
+          // TODO 同期するシリアライズでなければいけないが、シリアライズTrainにはボギーのデータがない（ボギーは保存しないのでシリアライズTrainに含まない）
+          // ->
+          // セーブするためのシリアル化と、同期するためのシリアル化を分ける
+          // また、セーブデータではなくステート/ストアに名前変更
           if (path[2] === "bogies") {
             if (6 <= path.length) {
               if (path[4] === "axles") {
@@ -207,7 +216,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData, saveData);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
   });
 
@@ -236,7 +245,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: SaveDataType = toSerializableSaveData(saveDataTypeId, saveData);
+          const gameState_: SaveDataType = toSerializableSaveData(saveDataTypeId, saveData, saveData);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
@@ -292,10 +301,10 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
               }
             } else if (oldPath[0] === "uiOneHandleMasterControllerConfigs") {
               const uiOptionId = oldPath[1] as string;
-              for (const trainId of Object.keys(saveData["trains"])) {
-                for (const otherBody of saveData["trains"][trainId].otherBodies) {
-                  if (otherBody.controlStand?.masterController.uiOptionId === uiOptionId)
-                    otherBody.controlStand.masterController.uiOptionId = propPath[1] as string;
+              for (const trainFormatId of Object.keys(saveData["trainFormats"])) {
+                for (const cabFormat of saveData["trainFormats"][trainFormatId].cabFormats) {
+                  if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
+                    cabFormat.oneHandleMasterControllerUIConfigId = propPath[1] as string;
                 }
               }
             }

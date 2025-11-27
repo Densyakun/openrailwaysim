@@ -57,11 +57,12 @@ export function send<K extends Exclude<
   code: K,
   value?: MessageValueMap[K]
 ): void;
-// TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 export function send<K extends MessageCode>(
   socket: SendableCommonSocket,
   code: K,
   value?: MessageValueMap[K]
 ): void {
-  socket.send(JSON.stringify([code, value]));
+  // Avoid "Expression produces a union type that is too complex to represent."
+  // Use an explicit annotation so the compiler doesn't expand complex tuple unions.
+  socket.send(JSON.stringify([code, value as unknown]));
 }

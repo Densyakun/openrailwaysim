@@ -1,9 +1,9 @@
 import { Paper, Slider } from '@mui/material';
-import { ControlStandType } from '@/lib/trains';
 import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
+import { CabStateType } from '@/lib/trains';
 
 export function ReverserSlider({ value, setValue }: { value: number, setValue: (newValue: number) => void }) {
   const handleChange = (event: Event, newValue: number | number[]) => {
@@ -40,25 +40,24 @@ export function ReverserSlider({ value, setValue }: { value: number, setValue: (
 }
 
 export default function Reverser({
-  controlStand,
+  cabState,
 }: {
-  controlStand: ControlStandType;
+  cabState: CabStateType;
 }) {
   return (
     <ReverserSlider
-      value={controlStand.reverser}
+      value={cabState.reverser}
       setValue={newValue =>
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           [
             "trains",
             trainsState.activeTrainId,
-            "otherBodies",
-            (trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length).toString(),
-            "controlStand",
+            "cabStates",
+            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
             "reverser"
           ],
           newValue
-        ])
+        ] as any)
       }
     />
   );

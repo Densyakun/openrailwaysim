@@ -1,7 +1,6 @@
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
-import { gameState } from '@/lib/client/client'
 import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'
@@ -9,7 +8,8 @@ import GLTFModel from './GLTFModel';
 import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary';
 import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
-import { getNumberOfCurvePoints, getRotationFromTwoPoints, tracksState } from '@/lib/client/tracks';
+import { getNumberOfCurvePoints, getRotationFromTwoPoints } from "@/lib/client/tracks/index"
+import { tracksState } from "@/lib/client/tracks/store"
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
@@ -19,6 +19,7 @@ import { Fragment, useEffect } from 'react'
 import { gltfState } from '@/lib/client/gltf'
 import { MessageCode, send } from '@/lib/ws'
 import { curveEditMenuState } from '@/lib/client/curveEditMenu'
+import { store } from '@/lib/game'
 
 function ErrorFallback({ }: FallbackProps) {
   const { resetBoundary } = useErrorBoundary();
@@ -228,7 +229,7 @@ function AddingTracks() {
 
 function PointingOnTrack() {
   const { pointingOnTrack } = useSnapshot(tracksState);
-  const { tracks } = useSnapshot(gameState.data);
+  const { tracks } = useSnapshot(store.syncData);
 
   if (!pointingOnTrack) return null;
 
@@ -236,7 +237,7 @@ function PointingOnTrack() {
 }
 
 function PointingOnTrackDiagramSectionRoute() {
-  const { tracks } = useSnapshot(gameState.data);
+  const { tracks } = useSnapshot(store.syncData);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex } = useSnapshot(diagramsTabPanelState);
 
   if (!sections || selectingDiagramSectionIndex < 0 || selectingRouteIndex < 0) return null;
@@ -256,7 +257,7 @@ function PointingOnTrackMesh({ position }: { position: THREE.Vector3 }) {
 
 export default function Tracks() {
   // サーバー接続時にセーブデータを即時反映するために、分割代入でデータを参照する
-  const { tracks } = useSnapshot(gameState.data);
+  const { tracks } = useSnapshot(store.syncData);
   const { selectedTab } = useSnapshot(guiState);
 
   return <>
@@ -278,7 +279,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrainFormatId, isAddingTrainFormat, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { editingTrackId, beginCant, endCant } = useSnapshot(tracksSubMenuState);
-  const switches = useSnapshot(gameState.data.switches);
+  const switches = useSnapshot(store.syncData.switches);
 
   track = { ...track };
   if (editingTrackId) {
@@ -511,7 +512,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
-  const { switches } = useSnapshot(gameState.data);
+  const { switches } = useSnapshot(store.syncData);
 
   const lengthOfPoints = getLengthOfPoints(track, true);
   const points = lengthOfPoints.map(length => getPosition(track, length));
@@ -645,8 +646,8 @@ function useTrackColorOnTrackMode(trackId: string) {
   const { hoveredTracks, selectedTrackIds, pointingOnTrack } = useSnapshot(tracksState);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { focusedNextTrackIndex, nextTrackIds } = useSnapshot(editTracksInDiagramState);
-  const { tracks } = useSnapshot(gameState.data);
-  const { switches } = useSnapshot(gameState.data);
+  const { tracks } = useSnapshot(store.syncData);
+  const { switches } = useSnapshot(store.syncData);
 
   if (isAddingCurve) return "#888";
 

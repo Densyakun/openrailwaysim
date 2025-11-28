@@ -6,15 +6,15 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import { gameState } from '@/lib/client/client';
-import { getSelectedTracks, TrackModel } from '@/lib/tracks';
+import { TrackModel } from '@/lib/tracks';
 import { socket } from '../Client';
 import CurveEditMenu from './CurveEditMenu';
-import { tracksState } from '@/lib/client/tracks';
+import { getSelectedTracks } from "@/lib/client/tracks/index";
+import { tracksState } from "@/lib/client/tracks/store";
 import React from 'react';
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
-import { Path, PathValue, SerializableSaveDataType } from '@/lib/game';
+import { Path, PathValue, SerializableSaveDataType, store } from '@/lib/game';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -254,7 +254,7 @@ function MainMenu() {
       Deselect
     </Button>
     <Button variant='contained' startIcon={<EditIcon />} disabled={selectedTrackIds.length !== 1} onClick={() => {
-      const track = gameState.data.tracks[tracksSubMenuState.editingTrackId = selectedTrackIds[0]];
+      const track = store.syncData.tracks[tracksSubMenuState.editingTrackId = selectedTrackIds[0]];
       tracksSubMenuState.beginCant = track.beginCant.toString();
       tracksSubMenuState.endCant = track.endCant.toString();
     }}>
@@ -268,7 +268,7 @@ function MainMenu() {
       Delete
     </Button>
     <Button variant='contained' disabled={selectedTrackIds.length !== 2} onClick={() => {
-      const tracks = getSelectedTracks(gameState.data);
+      const tracks = getSelectedTracks();
 
       // 平行の場合
       if (tracks[0].rotationY === tracks[1].rotationY) return;
@@ -301,7 +301,7 @@ function MainMenu() {
     </Button>
     <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
       tracksSubMenuState.isEditingModels = true;
-      tracksSubMenuState.trackModels = gameState.data.tracks[tracksState.selectedTrackIds[0]].trackModels.map(trackModel => ({
+      tracksSubMenuState.trackModels = store.syncData.tracks[tracksState.selectedTrackIds[0]].trackModels.map(trackModel => ({
         modelPath: trackModel.modelPath,
         start: trackModel.start.toString(),
         end: trackModel.end.toString(),
@@ -373,9 +373,9 @@ function TrackEditMenu() {
         ];
 
         const editingTrackId = tracksSubMenuState.editingTrackId;
-        Object.keys(gameState.data.tracks).forEach(trackId => {
-          const track = gameState.data.tracks[trackId];
-          const switches = gameState.data.switches;
+        Object.keys(store.syncData.tracks).forEach(trackId => {
+          const track = store.syncData.tracks[trackId];
+          const switches = store.syncData.switches;
           if (track.idOfTrackOrSwitchConnectedFromStart) {
             if (track.connectedFromStartIsTrack) {
               if (track.idOfTrackOrSwitchConnectedFromStart === editingTrackId) {

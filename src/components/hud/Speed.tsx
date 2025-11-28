@@ -1,10 +1,10 @@
 import { Paper } from '@mui/material';
 import { useSnapshot } from 'valtio';
-import { gameState } from '@/lib/client/client';
 import { trainsState } from '@/lib/client/trains';
+import { store } from '@/lib/game';
 
 export default function Speed() {
-  const { trains } = useSnapshot(gameState.data);
+  const { trains } = useSnapshot(store.syncData);
 
   const train = trains[trainsState.activeTrainId];
 

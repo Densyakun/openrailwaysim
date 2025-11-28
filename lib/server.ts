@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SaveDataType, getNewSaveData, saveDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path } from "./game";
+import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SyncDataType, getNewSyncData, syncDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -9,29 +9,30 @@ import { MessageCode, send } from "./ws";
 
 export const saveFilePath = "./save.json";
 
-export function loadSaveData() {
+export function loadSavedSyncData() {
   const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
-  const saveData: SaveDataType = fromSerializableSaveData(saveDataTypeId, newState, getNewSaveData());
+  const syncData: SyncDataType = fromSerializableSaveData(syncDataTypeId, newState, getNewSyncData());
 
   // 開発用にセーブデータをアップデート
-  if (!saveData.trainFormats) {
-    saveData.trainFormats = {};
-    saveData.trains = {};
+  if (!syncData.trainFormats) {
+    syncData.trainFormats = {};
+    syncData.trains = {};
+    syncData.trainGroups = {};
   }
 
-  return saveData;
+  return syncData;
 }
 
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
-export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
+export function setupServer(wss: WebSocketServer, syncData: SyncDataType) {
   let messageEmitter = new MessageEmitter();
 
-  const unsubscribe = subscribe(saveData, ops => {
+  const unsubscribe = subscribe(syncData, ops => {
     const ops_: ["set" | "delete", Path<SerializableSaveDataType>, any?][] = []
     ops.forEach(([op_, path_, value, prevValue]) => {
-      // SaveDataTypeのパスのうち、Serializableなデータのみをクライアントに送信する
-      // subscribeするsaveDataはSerializableでは無いため、送信するデータのパスに限り、SaveDataTypeとSerializableSaveDataTypeが一致する必要がある
+      // SyncDataTypeのパスのうち、Serializableなデータのみをクライアントに送信する
+      // subscribeするsyncDataはSerializableでは無いため、送信するデータのパスに限り、SyncDataTypeとSerializableSaveDataTypeが一致する必要がある
       const path = path_ as Path<SerializableSaveDataType>;
 
       // 削除するデータに依存するデータを変更する
@@ -39,8 +40,8 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         if (path.length == 2) {
           if (path[0] === "tracks") {
             const trackId = path[1] as string;
-            Object.keys(saveData.switches).forEach(switchId => {
-              const trackSwitch = saveData.switches[switchId];
+            Object.keys(syncData.switches).forEach(switchId => {
+              const trackSwitch = syncData.switches[switchId];
               const index = trackSwitch.connectedTrackIds.indexOf(trackId);
               if (index !== -1) {
                 if (trackSwitch.currentConnected === index) trackSwitch.currentConnected = -1;
@@ -49,7 +50,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
                 if (trackSwitch.connectedTrackIds.length === 1) {
                   // Delete switch
-                  Object.values(saveData.tracks).forEach(track => {
+                  Object.values(syncData.tracks).forEach(track => {
                     if (track.idOfTrackOrSwitchConnectedFromStart === switchId) {
                       track.idOfTrackOrSwitchConnectedFromStart = trackSwitch.connectedTrackIds[0];
                       track.connectedFromStartIsTrack = true;
@@ -60,17 +61,17 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
                       track.connectedFromEndIsToEnd = trackSwitch.isConnectedToEnd[0];
                     }
                   })
-                  delete saveData.switches[switchId];
+                  delete syncData.switches[switchId];
                 }
               }
             });
-            Object.keys(saveData.trains).forEach(trainId => {
-              const train = saveData.trains[trainId];
+            Object.keys(syncData.trains).forEach(trainId => {
+              const train = syncData.trains[trainId];
               if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === trackId)))
-                delete saveData.trains[trainId];
+                delete syncData.trains[trainId];
             });
-            Object.keys(saveData.tracks).forEach(trackId => {
-              const track = saveData.tracks[trackId];
+            Object.keys(syncData.tracks).forEach(trackId => {
+              const track = syncData.tracks[trackId];
               if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === trackId)
                 track.idOfTrackOrSwitchConnectedFromStart = "";
               else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === trackId)
@@ -78,29 +79,29 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
             });
           } else if (path[0] === "trains") {
             const trainId = path[1] as string;
-            for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
-              const index = saveData["trainGroups"][trainGroupId].indexOf(trainId);
+            for (const trainGroupId of Object.keys(syncData["trainGroups"])) {
+              const index = syncData["trainGroups"][trainGroupId].indexOf(trainId);
               if (index !== -1)
-                saveData["trainGroups"][trainGroupId].splice(index, 1);
+                syncData["trainGroups"][trainGroupId].splice(index, 1);
             }
           } else if (path[0] === "trainGroups") {
             const trainGroupId = path[1] as string;
 
-            for (const trainId of Object.keys(saveData["trains"])) {
-              const trainIds = saveData["trainGroups"][trainGroupId];
+            for (const trainId of Object.keys(syncData["trains"])) {
+              const trainIds = syncData["trainGroups"][trainGroupId];
               if (trainIds.includes(trainId))
-                delete saveData["trains"][trainId];
+                delete syncData["trains"][trainId];
             }
 
-            for (const diagramId of Object.keys(saveData["diagrams"])) {
-              const index = saveData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
+            for (const diagramId of Object.keys(syncData["diagrams"])) {
+              const index = syncData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
               if (index !== -1)
-                saveData["diagrams"][diagramId].trainGroups.splice(index, 1);
+                syncData["diagrams"][diagramId].trainGroups.splice(index, 1);
             }
           } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
             const uiOptionId = path[1] as string;
-            for (const trainFormatId of Object.keys(saveData["trainFormats"])) {
-              for (const cabFormat of saveData["trainFormats"][trainFormatId].cabFormats) {
+            for (const trainFormatId of Object.keys(syncData["trainFormats"])) {
+              for (const cabFormat of syncData["trainFormats"][trainFormatId].cabFormats) {
                 if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
                   cabFormat.oneHandleMasterControllerUIConfigId = "";
               }
@@ -112,7 +113,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
       // 変更されたステートをクライアントに同期する
       const push = function () {
         ops_.push(op_ === 'delete' ? [op_, path] :
-          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value, saveData)]
+          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value, syncData)]
         )
       }
 
@@ -159,7 +160,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         } else if (path.length === 2) {
           push()
           // 追加または削除された列車にダイヤを割り当てる
-          assignSchedulesToTrains(saveData)
+          assignSchedulesToTrains(syncData)
         }
       } else if (path[0] === "trainGroups") {
         push()
@@ -198,7 +199,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
         // 追加または削除された列車にダイヤを割り当てる
         if (path.length === 2)
-          assignSchedulesToTrains(saveData)
+          assignSchedulesToTrains(syncData)
       }
     });
 
@@ -216,7 +217,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(saveDataTypeId, saveData, saveData);
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(syncDataTypeId, syncData, syncData);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
   });
 
@@ -229,7 +230,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
     if (delta < TIME_PERIOD_TO_SKIP_UPDATE) return;
 
     try {
-      updateTime(saveData, delta);
+      updateTime(delta);
     } catch (e) {
       console.error(e);
     }
@@ -245,7 +246,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: SaveDataType = toSerializableSaveData(saveDataTypeId, saveData, saveData);
+          const gameState_: SyncDataType = toSerializableSaveData(syncDataTypeId, syncData, syncData);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
@@ -256,7 +257,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           if (!Array.isArray(value)) break;
           const [switchId, newCurrentConnected] = value as [string, number];
 
-          switchTrack(saveData, switchId, newCurrentConnected);
+          switchTrack(switchId, newCurrentConnected);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -267,7 +268,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
           fetchHeightmap(tileX, tileY)
             .then(heightmap =>
-              (saveData.terrains[tileY] || (saveData.terrains[tileY] = {}))
+              (syncData.terrains[tileY] || (syncData.terrains[tileY] = {}))
               [tileX] = heightmap
             );
 
@@ -278,31 +279,31 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
           const [propPath, newValue, oldPath] = value as [Path<SerializableSaveDataType>, any, Path<SerializableSaveDataType> | undefined];
 
           // 新しいキーを設定
-          let object = saveData;
+          let object = syncData;
           for (let n = 0; n < propPath.length - 1; n++)
             object = (object as any)[propPath[n]];
-          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, saveData);
+          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, syncData);
 
           // 依存するデータの参照を新しくする
           if (oldPath) {
             if (oldPath[0] === "trains") {
               const trainId = oldPath[1] as string;
-              for (const trainGroupId of Object.keys(saveData["trainGroups"])) {
-                const index = saveData["trainGroups"][trainGroupId].indexOf(trainId);
+              for (const trainGroupId of Object.keys(syncData["trainGroups"])) {
+                const index = syncData["trainGroups"][trainGroupId].indexOf(trainId);
                 if (index !== -1)
-                  saveData["trainGroups"][trainGroupId].splice(index, 1, propPath[1] as string);
+                  syncData["trainGroups"][trainGroupId].splice(index, 1, propPath[1] as string);
               }
             } else if (oldPath[0] === "trainGroups") {
               const trainGroupId = oldPath[1] as string;
-              for (const diagramId of Object.keys(saveData["diagrams"])) {
-                const index = saveData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
+              for (const diagramId of Object.keys(syncData["diagrams"])) {
+                const index = syncData["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
                 if (index !== -1)
-                  saveData["diagrams"][diagramId].trainGroups.splice(index, 1, propPath[1] as string);
+                  syncData["diagrams"][diagramId].trainGroups.splice(index, 1, propPath[1] as string);
               }
             } else if (oldPath[0] === "uiOneHandleMasterControllerConfigs") {
               const uiOptionId = oldPath[1] as string;
-              for (const trainFormatId of Object.keys(saveData["trainFormats"])) {
-                for (const cabFormat of saveData["trainFormats"][trainFormatId].cabFormats) {
+              for (const trainFormatId of Object.keys(syncData["trainFormats"])) {
+                for (const cabFormat of syncData["trainFormats"][trainFormatId].cabFormats) {
                   if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
                     cabFormat.oneHandleMasterControllerUIConfigId = propPath[1] as string;
                 }
@@ -312,7 +313,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
 
           // 古いキーを削除
           if (oldPath) {
-            object = saveData;
+            object = syncData;
             for (let n = 0; n < oldPath.length - 1; n++)
               object = (object as any)[oldPath[n]];
             delete (object as any)[oldPath[oldPath.length - 1]];
@@ -324,7 +325,7 @@ export function setupServer(wss: WebSocketServer, saveData: SaveDataType) {
         case MessageCode.FROM_CLIENT_DELETE_PROP: {
           const propPath = value as string[];
 
-          let object = saveData;
+          let object = syncData;
           for (let n = 0; n < propPath.length - 1; n++)
             object = (object as any)[propPath[n]];
           delete (object as any)[propPath[propPath.length - 1]];

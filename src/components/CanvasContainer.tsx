@@ -47,7 +47,7 @@ export default function CanvasContainer() {
       <DreiSegments />
       <FeatureCollections />
       <Tracks />
-      <Trains />
+      {/*<Trains />*/}
       <Terrains />
       <TerrainGenerator />
       <Client />

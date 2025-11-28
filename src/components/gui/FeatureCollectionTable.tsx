@@ -1,4 +1,4 @@
-import { clientState, gameState } from '@/lib/client/client';
+import { clientState } from '@/lib/client/client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -16,9 +16,10 @@ import { camerasState } from '../cameras-and-controls/Cameras';
 import { PerspectiveCamera } from 'three';
 import { cameraControlsState } from '../cameras-and-controls/CameraControls';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 export default function FeatureCollectionTable() {
-  const { featureCollections } = useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(store.syncData);
   const { visibleFeatureCollections } = useSnapshot(clientState);
 
   return <Paper square sx={{
@@ -39,7 +40,7 @@ export default function FeatureCollectionTable() {
       }}
       getValueOnEdit={(newId: string) => ({
         id: newId,
-        value: JSON.stringify(gameState.data.featureCollections[newId].value),
+        value: JSON.stringify(store.syncData.featureCollections[newId].value),
       })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
@@ -94,11 +95,11 @@ export default function FeatureCollectionTable() {
           </Tooltip>
           <Tooltip title="Move camera to object">
             <IconButton edge="end" onClick={() => {
-              const featureCollection = gameState.data.featureCollections[id].value
+              const featureCollection = store.syncData.featureCollections[id].value
               if (!featureCollection.features.length) return
 
               const targetCoordinate = turf.centroid(featureCollection).geometry.coordinates
-              setCameraTargetPosition(getRelativePosition(targetCoordinate, gameState.data.originCoordinate))
+              setCameraTargetPosition(getRelativePosition(targetCoordinate, store.syncData.originCoordinate))
 
               const bbox = turf.bbox(featureCollection);
               if (camerasState.mainCameraKey === "perspectiveCamera") {

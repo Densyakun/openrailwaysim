@@ -1,14 +1,15 @@
 import React, { useRef } from 'react';
-import { clientState, gameState } from '@/lib/client/client';
+import { clientState } from '@/lib/client/client';
 import { Segment, SegmentObject } from '@react-three/drei';
 import { LineString, Position } from 'geojson';
 import { FeatureAt, equalFeatureAt, getRelativePosition, gisState } from '@/lib/gis';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { useSnapshot } from 'valtio';
 import { useFrame } from '@react-three/fiber';
+import { store } from '@/lib/game';
 
 export default function FeatureCollectionsWithDreiSegment() {
-  const { featureCollections } = useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(store.syncData);
 
   return (
     <>
@@ -20,7 +21,7 @@ export default function FeatureCollectionsWithDreiSegment() {
 }
 
 function FeatureCollection({ id }: { id: string }) {
-  const { featureCollections } = useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(store.syncData);
 
   return (
     <>
@@ -80,8 +81,8 @@ function LineStringSegment({
       return;
     }
 
-    const start = getRelativePosition(startCoordinate, gameState.data.originCoordinate);
-    const end = getRelativePosition(endCoordinate, gameState.data.originCoordinate);
+    const start = getRelativePosition(startCoordinate, store.syncData.originCoordinate);
+    const end = getRelativePosition(endCoordinate, store.syncData.originCoordinate);
 
     ref.current.start.copy(start);
     ref.current.end.copy(end);

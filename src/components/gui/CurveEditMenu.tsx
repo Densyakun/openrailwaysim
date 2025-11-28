@@ -5,12 +5,11 @@ import { useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, connectTwoTracks, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { socket } from '../Client';
-import { Path, PathValue, SerializableSaveDataType, toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { Path, PathValue, SerializableSaveDataType, store, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
-import { tracksState } from '@/lib/client/tracks';
+import { tracksState } from "@/lib/client/tracks/store";
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
-import { gameState } from '@/lib/client/client';
 
 export function updateAddingTracks() {
   const AB = curveEditMenuState.AB;
@@ -396,7 +395,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB, gameState.data)
+        toSerializableSaveData(trackTypeId, AB, store.syncData)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= s_ - AB.length) {
     // ABの終点と接続する場合
@@ -427,7 +426,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB, gameState.data)
+        toSerializableSaveData(trackTypeId, AB, store.syncData)
       ]]);
   } else {
     // ABの中間と接続する場合
@@ -523,7 +522,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", ABId],
-      toSerializableSaveData(trackTypeId, AB, gameState.data)
+      toSerializableSaveData(trackTypeId, AB, store.syncData)
     ]]);
   }
 
@@ -557,7 +556,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD, gameState.data)
+        toSerializableSaveData(trackTypeId, CD, store.syncData)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= t_ - CD.length) {
     let track1IsChanged = false;
@@ -587,7 +586,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD, gameState.data)
+        toSerializableSaveData(trackTypeId, CD, store.syncData)
       ]]);
   } else {
     if (createSwitch) {
@@ -678,7 +677,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", CDId],
-      toSerializableSaveData(trackTypeId, CD, gameState.data)
+      toSerializableSaveData(trackTypeId, CD, store.syncData)
     ]]);
   }
 

@@ -7,12 +7,13 @@ import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionC
 import { HeightmapType } from './terrain';
 import { Diagram } from './diagram';
 import { MessageCode, MessageValueMap } from './ws';
+import { proxy } from 'valtio';
 
 export type GameStateType = {
-  data: SaveDataType;
+  syncData: SyncDataType;
 };
 
-export type SaveDataType = {
+export type SyncDataType = {
   originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
@@ -31,6 +32,12 @@ export type SaveDataType = {
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };
+
+// サーバーからクライアント、クライアントからサーバーのコードに依存することなく、
+// クライアントとサーバーの共通するコードから同期データにアクセスするために必要
+export const store = proxy<GameStateType>({
+  syncData: getNewSyncData(),
+});
 
 // TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 // Prevent infinite recursion in types with circular references by limiting recursion depth
@@ -77,8 +84,8 @@ export type SerializableSaveDataType = {
 
 export type SerializableEuler = [number, number, number, THREE.EulerOrder];
 
-export function getNewSaveData() {
-  const data: SaveDataType = {
+export function getNewSyncData() {
+  const data: SyncDataType = {
     originCoordinate: [139.7, 35.691],
     terrains: {},
     featureCollections: {},
@@ -95,7 +102,7 @@ export function getNewSaveData() {
   return data;
 }
 
-export const saveDataTypeId = "saveData";
+export const syncDataTypeId = "syncData";
 export const tracksObjectTypeId = "tracksObject";
 export const trackTypeId = "track";
 export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
@@ -116,7 +123,7 @@ export const threeVector3TypeId = "THREE.Vector3";
 export const threeEulerTypeId = "THREE.Euler";
 
 export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
-  if (!path.length) return saveDataTypeId;
+  if (!path.length) return syncDataTypeId;
   if (path[0] === "tracks") {
     if (path.length === 1) return tracksObjectTypeId;
     if (path.length === 2) return trackTypeId;
@@ -156,15 +163,15 @@ export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
   return "";
 }
 
-export function toSerializableSaveData(type: string, value: any, data: SaveDataType): any {
-  if (type === saveDataTypeId) {
-    const saveData: SaveDataType = value;
+export function toSerializableSaveData(type: string, value: any, data: SyncDataType): any {
+  if (type === syncDataTypeId) {
+    const syncData: SyncDataType = value;
 
     const serializableSaveData: SerializableSaveDataType = {
-      ...saveData,
-      tracks: toSerializableSaveData(tracksObjectTypeId, saveData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
-      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, saveData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
-      trains: toSerializableSaveData(trainsObjectTypeId, saveData.trains, data) as { [key: string]: SerializableTrain },
+      ...syncData,
+      tracks: toSerializableSaveData(tracksObjectTypeId, syncData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
+      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, syncData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
+      trains: toSerializableSaveData(trainsObjectTypeId, syncData.trains, data) as { [key: string]: SerializableTrain },
     };
 
     return serializableSaveData;
@@ -295,7 +302,8 @@ export function toSerializableSaveData(type: string, value: any, data: SaveDataT
       isStopping,
     } = train;
 
-    const { newDirectionIsReversed, newPointOnTrack } = getPointOnTrackByTrain(data, train);
+    // getPointOnTrackByTrainで現在のストアに依存している
+    const { newDirectionIsReversed, newPointOnTrack } = getPointOnTrackByTrain(train);
     const serializableTrain: SerializableTrain = {
       trainFormatId,
       cabStates,
@@ -362,21 +370,21 @@ export function toSerializableSaveData(type: string, value: any, data: SaveDataT
   return value;
 }
 
-export function fromSerializableSaveData(type: string, value: any, data: SaveDataType): any {
-  if (type === saveDataTypeId) {
+export function fromSerializableSaveData(type: string, value: any, data: SyncDataType): any {
+  if (type === syncDataTypeId) {
     const serializableSaveData: SerializableSaveDataType = value;
 
-    const saveData: SaveDataType = {
-      ...getNewSaveData(),
+    const syncData: SyncDataType = {
+      ...getNewSyncData(),
       ...value,
       tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks, data) as { [key: string]: Track },
       trainFormats: fromSerializableSaveData(trainFormatsObjectTypeId, serializableSaveData.trainFormats, data) as { [key: string]: TrainFormat },
     };
 
     // 他のデータを参照するため、後からデシリアライズする
-    saveData.trains = fromSerializableSaveData(trainsObjectTypeId, serializableSaveData.trains, saveData) as { [key: string]: Train };
+    syncData.trains = fromSerializableSaveData(trainsObjectTypeId, serializableSaveData.trains, syncData) as { [key: string]: Train };
 
-    return saveData;
+    return syncData;
   } else if (type === tracksObjectTypeId) {
     const serializableTracks: { [key: string]: SerializableTrack } = value;
     const tracks: { [key: string]: Track } = {};
@@ -522,7 +530,6 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
     }: SerializableTrain = value;
 
     const { train } = placeTrain(
-      data,
       data.trainFormats[trainFormatId],
       pointOnTrack,
       directionIsReversed,
@@ -603,18 +610,20 @@ export function fromSerializableSaveData(type: string, value: any, data: SaveDat
 
 let timeRemainder = 0;
 
-export function updateTime(saveData: SaveDataType, delta: number) {
+export function updateTime(delta: number) {
+  const syncData = store.syncData;
+
   // Time
   timeRemainder += delta * 1000
   const deltaMilliseconds = Math.floor(timeRemainder)
   timeRemainder -= deltaMilliseconds
-  saveData.nowDate += deltaMilliseconds
+  syncData.nowDate += deltaMilliseconds
 
   // Trains
-  Object.keys(saveData.trains).forEach(trainId => {
-    const train = saveData.trains[trainId]
+  Object.keys(syncData.trains).forEach(trainId => {
+    const train = syncData.trains[trainId]
 
-    updateTrainOnTime(saveData, train, delta)
+    updateTrainOnTime(train, delta)
   })
 }
 

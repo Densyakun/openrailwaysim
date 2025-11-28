@@ -5,8 +5,7 @@ import Speed from './Speed';
 import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
-import { toSerializableSaveData, trainTypeId } from '@/lib/game';
-import { gameState } from '@/lib/client/client';
+import { store, toSerializableSaveData, trainTypeId } from '@/lib/game';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
 import { DiagramTrackRoute, getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
@@ -20,7 +19,7 @@ const Box_ = Box as (props: {
 }) => JSX.Element;
 
 function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: CabFormatType }) {
-  const { diagrams } = useSnapshot(gameState.data);
+  const { diagrams } = useSnapshot(store.syncData);
 
   if (!train.currentDiagramId)
     return <Paper>列車ダイヤ未設定</Paper>;
@@ -30,7 +29,7 @@ function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: Cab
   const trackRoute = section.routes[train.currentRouteIndex];
   const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
-  const distance = getDistanceToNextStop(gameState.data, train, trackRoute as DiagramTrackRoute);
+  const distance = getDistanceToNextStop(train, trackRoute as DiagramTrackRoute);
 
   // TODO 夏時間に対応するため、getTimeTextに渡すDateに日付を追加する
   if (train.isStopping)
@@ -63,7 +62,7 @@ function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: Cab
 }
 
 export default function ControlStand() {
-  const { trains, trainFormats } = useSnapshot(gameState.data);
+  const { trains, trainFormats } = useSnapshot(store.syncData);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;
@@ -115,37 +114,37 @@ export default function ControlStand() {
           Back
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.data.trains[trainsState.activeTrainId].speed = -16
+          store.syncData.trains[trainsState.activeTrainId].speed = -16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId],
-              gameState.data
+              store.syncData.trains[trainsState.activeTrainId],
+              store.syncData
             ) as SerializableTrain])
         }}>
           {`<`}
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.data.trains[trainsState.activeTrainId].speed = 0
+          store.syncData.trains[trainsState.activeTrainId].speed = 0
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId],
-              gameState.data
+              store.syncData.trains[trainsState.activeTrainId],
+              store.syncData
             ) as SerializableTrain])
         }}>
           {`o`}
         </Button>
         <Button variant='contained' onClick={() => {
-          gameState.data.trains[trainsState.activeTrainId].speed = 16
+          store.syncData.trains[trainsState.activeTrainId].speed = 16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              gameState.data.trains[trainsState.activeTrainId],
-              gameState.data
+              store.syncData.trains[trainsState.activeTrainId],
+              store.syncData
             ) as SerializableTrain])
         }}>
           {`>`}

@@ -1,10 +1,11 @@
 import FeatureCollectionComponent from './FeatureCollection';
-import { clientState, gameState } from '@/lib/client/client';
+import { clientState } from '@/lib/client/client';
 import { useSnapshot } from 'valtio';
 import { guiState } from '@/lib/client/gui';
+import { store } from '@/lib/game';
 
 export default function FeatureCollections() {
-  const { featureCollections } = useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(store.syncData);
   const visibleFeatureCollections = useSnapshot(clientState.visibleFeatureCollections);
   const { selectedTab } = useSnapshot(guiState);
 

@@ -6,9 +6,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import { socket } from "../Client";
 import { diagramsTabPanelState, resetEditingDiagramState } from "@/lib/client/diagrams";
 import { useEffect, useState } from "react";
-import { gameState } from "@/lib/client/client";
 import { TIME_IS_NOT_SET } from "@/lib/diagram";
 import { MessageCode, send } from "@/lib/ws";
+import { store } from "@/lib/game";
 
 const formState = proxy<{
   scheduledRouteIndex: string;
@@ -42,7 +42,7 @@ export default function DiagramCurveEditPanel() {
 
 function AddCurveButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
-    const stations = gameState.data.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].sections.length;
+    const stations = store.syncData.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].sections.length;
     diagramsTabPanelState.diagramCurves.push({
       scheduledRouteIndexes: [...Array(stations)].map(_ => -1),
       passTime: [...Array(stations)].map(_ => TIME_IS_NOT_SET),
@@ -126,7 +126,7 @@ function DiagramCurveEditor() {
 }
 
 function SectionEditor() {
-  const { diagrams } = useSnapshot(gameState.data);
+  const { diagrams } = useSnapshot(store.syncData);
   const { scheduledRouteIndex, passTime, stopTime, isPasses } = useSnapshot(formState, { sync: true });
   const {
     diagramCurves,

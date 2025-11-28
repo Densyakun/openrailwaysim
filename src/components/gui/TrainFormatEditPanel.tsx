@@ -7,12 +7,11 @@ import SaveIcon from '@mui/icons-material/Save';
 import ScreenRotationIcon from '@mui/icons-material/ScreenRotation';
 import TuneIcon from '@mui/icons-material/Tune';
 import { placeTrain, SerializableTrain } from "@/lib/trains";
-import { gameState } from "@/lib/client/client";
 import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
 import { useEffect } from "react";
 import { getPosition } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { toSerializableSaveData, trainTypeId } from "@/lib/game";
+import { store, toSerializableSaveData, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 import { setCameraTargetPosition } from "@/lib/client/camera";
@@ -58,7 +57,7 @@ const formState = proxy<{
 });
 
 function focusCamera() {
-  if (!Object.keys(gameState.data.tracks).length) return;
+  if (!Object.keys(store.syncData.tracks).length) return;
   if (!trainsTabPanelState.editingTrain) return;
 
   if (0 <= trainsTabPanelState.selectedCarBodyIndex) {
@@ -69,7 +68,7 @@ function focusCamera() {
     setCameraTargetPosition(selectedBody.position);
   } else if (trainsTabPanelState.pointOnTrack) {
     // To train
-    const track = gameState.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
+    const track = store.syncData.tracks[trainsTabPanelState.pointOnTrack.trackId];
     const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
     setCameraTargetPosition(position);
   }
@@ -82,11 +81,10 @@ function updateEditingTrain() {
     editingTrainFormat,
   } = trainsTabPanelState;
 
-  if (!Object.keys(gameState.data.tracks).length) return;
+  if (!Object.keys(store.syncData.tracks).length) return;
   if (!editingTrainFormat || !pointOnTrack) return;
 
   const { train, isDeadEnd } = placeTrain(
-    gameState.data,
     editingTrainFormat,
     pointOnTrack,
     directionIsReversed,
@@ -104,13 +102,13 @@ function saveEditingTrain() {
   }
 
   // Add new train
-  if (Object.keys(gameState.data.trains).includes(trainsTabPanelState.newTrainId))
+  if (Object.keys(store.syncData.trains).includes(trainsTabPanelState.newTrainId))
     return;
 
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), gameState.data);
+  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), store.syncData);
 
-  const trainGroup = [...gameState.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
+  const trainGroup = [...store.syncData.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);
 
   send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
@@ -259,7 +257,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   } = trainsTabPanelState;
 
   const { newTrainId: newTrainId_ } = useSnapshot(formState, { sync: true });
-  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
+  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
 
   useEffect(() => {
     focusCamera();
@@ -527,7 +525,7 @@ function AxlesEditor() {
 }
 
 function OtherBodiesEditor() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
   const { carBodyOffset, carBodyWeight, controlStand, directionIsReversed, reverser, masterController } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, axleTable, otherBodyOffsets, otherBodyWeights, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 

@@ -1,4 +1,3 @@
-import { gameState } from '@/lib/client/client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ListIcon from '@mui/icons-material/List';
 import TrainIcon from '@mui/icons-material/Train';
@@ -8,9 +7,10 @@ import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/mate
 import { socket } from '../Client';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 export default function TrainGroupTable() {
-  const { trainGroups } = useSnapshot(gameState.data);
+  const { trainGroups } = useSnapshot(store.syncData);
 
   return <Paper square sx={{
     width: "100%",
@@ -48,11 +48,11 @@ export default function TrainGroupTable() {
       handleSubmit={((inputs, editingId) =>
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["trainGroups", inputs.id],
-          gameState.data.trainGroups[editingId],
+          store.syncData.trainGroups[editingId],
           ["trainGroups", editingId],
         ] : [
           ["trainGroups", inputs.id],
-          gameState.data.trainGroups[inputs.id] || [],
+          store.syncData.trainGroups[inputs.id] || [],
         ])
       )}
       handleDelete={(id =>

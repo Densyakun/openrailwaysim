@@ -1,19 +1,14 @@
 import { WebSocketServer } from 'ws';
-import { GameStateType, getNewSaveData } from '@/lib/game';
-import { loadSaveData, setupServer } from '@/lib/server';
-import { proxy } from 'valtio';
+import { store } from '@/lib/game';
+import { loadSavedSyncData, setupServer } from '@/lib/server';
 
 const host = process.env.HOST || 'localhost';
 const port = parseInt(process.env.PORT || '8080');
 
-const gameState = proxy<GameStateType>({
-  data: getNewSaveData(),
-});
-
 try {
-  gameState.data = loadSaveData();
+  store.syncData = loadSavedSyncData();
 } catch { }
 
 const wss = new WebSocketServer({ port, host });
 
-setupServer(wss, gameState.data);
+setupServer(wss, store.syncData);

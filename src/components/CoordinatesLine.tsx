@@ -4,7 +4,7 @@ import { Position } from 'geojson'
 import { equalFeatureAt, FeatureAt, getRelativePosition, gisState } from '@/lib/gis'
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel'
 import { useSnapshot } from 'valtio'
-import { gameState } from '@/lib/client/client'
+import { store } from '@/lib/game'
 
 export default function CoordinatesLine({
   featureCollectionId,
@@ -15,7 +15,7 @@ export default function CoordinatesLine({
   featureIndex: number;
   coordinates: Position[];
 }) {
-  const { originCoordinate } = useSnapshot(gameState.data);
+  const { originCoordinate } = useSnapshot(store.syncData);
   const { segmentList, straightTracks } = useSnapshot(featureCollectionsTabPanelState);
 
   const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, originCoordinate as number[]));

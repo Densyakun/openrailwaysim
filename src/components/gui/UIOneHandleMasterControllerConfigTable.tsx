@@ -3,13 +3,13 @@ import TuneIcon from '@mui/icons-material/Tune';
 import { Button, Checkbox, FormControlLabel, FormGroup, Stack, TextField, Typography } from '@mui/material';
 import { Control, Controller, FieldErrors, UseFormReturn } from 'react-hook-form';
 import { useSnapshot } from 'valtio';
-import { gameState } from '@/lib/client/client';
 import DataMenu from './DataMenu';
 import { UIOneHandleMasterControllerConfig } from '@/lib/trains';
 import { MasterControllerSlider } from '../hud/MasterController';
 import { createUIKeiseiAESeriesMasterControllerConfig, createUISotetsu20000SeriesMasterControllerConfig } from '@/lib/trainExamples';
 import { socket } from '../Client';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 type UIOneHandleMasterControllerConfigFormValues = {
   id: string;
@@ -197,7 +197,7 @@ function Controllers({
 }
 
 export default function UIOneHandleMasterControllerConfigTable() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
 
   return <DataMenu
     defaultValues={{
@@ -210,11 +210,11 @@ export default function UIOneHandleMasterControllerConfigTable() {
     }}
     getValueOnEdit={(newId: string) => ({
       id: newId,
-      steps: gameState.data.uiOneHandleMasterControllerConfigs[newId].steps,
-      marks: gameState.data.uiOneHandleMasterControllerConfigs[newId].marks,
-      maxValue: gameState.data.uiOneHandleMasterControllerConfigs[newId].maxValue,
-      nValue: gameState.data.uiOneHandleMasterControllerConfigs[newId].nValue,
-      stepRangeList: JSON.stringify(gameState.data.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
+      steps: store.syncData.uiOneHandleMasterControllerConfigs[newId].steps,
+      marks: store.syncData.uiOneHandleMasterControllerConfigs[newId].marks,
+      maxValue: store.syncData.uiOneHandleMasterControllerConfigs[newId].maxValue,
+      nValue: store.syncData.uiOneHandleMasterControllerConfigs[newId].nValue,
+      stepRangeList: JSON.stringify(store.syncData.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
     })}
     titleElement={(adding: boolean, editingId: string) => (
       <Stack spacing={1} direction={'row'} alignItems={'center'}>

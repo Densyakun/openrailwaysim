@@ -2,8 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { Axle, Bogie, OtherBody, Train } from '@/lib/trains'
-import { gameState } from '@/lib/client/client'
+import { Axle, Bogie, Train } from '@/lib/trains'
 import { guiState } from '@/lib/client/gui'
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
@@ -236,14 +235,14 @@ function OtherBodyModel({
 export function onFrame() {
   // Track the camera to the selected car body
   if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
-    const selectedTrain = gameState.data.trains[trainsState.activeTrainId]
+    const selectedTrain = store.syncData.trains[trainsState.activeTrainId]
     const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
     setCameraTargetPosition(selectedBody.position)
   }
 }
 
 export default function Trains() {
-  const { trains } = useSnapshot(gameState.data);
+  const { trains } = useSnapshot(store.syncData);
   useSnapshot(trainsState);
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrain } = useSnapshot(trainsTabPanelState);

@@ -1,10 +1,10 @@
 import { Box, Paper, Slider } from '@mui/material';
 import { CabFormatType, CabStateType, UIOneHandleMasterControllerConfig } from '@/lib/trains';
-import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
 import { useSnapshot } from 'valtio';
+import { store } from '@/lib/game';
 
 export function MasterControllerSlider({ value, uiOneHandleMasterControllerConfig, setValue }: { value: number, uiOneHandleMasterControllerConfig: UIOneHandleMasterControllerConfig, setValue: (newValue: number) => void }) {
   const { marks, maxValue, nValue, stepRangeList, steps } = uiOneHandleMasterControllerConfig;
@@ -130,7 +130,7 @@ export default function MasterController({
   cabFormat: CabFormatType;
   cabState: CabStateType;
 }) {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(gameState.data);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
 
   const uiOptionId = cabFormat.oneHandleMasterControllerUIConfigId;
   const value = cabState.masterControllerValue;
@@ -147,7 +147,7 @@ export default function MasterController({
             "trains",
             trainsState.activeTrainId,
             "cabStates",
-            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - store.syncData.trains[trainsState.activeTrainId].bogies.length,
             "masterControllerValue"
           ],
           newValue

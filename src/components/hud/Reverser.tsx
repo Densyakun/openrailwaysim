@@ -1,9 +1,9 @@
 import { Paper, Slider } from '@mui/material';
-import { gameState } from '@/lib/client/client';
 import { socket } from '../Client';
 import { trainsState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
 import { CabStateType } from '@/lib/trains';
+import { store } from '@/lib/game';
 
 export function ReverserSlider({ value, setValue }: { value: number, setValue: (newValue: number) => void }) {
   const handleChange = (event: Event, newValue: number | number[]) => {
@@ -53,7 +53,7 @@ export default function Reverser({
             "trains",
             trainsState.activeTrainId,
             "cabStates",
-            trainsState.activeBodyIndex - gameState.data.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - store.syncData.trains[trainsState.activeTrainId].bogies.length,
             "reverser"
           ],
           newValue

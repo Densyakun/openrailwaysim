@@ -11,14 +11,13 @@ import PlaceIcon from '@mui/icons-material/Place';
 import StraightIcon from '@mui/icons-material/Straight';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { FeatureAt, selectAdjoinedLineStringSegments, getCoordinateText, getRelativePosition, gisState } from '@/lib/gis';
-import { gameState } from '@/lib/client/client';
 import { Feature, LineString, Point, Position } from 'geojson';
 import { lineString } from '@turf/helpers';
 import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
-import { toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { store, toSerializableSaveData, trackTypeId } from '@/lib/game';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
 import FeatureCollectionTable from './FeatureCollectionTable';
@@ -69,7 +68,7 @@ export const featureCollectionsTabPanelState = proxy<{
 });
 
 function onUpdateSegmentList() {
-  const featureCollections = gameState.data.featureCollections;
+  const featureCollections = store.syncData.featureCollections;
 
   // 隣接するセグメントの一覧を取得する
   const lastFeatureAt = featureCollectionsTabPanelState.segmentList[featureCollectionsTabPanelState.segmentList.length - 1];
@@ -118,7 +117,7 @@ function onUpdateSegmentList() {
   };
 
   featureCollectionsTabPanelState.nextSegmentList = selectAdjoinedLineStringSegments(
-    gameState.data,
+    store.syncData,
     points,
     lastFeatureAt.featureCollectionId,
     featureCollectionsTabPanelState.segmentList,
@@ -151,7 +150,7 @@ function focusingNextSegmentIndex() {
   const nextFeatureAt = featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex];
   if (nextFeatureAt.segmentIndex === undefined) return;
 
-  const nextFeatureCollection = gameState.data.featureCollections[nextFeatureAt.featureCollectionId].value;
+  const nextFeatureCollection = store.syncData.featureCollections[nextFeatureAt.featureCollectionId].value;
   const nextGeometry = nextFeatureCollection.features[nextFeatureAt.featureIndex].geometry;
 
   const coordinate = (nextGeometry as LineString).coordinates[nextFeatureAt.segmentIndex];
@@ -163,7 +162,7 @@ function focusingNextSegmentIndex() {
         coordinate,
         coordinate1
       ])).geometry.coordinates,
-      gameState.data.originCoordinate
+      store.syncData.originCoordinate
     )
   );
 }
@@ -180,7 +179,7 @@ function startCurveEditing() {
       const segment = featureCollectionsTabPanelState.segmentList[index];
 
       const lineString =
-        gameState.data.featureCollections[segment.featureCollectionId].value
+        store.syncData.featureCollections[segment.featureCollectionId].value
           .features[segment.featureIndex]
           .geometry as LineString;
 
@@ -191,7 +190,7 @@ function startCurveEditing() {
     } else if (coordinatePairs.length) {
       featureCollectionsTabPanelState.straightTracks.push(
         createStraightTrackFromLineStrings(
-          gameState.data.originCoordinate,
+          store.syncData.originCoordinate,
           coordinatePairs,
         )
       );
@@ -248,7 +247,7 @@ export function finishCreateTracks() {
       toSerializableSaveData(
         trackTypeId,
         CD,
-        gameState.data
+        store.syncData
       ) as SerializableTrack
     ]);
 
@@ -306,7 +305,7 @@ export function resetEditing() {
 }
 
 function OriginCoordinateReadOnlyTextField() {
-  const { originCoordinate } = useSnapshot(gameState.data);
+  const { originCoordinate } = useSnapshot(store.syncData);
 
   return <TextField
     variant="standard"
@@ -360,7 +359,7 @@ function MainMenu() {
       </Button>
       <Button variant='contained' disabled={gisState.selectedFeatures.length !== 1} onClick={() => {
         const startFeatureAt = gisState.selectedFeatures[0];
-        const featureCollection = gameState.data.featureCollections[startFeatureAt.featureCollectionId].value;
+        const featureCollection = store.syncData.featureCollections[startFeatureAt.featureCollectionId].value;
         const geometry = featureCollection.features[startFeatureAt.featureIndex].geometry;
         if (geometry.type !== 'LineString') return;
 
@@ -379,7 +378,7 @@ function MainMenu() {
             if (featureAt.segmentIndex === undefined) return
 
             const geometry =
-              gameState.data.featureCollections[featureAt.featureCollectionId].value
+              store.syncData.featureCollections[featureAt.featureCollectionId].value
                 .features[featureAt.featureIndex]
                 .geometry
             if (geometry.type === 'LineString') {
@@ -392,10 +391,10 @@ function MainMenu() {
         const track: SerializableTrack = toSerializableSaveData(
           trackTypeId,
           createStraightTrackFromLineStrings(
-            gameState.data.originCoordinate,
+            store.syncData.originCoordinate,
             coordinatePairs,
           ),
-          gameState.data
+          store.syncData
         );
 
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
@@ -410,8 +409,8 @@ function MainMenu() {
         <OriginCoordinateReadOnlyTextField />
         <Button variant='contained' startIcon={<EditIcon />} onClick={() => {
           featureCollectionsTabPanelState.isEditingOriginCoordinate = true;
-          featureCollectionsTabPanelState.lon = gameState.data.originCoordinate[0];
-          featureCollectionsTabPanelState.lat = gameState.data.originCoordinate[1];
+          featureCollectionsTabPanelState.lon = store.syncData.originCoordinate[0];
+          featureCollectionsTabPanelState.lat = store.syncData.originCoordinate[1];
         }}>
           Edit
         </Button>

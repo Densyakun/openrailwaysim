@@ -1,4 +1,4 @@
-import { gameState } from '@/lib/client/client';
+// TODO
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
@@ -11,9 +11,10 @@ import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains
 import { useSnapshot } from 'valtio';
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
-  const { trainGroups, trains } = useSnapshot(gameState.data);
+  const { trainGroups, trains } = useSnapshot(store.syncData);
 
   let trains_: { [key: string]: Train } = {};
   trainGroups[trainGroupId].forEach(trainId =>
@@ -62,7 +63,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
         {/** TODO Edit button */}
         <Tooltip title="Move camera to object" disableInteractive>
           <IconButton edge="end" onClick={() => {
-            const train = gameState.data.trains[id]
+            const train = store.syncData.trains[id]
 
             setCameraTargetPosition(train.bogies[0].axles[0].position)
           }}>

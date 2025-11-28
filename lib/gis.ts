@@ -5,7 +5,7 @@ import { default as turfDestination } from '@turf/destination'
 import { default as turfDistance } from '@turf/distance'
 import { point as turfPoint } from '@turf/helpers'
 import { proxy } from 'valtio'
-import { SaveDataType } from './game'
+import { SyncDataType } from './game'
 import booleanEqual from '@turf/boolean-equal'
 
 export const sphericalEarthMeridianLength = turfDistance([0, -90], [0, 90], { units: 'meters' })
@@ -94,10 +94,10 @@ export function getCoordinateText(coordinate: Position) {
  * @param featureCollectionId1 追加するセグメントを含むFeatureCollectionのID
  * @param selectedFeatures 既に選択しているセグメント
  */
-export function selectAdjoinedLineStringSegments(saveData: SaveDataType, points: Feature<Point>[], featureCollectionId1: string, selectedFeatures: FeatureAt[]) {
+export function selectAdjoinedLineStringSegments(syncData: SyncDataType, points: Feature<Point>[], featureCollectionId1: string, selectedFeatures: FeatureAt[]) {
   const adjoinedSegments: FeatureAt[] = [];
 
-  const featureCollection1 = saveData.featureCollections[featureCollectionId1].value;
+  const featureCollection1 = syncData.featureCollections[featureCollectionId1].value;
   featureCollection1.features.forEach((feature1, featureIndex1) => {
     const geometry1 = feature1.geometry;
     if (geometry1.type !== 'LineString') return;

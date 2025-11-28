@@ -1,19 +1,20 @@
-import { gameState, clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
-import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, saveDataTypeId, updateTime } from "@/lib/game"
+import { clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
+import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, store, syncDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
-import { subscribe } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
-import { tracksState } from "@/lib/client/tracks"
+import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode } from "@/lib/ws"
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
+  const syncData = store.syncData;
+
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
-      const saveData = fromSerializableSaveData(saveDataTypeId, value, gameState.data);
+      const saveData = fromSerializableSaveData(syncDataTypeId, value, syncData);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
-      Object.keys(gameState.data).forEach(key =>
-        gameState.data[key as keyof typeof gameState.data] = saveData[key]
+      Object.keys(syncData).forEach(key =>
+        syncData[key as keyof typeof syncData] = saveData[key]
       );
 
       clientState.isSynced = true
@@ -33,11 +34,11 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
           case "set":
             const setObj = function (obj: any, path: Path<SerializableSaveDataType>, value: any, n = 0) {
               if (n + 1 === path.length)
-                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, gameState.data)
+                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, syncData)
               else
                 setObj(obj[path[n]], path, value, n + 1)
             }
-            setObj(gameState.data, path, op[2])
+            setObj(syncData, path, op[2])
 
             break
           case "delete":
@@ -52,7 +53,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
               else
                 deleteObj(obj[path[n]], path, n + 1)
             }
-            deleteObj(gameState.data, path)
+            deleteObj(syncData, path)
 
             break
           /*case "resolve":
@@ -123,8 +124,8 @@ function Subscription({ address }: { address: string }) {
 
   useFrame(({ }, delta) => {
     try {
-      updateTime(gameState.data, delta)
-      updateClientOnTime(gameState.data, delta)
+      updateTime(delta)
+      updateClientOnTime(delta)
 
       onFrameTrains()
     } catch (e) {

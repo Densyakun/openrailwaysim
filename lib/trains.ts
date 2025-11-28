@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { SaveDataType } from "./game";
+import { store } from "./game";
 import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
 
@@ -129,14 +129,12 @@ export type SerializableTrain = {
 
 /**
  * 列車を設置して、設置した列車と判定結果を返す。ワールドに設置する列車には後からtrainFormatIdを設定する必要がある
- * @param saveData セーブデータ
  * @param trainFormat 列車形式
  * @param pointOnTrack 列車を設置する位置
  * @param directionIsReversed 軌道に対して向きを反転させるかどうか
  * @returns 設置した列車と判定結果。輪軸やOtherBodyが軌道の外に設置される場合、isDeadEndがtrueとなる。不正な列車形式データを使用する場合、trainはundefinedを返す
  */
 export function placeTrain(
-  saveData: SaveDataType,
   trainFormat: TrainFormat,
   pointOnTrack: PointOnTrack,
   directionIsReversed: boolean,
@@ -145,6 +143,7 @@ export function placeTrain(
   isDeadEnd: boolean;
 } {
   if (!trainFormat.bogies.length) return { isDeadEnd: false };
+  const syncData = store.syncData;
 
   let isDeadEnd_ = false;
 
@@ -155,7 +154,6 @@ export function placeTrain(
     const axles: Axle[] = [];
     for (const axleFormat of axleFormats) {
       const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
-        saveData,
         pointOnTrack,
         directionIsReversed,
         trainFormat.bogies[bogieIndex].offset + axleFormat.z,
@@ -184,16 +182,15 @@ export function placeTrain(
   const cabStates: (CabStateType | null)[] = [];
   for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
     const cabFormat = trainFormat.cabFormats[otherBodyIndex];
-    if (cabFormat && !saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId])
+    if (cabFormat && !syncData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId])
       return { isDeadEnd: false };
 
     cabStates.push(cabFormat && {
       reverser: 0,
-      masterControllerValue: saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId].maxValue,
+      masterControllerValue: syncData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId].maxValue,
     });
 
     const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
-      saveData,
       pointOnTrack,
       directionIsReversed,
       trainFormat.otherBodyOffsets[otherBodyIndex],
@@ -201,10 +198,10 @@ export function placeTrain(
 
     if (isDeadEnd) isDeadEnd_ = isDeadEnd;
 
-    const track = saveData.tracks[newPointOnTrack.trackId];
+    const track = syncData.tracks[newPointOnTrack.trackId];
     otherBodies.push({
       position: getPosition(track, newPointOnTrack.length),
-      rotation: getAxleRotation(saveData, newPointOnTrack, newDirectionIsReversed),
+      rotation: getAxleRotation(newPointOnTrack, newDirectionIsReversed),
       weight: trainFormat.otherBodyWeights[otherBodyIndex],
     });
   }
@@ -280,11 +277,11 @@ export function placeTrain(
   calcJointsToRotateBody(train, trainFormat);
 
   // TODO 編集中の列車も同期処理を行うため、ここでの仮置きしたOtherBodiesの同期は不要？
-  /*train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
+  /*train.bogies.forEach(bogie => bogieToAxles(syncData, bogie));
 
-  syncOtherBodies(saveData, train);
+  syncOtherBodies(syncData, train);
 
-  train.bogies.forEach(fromBogie => axlesToBogie(saveData, fromBogie));*/
+  train.bogies.forEach(fromBogie => axlesToBogie(syncData, fromBogie));*/
 
   return {
     train,
@@ -292,11 +289,11 @@ export function placeTrain(
   };
 }
 
-export function getPointOnTrackByTrain(saveData: SaveDataType, train: Train) {
-  const trainFormat = saveData.trainFormats[train.trainFormatId];
+export function getPointOnTrackByTrain(train: Train) {
+  const syncData = store.syncData;
+  const trainFormat = syncData.trainFormats[train.trainFormatId];
 
   return runPointOnTrack(
-    saveData,
     train.bogies[0].axles[0].pointOnTrack,
     !train.bogies[0].axles[0].rotationIsReversed,
     trainFormat.bogies[0].offset + trainFormat.bogies[0].axles[0].z
@@ -313,15 +310,17 @@ export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3)
   otherBodies.forEach(body => body.position.add(vector));
 }
 
-export function getAxlePosition(saveData: SaveDataType, axle: Axle) {
+export function getAxlePosition(axle: Axle) {
+  const syncData = store.syncData;
   const { pointOnTrack: { length } } = axle;
 
-  const track = saveData.tracks[axle.pointOnTrack.trackId];
+  const track = syncData.tracks[axle.pointOnTrack.trackId];
   return getPosition(track, length);
 }
 
-export function getAxleRotation(saveData: SaveDataType, pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
-  const track = saveData.tracks[pointOnTrack.trackId];
+export function getAxleRotation(pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
+  const syncData = store.syncData;
+  const track = syncData.tracks[pointOnTrack.trackId];
   const rotation = getRotation(track, pointOnTrack.length);
 
   if (rotationIsReversed) {
@@ -333,7 +332,7 @@ export function getAxleRotation(saveData: SaveDataType, pointOnTrack: PointOnTra
   return rotation;
 }
 
-export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {
+export function bogieToAxles(bogie: Bogie) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
@@ -344,11 +343,11 @@ export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
       lastAxlePosition.copy(
-        getAxlePosition(saveData, bogie.axles[index])
+        getAxlePosition(bogie.axles[index])
       )
     );
 
-    const axleRotation = getAxleRotation(saveData, bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
+    const axleRotation = getAxleRotation(bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
     rotationX += axleRotation.x;
     rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
     rotationZ += axleRotation.z;
@@ -369,8 +368,9 @@ export function bogieToAxles(saveData: SaveDataType, bogie: Bogie) {
   );
 }
 
-export function updatePointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: PointOnTrack, position: THREE.Vector3) {
-  const track = saveData.tracks[pointOnTrack.trackId];
+export function updatePointOnTrackToTrack(pointOnTrack: PointOnTrack, position: THREE.Vector3) {
+  const syncData = store.syncData;
+  const track = syncData.tracks[pointOnTrack.trackId];
 
   // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
   // 計算量が多いため緩和曲線では省く
@@ -380,7 +380,7 @@ export function updatePointOnTrackToTrack(saveData: SaveDataType, pointOnTrack: 
   pointOnTrack.length = getLength(position, track);
 }
 
-export function axlesToBogie(saveData: SaveDataType, bogie: Bogie, bogieFormat: BogieFormat) {
+export function axlesToBogie(bogie: Bogie, bogieFormat: BogieFormat) {
   bogie.axles.forEach((axle, index) => {
     // axles to bogie
     axle.position.copy(new THREE.Vector3(0, 0, bogieFormat.axles[index].z)
@@ -390,7 +390,6 @@ export function axlesToBogie(saveData: SaveDataType, bogie: Bogie, bogieFormat: 
 
     // axle.pointOnTrack to track
     updatePointOnTrackToTrack(
-      saveData,
       axle.pointOnTrack,
       axle.position,
     )
@@ -609,8 +608,9 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
   });
 }
 
-export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: number) {
-  const trainFormat = saveData.trainFormats[train.trainFormatId];
+export function updateTrainOnTime(train: Train, delta: number) {
+  const syncData = store.syncData;
+  const trainFormat = syncData.trainFormats[train.trainFormatId];
 
   // 自動でマスコンと主制御器（Control System）を接続する
   let accel = 0;
@@ -620,7 +620,7 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
     const cabFormat = trainFormat.cabFormats[index];
     if (!cabFormat) return;
 
-    const [accel1, brake1] = getOneHandleMasterControllerOutput(saveData, cabFormat, cabState);
+    const [accel1, brake1] = getOneHandleMasterControllerOutput(cabFormat, cabState);
 
     accel += accel1;
     brake = Math.min(brake, brake1)
@@ -654,7 +654,7 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
   // TODO 勾配抵抗を輪軸にかかる重量から計算する
   // TODO grade
   // TODO train.bogies[0].axles[0].rotationIsReversed
-  /*const track = saveData.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
+  /*const track = syncData.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
   const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
   const distance = point.distanceTo(nextPoint)
   acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight*/
@@ -669,16 +669,16 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
       : Math.min(0, train.speed + deceleration * delta)
 
   // Run a trains
-  rollAxles(saveData, train, trainFormat, train.speed * delta)
+  rollAxles(train, trainFormat, train.speed * delta)
 
   // 列車の停車、通過を判定する
   if (train.currentDiagramId) {
-    const diagram = saveData.diagrams[train.currentDiagramId];
+    const diagram = syncData.diagrams[train.currentDiagramId];
     const trackRoute = diagram.sections[train.currentDiagramSectionIndex].routes[train.currentRouteIndex];
     const diagramCurve = diagram.diagramCurves[train.currentDiagramCurveIndex];
 
     if (train.isStopping) {
-      const nowTime = saveData.nowDate % (twelveHoursMilliseconds * 2);
+      const nowTime = syncData.nowDate % (twelveHoursMilliseconds * 2);
 
       // 停車時刻を求めるため、前のルートを求める
       let prevSectionIndex = -1;
@@ -700,23 +700,23 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
         // trackのEnd側にprevTrackが接続されているかどうかを求める
         const trackId = train.bogies[0].axles[0].pointOnTrack.trackId;
         const prevTrackId = trackRoute.trackIds.length < 2 ? "" : trackRoute.trackIds[trackRoute.trackIds.length - 2];
-        const track = saveData.tracks[trackId];
+        const track = syncData.tracks[trackId];
 
         let isConnectedFromTrackEnd = false;
         if (track.connectedFromEndIsTrack) {
           if (track.idOfTrackOrSwitchConnectedFromEnd === prevTrackId)
             isConnectedFromTrackEnd = true;
         } else {
-          const railroadSwitch = saveData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
           if (railroadSwitch.connectedTrackIds.includes(prevTrackId))
             isConnectedFromTrackEnd = true;
         }
 
-        const distance = getDistanceToNextStop(saveData, train, trackRoute);
+        const distance = getDistanceToNextStop(train, trackRoute);
         if (distance !== undefined && (isConnectedFromTrackEnd ? 0 < distance : distance < 0))
           isPassed = true;
       } else if (!train.speed) {
-        const distance = getDistanceToNextStop(saveData, train, trackRoute);
+        const distance = getDistanceToNextStop(train, trackRoute);
         if (distance !== undefined && -DEFAULT_STOP_RANGE <= distance && distance <= DEFAULT_STOP_RANGE) {
           isPassed = true;
           train.isStopping = true;
@@ -736,7 +736,7 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
 
             // サーバー側で列車ダイヤの自動割り当てを実行する
             if (typeof window === "undefined")
-              assignSchedulesToTrains(saveData);
+              assignSchedulesToTrains(syncData);
             break;
           }
 
@@ -749,7 +749,8 @@ export function updateTrainOnTime(saveData: SaveDataType, train: Train, delta: n
   }
 }
 
-export function rollAxles(saveData: SaveDataType, train: Train, trainFormat: TrainFormat, distance: number) {
+export function rollAxles(train: Train, trainFormat: TrainFormat, distance: number) {
+  const syncData = store.syncData;
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
   const center = new THREE.Vector3();
@@ -759,7 +760,7 @@ export function rollAxles(saveData: SaveDataType, train: Train, trainFormat: Tra
 
     // 輪軸を転がす
     bogie.axles.forEach((axle, axleIndex) => {
-      const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(saveData, axle.pointOnTrack, axle.rotationIsReversed, distance);
+      const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(axle.pointOnTrack, axle.rotationIsReversed, distance);
 
       axle.pointOnTrack = newPointOnTrack;
       axle.rotationIsReversed = newDirectionIsReversed;
@@ -769,7 +770,7 @@ export function rollAxles(saveData: SaveDataType, train: Train, trainFormat: Tra
     });
 
     // ボギーを輪軸に合わせる
-    bogieToAxles(saveData, bogie);
+    bogieToAxles(bogie);
 
     newCenter.add(bogie.position);
   });
@@ -841,10 +842,10 @@ export function rollAxles(saveData: SaveDataType, train: Train, trainFormat: Tra
       fromBogie.position.copy(position.divideScalar(jointCount));
 
     // 輪軸をボギーに合わせる
-    axlesToBogie(saveData, fromBogie, saveData.trainFormats[train.trainFormatId].bogies[fromBogieIndex]);
+    axlesToBogie(fromBogie, syncData.trainFormats[train.trainFormatId].bogies[fromBogieIndex]);
   });
 
-  train.bogies.forEach(bogie => bogieToAxles(saveData, bogie));
+  train.bogies.forEach(bogie => bogieToAxles(bogie));
 }
 
 export type CabFormatType = {
@@ -868,13 +869,14 @@ export type UIOneHandleMasterControllerConfig = {
   stepRangeList: [number, number][];
 };
 
-export function getOneHandleMasterControllerOutput(saveData: SaveDataType, cabFormat: CabFormatType, cabState: CabStateType) {
+export function getOneHandleMasterControllerOutput(cabFormat: CabFormatType, cabState: CabStateType) {
   // TODO Call different functions depending on the vehicle
-  return getOneHandleMasterControllerSimpleOutput(saveData, cabFormat, cabState);
+  return getOneHandleMasterControllerSimpleOutput(cabFormat, cabState);
 }
 
-export function getOneHandleMasterControllerSimpleOutput(saveData: SaveDataType, cabFormat: CabFormatType, cabState: CabStateType) {
-  const config = saveData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+export function getOneHandleMasterControllerSimpleOutput(cabFormat: CabFormatType, cabState: CabStateType) {
+  const syncData = store.syncData;
+  const config = syncData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
   if (!config) return [0, 0];
 
   return [
@@ -893,12 +895,12 @@ export function getTractiveForcePerMotorsJNR103Series(speed: number/*, fieldCoil
   return 1125
 }
 
-export function getDistanceToNextStop(saveData: SaveDataType, train: Train, trackRoute: DiagramTrackRoute) {
+export function getDistanceToNextStop(train: Train, trackRoute: DiagramTrackRoute) {
   let distance: number | undefined;
   const pointOnTrack = train.bogies[0].axles[0].pointOnTrack;
   for (let i = 0; i < trackRoute.trackIds.length; i++) {
     if (trackRoute.trackIds[i] === pointOnTrack.trackId) {
-      distance = getDistance(saveData, trackRoute.trackIds, trackRoute.stopOffset, pointOnTrack.length, i);
+      distance = getDistance(trackRoute.trackIds, trackRoute.stopOffset, pointOnTrack.length, i);
       break;
     }
   }

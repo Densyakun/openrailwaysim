@@ -2,7 +2,7 @@ import * as React from 'react'
 import { Position } from 'geojson'
 import { getRelativePosition, getRotation } from '@/lib/gis'
 import { useSnapshot } from 'valtio'
-import { gameState } from '@/lib/client/client'
+import { store } from '@/lib/game'
 
 export default function FeatureObject({
   children,
@@ -11,7 +11,7 @@ export default function FeatureObject({
   children: React.ReactNode;
   coordinate: Position;
 }) {
-  const { originCoordinate } = useSnapshot(gameState.data);
+  const { originCoordinate } = useSnapshot(store.syncData);
 
   return <group position={getRelativePosition(coordinate, originCoordinate as number[])} rotation={getRotation(coordinate, originCoordinate as number[])}>
     {children}

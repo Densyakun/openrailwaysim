@@ -4,11 +4,11 @@ import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
 import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
-import { gameState } from "@/lib/client/client"
 import { useSnapshot } from "valtio"
 import { terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"
 import { MeshDiscardMaterial, Plane } from "@react-three/drei"
+import { store } from "@/lib/game"
 
 export const merc = new SphericalMercator({
   size: 256,
@@ -232,7 +232,7 @@ function TerrainTile({
 }
 
 export default function Terrains() {
-  const { terrains } = useSnapshot(gameState.data);
+  const { terrains } = useSnapshot(store.syncData);
   const { isVisible } = useSnapshot(terrainsState);
 
   if (!isVisible) return null;

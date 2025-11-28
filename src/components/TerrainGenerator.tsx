@@ -5,13 +5,13 @@ import { useSnapshot } from 'valtio'
 import FeatureObject from './FeatureObject'
 import distance from "@turf/distance"
 import { socket } from "./Client"
-import { gameState } from "@/lib/client/client"
 import { merc } from "./Terrains"
 import { guiState } from "@/lib/client/gui";
 import { cameraControlsState } from "./cameras-and-controls/CameraControls"
 import { coordinateToEuler, eulerToCoordinate, move } from "@/lib/gis"
 import { terrainsState } from '@/lib/client/terrains'
 import { MessageCode, send } from '@/lib/ws'
+import { store } from '@/lib/game'
 
 function NewTerrainTile({ tileX, tileY }: { tileX: number, tileY: number }) {
   const { hoveredTileX, hoveredTileY } = useSnapshot(terrainsState);
@@ -56,7 +56,7 @@ function NewTerrainTile({ tileX, tileY }: { tileX: number, tileY: number }) {
 const newTerrainWidth = 5;
 
 export default function TerrainGenerator() {
-  const { terrains, originCoordinate } = useSnapshot(gameState.data);
+  const { terrains, originCoordinate } = useSnapshot(store.syncData);
   const { selectedTab } = useSnapshot(guiState);
   const { target } = useSnapshot(cameraControlsState);
 

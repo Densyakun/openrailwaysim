@@ -1,4 +1,3 @@
-import { gameState } from '@/lib/client/client';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
 import RouteIcon from '@mui/icons-material/Route';
@@ -10,9 +9,10 @@ import { socket } from '../Client';
 import { diagramsTabPanelState, resetEditingDiagramState } from '@/lib/client/diagrams';
 import { Diagram, DiagramSection } from '@/lib/diagram';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 export default function DiagramTable() {
-  const { diagrams } = useSnapshot(gameState.data);
+  const { diagrams } = useSnapshot(store.syncData);
 
   return <Paper square sx={{
     width: "100%",
@@ -44,7 +44,7 @@ export default function DiagramTable() {
           <IconButton edge="end" onClick={() => {
             resetEditingDiagramState();
             diagramsTabPanelState.editingSectionsInDiagramId = id;
-            diagramsTabPanelState.sections = JSON.parse(JSON.stringify(gameState.data.diagrams[id].sections)) as DiagramSection[];
+            diagramsTabPanelState.sections = JSON.parse(JSON.stringify(store.syncData.diagrams[id].sections)) as DiagramSection[];
             if (!diagramsTabPanelState.sections.length) {
               diagramsTabPanelState.sections = [{
                 routes: [{
@@ -71,7 +71,7 @@ export default function DiagramTable() {
         <Tooltip title="Edit diagram curves" disableInteractive>
           <IconButton edge="end" onClick={() => {
             diagramsTabPanelState.editingDiagramCurvesInDiagramId = id;
-            diagramsTabPanelState.diagramCurves = JSON.parse(JSON.stringify(gameState.data.diagrams[id].diagramCurves));
+            diagramsTabPanelState.diagramCurves = JSON.parse(JSON.stringify(store.syncData.diagrams[id].diagramCurves));
           }}>
             <DepartureBoardIcon />
           </IconButton>
@@ -80,11 +80,11 @@ export default function DiagramTable() {
       handleSubmit={((inputs, editingId) => {
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["diagrams", inputs.id],
-          gameState.data.diagrams[editingId],
+          store.syncData.diagrams[editingId],
           ["diagrams", editingId],
         ] : [
           ["diagrams", inputs.id],
-          gameState.data.diagrams[inputs.id] || {
+          store.syncData.diagrams[inputs.id] || {
             sections: [],
             trainGroups: [],
             diagramCurves: [],

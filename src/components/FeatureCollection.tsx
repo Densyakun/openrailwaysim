@@ -1,15 +1,15 @@
 import { Feature, LineString } from 'geojson'
 import CoordinatesLine from './CoordinatesLine'
-import { gameState } from '@/lib/client/client'
 import PointGeometry from './PointGeometry'
 import { useSnapshot } from 'valtio'
+import { store } from '@/lib/game'
 
 export default function FeatureCollectionComponent({
   featureCollectionId,
 }: {
   featureCollectionId: string,
 }) {
-  const { featureCollections } = useSnapshot(gameState.data);
+  const { featureCollections } = useSnapshot(store.syncData);
 
   return (
     <>

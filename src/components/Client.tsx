@@ -21,7 +21,12 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_STATE_OPS:
-      (value as Parameters<Parameters<typeof subscribe>[1]>[0]).forEach(op => {
+      if (!Array.isArray(value)) {
+        console.error("Invalid ops value from server:", value);
+        messageEmitter.isInvalidMessage = true;
+        break;
+      }
+      (value as unknown as ["set" | "delete", Path<SerializableSaveDataType>, any?][]).forEach(op => {
         const path = op[1] as Path<SerializableSaveDataType>
 
         switch (op[0]) {

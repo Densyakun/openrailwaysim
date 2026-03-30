@@ -10,15 +10,16 @@ import { MessageCode, send } from "./ws";
 export const saveFilePath = "./save.json";
 
 export function loadSavedSyncData() {
-  const newState = JSON.parse(readFileSync('./save.json', 'utf8'));
-  const syncData: SyncDataType = fromSerializableSaveData(syncDataTypeId, newState, getNewSyncData());
+  const json = JSON.parse(readFileSync('./save.json', 'utf8'));
 
   // 開発用にセーブデータをアップデート
-  if (!syncData.trainFormats) {
-    syncData.trainFormats = {};
-    syncData.trains = {};
-    syncData.trainGroups = {};
+  if (!json.trainFormats) {
+    json.trainFormats = {};
+    json.trains = {};
+    json.trainGroups = {};
   }
+
+  const syncData: SyncDataType = fromSerializableSaveData(syncDataTypeId, json, getNewSyncData());
 
   return syncData;
 }

@@ -7,8 +7,10 @@ const port = parseInt(process.env.PORT || '8080');
 
 try {
   store.syncData = loadSavedSyncData();
-} catch { }
 
-const wss = new WebSocketServer({ port, host });
+  const wss = new WebSocketServer({ port, host });
 
-setupServer(wss, store.syncData);
+  setupServer(wss, store.syncData);
+} catch (e) {
+  console.error(e);
+}

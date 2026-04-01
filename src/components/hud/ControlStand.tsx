@@ -19,7 +19,7 @@ const Box_ = Box as (props: {
 }) => JSX.Element;
 
 function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: CabFormatType }) {
-  const { diagrams } = useSnapshot(store.syncData);
+  const { diagrams } = useSnapshot(store.data);
 
   if (!train.currentDiagramId)
     return <Paper>列車ダイヤ未設定</Paper>;
@@ -62,7 +62,7 @@ function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: Cab
 }
 
 export default function ControlStand() {
-  const { trains, trainFormats } = useSnapshot(store.syncData);
+  const { trains, trainFormats } = useSnapshot(store.data);
   useSnapshot(trainsState);
 
   if (!trainsState.activeTrainId) return null;
@@ -114,37 +114,37 @@ export default function ControlStand() {
           Back
         </Button>
         <Button variant='contained' onClick={() => {
-          store.syncData.trains[trainsState.activeTrainId].speed = -16
+          store.data.trains[trainsState.activeTrainId].speed = -16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.syncData.trains[trainsState.activeTrainId],
-              store.syncData
+              store.data.trains[trainsState.activeTrainId],
+              store.data
             ) as SerializableTrain])
         }}>
           {`<`}
         </Button>
         <Button variant='contained' onClick={() => {
-          store.syncData.trains[trainsState.activeTrainId].speed = 0
+          store.data.trains[trainsState.activeTrainId].speed = 0
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.syncData.trains[trainsState.activeTrainId],
-              store.syncData
+              store.data.trains[trainsState.activeTrainId],
+              store.data
             ) as SerializableTrain])
         }}>
           {`o`}
         </Button>
         <Button variant='contained' onClick={() => {
-          store.syncData.trains[trainsState.activeTrainId].speed = 16
+          store.data.trains[trainsState.activeTrainId].speed = 16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.syncData.trains[trainsState.activeTrainId],
-              store.syncData
+              store.data.trains[trainsState.activeTrainId],
+              store.data
             ) as SerializableTrain])
         }}>
           {`>`}

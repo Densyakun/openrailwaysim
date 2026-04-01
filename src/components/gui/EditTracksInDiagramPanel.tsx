@@ -21,7 +21,7 @@ export const editTracksInDiagramState = proxy<{
  * @param excludedTrackIds 除外する軌道のID配列
  */
 export function getConnectedTracks(track: Track, excludedTrackIds: string[]) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const connectedTracks: string[] = [];
 
   if (track.idOfTrackOrSwitchConnectedFromStart)
@@ -58,7 +58,7 @@ export function onUpdateTrackList() {
 
   // 接続された軌道の一覧を取得する
   const lastTrackId = trackIds[trackIds.length - 1];
-  const track = store.syncData.tracks[lastTrackId];
+  const track = store.data.tracks[lastTrackId];
 
   editTracksInDiagramState.nextTrackIds = getConnectedTracks(
     track,
@@ -74,7 +74,7 @@ function focusingNextSegmentIndex() {
   if (!editTracksInDiagramState.nextTrackIds.length) return;
 
   const nextTrackId = editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex];
-  const nextTrack = store.syncData.tracks[nextTrackId];
+  const nextTrack = store.data.tracks[nextTrackId];
 
   setCameraTargetPosition(getPosition(nextTrack, nextTrack.length / 2));
 }

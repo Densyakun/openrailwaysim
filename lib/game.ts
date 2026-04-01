@@ -10,7 +10,7 @@ import { MessageCode, MessageValueMap } from './ws';
 import { proxy } from 'valtio';
 
 export type GameStateType = {
-  syncData: SyncDataType;
+  data: SyncDataType;
 };
 
 export type SyncDataType = {
@@ -36,7 +36,7 @@ export type SyncDataType = {
 // サーバーからクライアント、クライアントからサーバーのコードに依存することなく、
 // クライアントとサーバーの共通するコードから同期データにアクセスするために必要
 export const store = proxy<GameStateType>({
-  syncData: getNewSyncData(),
+  data: getNewSyncData(),
 });
 
 // TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
@@ -611,7 +611,7 @@ export function fromSerializableSaveData(type: string, value: any, data: SyncDat
 let timeRemainder = 0;
 
 export function updateTime(delta: number) {
-  const syncData = store.syncData;
+  const syncData = store.data;
 
   // Time
   timeRemainder += delta * 1000

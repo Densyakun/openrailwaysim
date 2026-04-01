@@ -9,7 +9,7 @@ import { useFrame } from '@react-three/fiber';
 import { store } from '@/lib/game';
 
 export default function FeatureCollectionsWithDreiSegment() {
-  const { featureCollections } = useSnapshot(store.syncData);
+  const { featureCollections } = useSnapshot(store.data);
 
   return (
     <>
@@ -21,7 +21,7 @@ export default function FeatureCollectionsWithDreiSegment() {
 }
 
 function FeatureCollection({ id }: { id: string }) {
-  const { featureCollections } = useSnapshot(store.syncData);
+  const { featureCollections } = useSnapshot(store.data);
 
   return (
     <>
@@ -81,8 +81,8 @@ function LineStringSegment({
       return;
     }
 
-    const start = getRelativePosition(startCoordinate, store.syncData.originCoordinate);
-    const end = getRelativePosition(endCoordinate, store.syncData.originCoordinate);
+    const start = getRelativePosition(startCoordinate, store.data.originCoordinate);
+    const end = getRelativePosition(endCoordinate, store.data.originCoordinate);
 
     ref.current.start.copy(start);
     ref.current.end.copy(end);

@@ -5,7 +5,7 @@ import { guiState } from '@/lib/client/gui';
 import { store } from '@/lib/game';
 
 export default function FeatureCollections() {
-  const { featureCollections } = useSnapshot(store.syncData);
+  const { featureCollections } = useSnapshot(store.data);
   const visibleFeatureCollections = useSnapshot(clientState.visibleFeatureCollections);
   const { selectedTab } = useSnapshot(guiState);
 

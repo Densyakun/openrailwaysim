@@ -8,7 +8,7 @@ export function getSelectedTracks() {
 
   tracksState.selectedTrackIds
     .forEach(trackId => {
-      tracks.push(store.syncData.tracks[trackId]);
+      tracks.push(store.data.tracks[trackId]);
     });
 
   return tracks;

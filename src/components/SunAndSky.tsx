@@ -18,7 +18,7 @@ export const directionalLightCameraSize = 1000
 export const directionalLightDistance = 10000000
 
 function getSunPosition() {
-  const originCoordinateEuler = coordinateToEuler(store.syncData.originCoordinate)
+  const originCoordinateEuler = coordinateToEuler(store.data.originCoordinate)
 
   return new THREE.Vector3(
     Math.sin(lightingState.azimuth + originCoordinateEuler.z) * Math.cos(lightingState.elevation),
@@ -53,10 +53,10 @@ export default function SunAndSky() {
   const [sunSkyPosition, setSunSkyPosition] = React.useState(sunPosition)
 
   useFrame(() => {
-    const nowDate = new Date(store.syncData.nowDate)
+    const nowDate = new Date(store.data.nowDate)
     lightingState.elevation =
       (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
-      + coordinateToEuler(store.syncData.originCoordinate).y
+      + coordinateToEuler(store.data.originCoordinate).y
       - Math.PI / 2
 
     sunPosition.copy(getSunPosition())

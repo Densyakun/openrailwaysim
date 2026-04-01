@@ -57,7 +57,7 @@ const formState = proxy<{
 });
 
 function focusCamera() {
-  if (!Object.keys(store.syncData.tracks).length) return;
+  if (!Object.keys(store.data.tracks).length) return;
   if (!trainsTabPanelState.editingTrain) return;
 
   if (0 <= trainsTabPanelState.selectedCarBodyIndex) {
@@ -68,7 +68,7 @@ function focusCamera() {
     setCameraTargetPosition(selectedBody.position);
   } else if (trainsTabPanelState.pointOnTrack) {
     // To train
-    const track = store.syncData.tracks[trainsTabPanelState.pointOnTrack.trackId];
+    const track = store.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
     const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
     setCameraTargetPosition(position);
   }
@@ -81,7 +81,7 @@ function updateEditingTrain() {
     editingTrainFormat,
   } = trainsTabPanelState;
 
-  if (!Object.keys(store.syncData.tracks).length) return;
+  if (!Object.keys(store.data.tracks).length) return;
   if (!editingTrainFormat || !pointOnTrack) return;
 
   const { train, isDeadEnd } = placeTrain(
@@ -102,13 +102,13 @@ function saveEditingTrain() {
   }
 
   // Add new train
-  if (Object.keys(store.syncData.trains).includes(trainsTabPanelState.newTrainId))
+  if (Object.keys(store.data.trains).includes(trainsTabPanelState.newTrainId))
     return;
 
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), store.syncData);
+  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), store.data);
 
-  const trainGroup = [...store.syncData.trainGroups[trainsTabPanelState.selectedTrainGroup]];
+  const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);
 
   send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
@@ -257,7 +257,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   } = trainsTabPanelState;
 
   const { newTrainId: newTrainId_ } = useSnapshot(formState, { sync: true });
-  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
+  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
 
   useEffect(() => {
     focusCamera();
@@ -525,7 +525,7 @@ function AxlesEditor() {
 }
 
 function OtherBodiesEditor() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
   const { carBodyOffset, carBodyWeight, controlStand, directionIsReversed, reverser, masterController } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, axleTable, otherBodyOffsets, otherBodyWeights, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 

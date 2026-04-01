@@ -143,7 +143,7 @@ export function placeTrain(
   isDeadEnd: boolean;
 } {
   if (!trainFormat.bogies.length) return { isDeadEnd: false };
-  const syncData = store.syncData;
+  const syncData = store.data;
 
   let isDeadEnd_ = false;
 
@@ -290,7 +290,7 @@ export function placeTrain(
 }
 
 export function getPointOnTrackByTrain(train: Train) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const trainFormat = syncData.trainFormats[train.trainFormatId];
 
   return runPointOnTrack(
@@ -311,7 +311,7 @@ export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3)
 }
 
 export function getAxlePosition(axle: Axle) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const { pointOnTrack: { length } } = axle;
 
   const track = syncData.tracks[axle.pointOnTrack.trackId];
@@ -319,7 +319,7 @@ export function getAxlePosition(axle: Axle) {
 }
 
 export function getAxleRotation(pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const track = syncData.tracks[pointOnTrack.trackId];
   const rotation = getRotation(track, pointOnTrack.length);
 
@@ -369,7 +369,7 @@ export function bogieToAxles(bogie: Bogie) {
 }
 
 export function updatePointOnTrackToTrack(pointOnTrack: PointOnTrack, position: THREE.Vector3) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const track = syncData.tracks[pointOnTrack.trackId];
 
   // 緩和曲線で輪軸が正しく停止しないバグがあるため、コメントアウト
@@ -609,7 +609,7 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
 }
 
 export function updateTrainOnTime(train: Train, delta: number) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const trainFormat = syncData.trainFormats[train.trainFormatId];
 
   // 自動でマスコンと主制御器（Control System）を接続する
@@ -750,7 +750,7 @@ export function updateTrainOnTime(train: Train, delta: number) {
 }
 
 export function rollAxles(train: Train, trainFormat: TrainFormat, distance: number) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   let oldBogiesInvertedQuaternion = getBogiesQuaternion(train).invert();
 
   const center = new THREE.Vector3();
@@ -875,7 +875,7 @@ export function getOneHandleMasterControllerOutput(cabFormat: CabFormatType, cab
 }
 
 export function getOneHandleMasterControllerSimpleOutput(cabFormat: CabFormatType, cabState: CabStateType) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const config = syncData.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
   if (!config) return [0, 0];
 

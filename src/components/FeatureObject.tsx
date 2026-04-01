@@ -11,7 +11,7 @@ export default function FeatureObject({
   children: React.ReactNode;
   coordinate: Position;
 }) {
-  const { originCoordinate } = useSnapshot(store.syncData);
+  const { originCoordinate } = useSnapshot(store.data);
 
   return <group position={getRelativePosition(coordinate, originCoordinate as number[])} rotation={getRotation(coordinate, originCoordinate as number[])}>
     {children}

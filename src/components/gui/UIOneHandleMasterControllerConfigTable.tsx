@@ -197,7 +197,7 @@ function Controllers({
 }
 
 export default function UIOneHandleMasterControllerConfigTable() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
 
   return <DataMenu
     defaultValues={{
@@ -210,11 +210,11 @@ export default function UIOneHandleMasterControllerConfigTable() {
     }}
     getValueOnEdit={(newId: string) => ({
       id: newId,
-      steps: store.syncData.uiOneHandleMasterControllerConfigs[newId].steps,
-      marks: store.syncData.uiOneHandleMasterControllerConfigs[newId].marks,
-      maxValue: store.syncData.uiOneHandleMasterControllerConfigs[newId].maxValue,
-      nValue: store.syncData.uiOneHandleMasterControllerConfigs[newId].nValue,
-      stepRangeList: JSON.stringify(store.syncData.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
+      steps: store.data.uiOneHandleMasterControllerConfigs[newId].steps,
+      marks: store.data.uiOneHandleMasterControllerConfigs[newId].marks,
+      maxValue: store.data.uiOneHandleMasterControllerConfigs[newId].maxValue,
+      nValue: store.data.uiOneHandleMasterControllerConfigs[newId].nValue,
+      stepRangeList: JSON.stringify(store.data.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
     })}
     titleElement={(adding: boolean, editingId: string) => (
       <Stack spacing={1} direction={'row'} alignItems={'center'}>

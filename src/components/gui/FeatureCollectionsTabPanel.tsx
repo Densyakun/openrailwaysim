@@ -68,7 +68,7 @@ export const featureCollectionsTabPanelState = proxy<{
 });
 
 function onUpdateSegmentList() {
-  const featureCollections = store.syncData.featureCollections;
+  const featureCollections = store.data.featureCollections;
 
   // 隣接するセグメントの一覧を取得する
   const lastFeatureAt = featureCollectionsTabPanelState.segmentList[featureCollectionsTabPanelState.segmentList.length - 1];
@@ -117,7 +117,7 @@ function onUpdateSegmentList() {
   };
 
   featureCollectionsTabPanelState.nextSegmentList = selectAdjoinedLineStringSegments(
-    store.syncData,
+    store.data,
     points,
     lastFeatureAt.featureCollectionId,
     featureCollectionsTabPanelState.segmentList,
@@ -150,7 +150,7 @@ function focusingNextSegmentIndex() {
   const nextFeatureAt = featureCollectionsTabPanelState.nextSegmentList[featureCollectionsTabPanelState.focusedNextSegmentIndex];
   if (nextFeatureAt.segmentIndex === undefined) return;
 
-  const nextFeatureCollection = store.syncData.featureCollections[nextFeatureAt.featureCollectionId].value;
+  const nextFeatureCollection = store.data.featureCollections[nextFeatureAt.featureCollectionId].value;
   const nextGeometry = nextFeatureCollection.features[nextFeatureAt.featureIndex].geometry;
 
   const coordinate = (nextGeometry as LineString).coordinates[nextFeatureAt.segmentIndex];
@@ -162,7 +162,7 @@ function focusingNextSegmentIndex() {
         coordinate,
         coordinate1
       ])).geometry.coordinates,
-      store.syncData.originCoordinate
+      store.data.originCoordinate
     )
   );
 }
@@ -179,7 +179,7 @@ function startCurveEditing() {
       const segment = featureCollectionsTabPanelState.segmentList[index];
 
       const lineString =
-        store.syncData.featureCollections[segment.featureCollectionId].value
+        store.data.featureCollections[segment.featureCollectionId].value
           .features[segment.featureIndex]
           .geometry as LineString;
 
@@ -190,7 +190,7 @@ function startCurveEditing() {
     } else if (coordinatePairs.length) {
       featureCollectionsTabPanelState.straightTracks.push(
         createStraightTrackFromLineStrings(
-          store.syncData.originCoordinate,
+          store.data.originCoordinate,
           coordinatePairs,
         )
       );
@@ -247,7 +247,7 @@ export function finishCreateTracks() {
       toSerializableSaveData(
         trackTypeId,
         CD,
-        store.syncData
+        store.data
       ) as SerializableTrack
     ]);
 
@@ -305,7 +305,7 @@ export function resetEditing() {
 }
 
 function OriginCoordinateReadOnlyTextField() {
-  const { originCoordinate } = useSnapshot(store.syncData);
+  const { originCoordinate } = useSnapshot(store.data);
 
   return <TextField
     variant="standard"
@@ -359,7 +359,7 @@ function MainMenu() {
       </Button>
       <Button variant='contained' disabled={gisState.selectedFeatures.length !== 1} onClick={() => {
         const startFeatureAt = gisState.selectedFeatures[0];
-        const featureCollection = store.syncData.featureCollections[startFeatureAt.featureCollectionId].value;
+        const featureCollection = store.data.featureCollections[startFeatureAt.featureCollectionId].value;
         const geometry = featureCollection.features[startFeatureAt.featureIndex].geometry;
         if (geometry.type !== 'LineString') return;
 
@@ -378,7 +378,7 @@ function MainMenu() {
             if (featureAt.segmentIndex === undefined) return
 
             const geometry =
-              store.syncData.featureCollections[featureAt.featureCollectionId].value
+              store.data.featureCollections[featureAt.featureCollectionId].value
                 .features[featureAt.featureIndex]
                 .geometry
             if (geometry.type === 'LineString') {
@@ -391,10 +391,10 @@ function MainMenu() {
         const track: SerializableTrack = toSerializableSaveData(
           trackTypeId,
           createStraightTrackFromLineStrings(
-            store.syncData.originCoordinate,
+            store.data.originCoordinate,
             coordinatePairs,
           ),
-          store.syncData
+          store.data
         );
 
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
@@ -409,8 +409,8 @@ function MainMenu() {
         <OriginCoordinateReadOnlyTextField />
         <Button variant='contained' startIcon={<EditIcon />} onClick={() => {
           featureCollectionsTabPanelState.isEditingOriginCoordinate = true;
-          featureCollectionsTabPanelState.lon = store.syncData.originCoordinate[0];
-          featureCollectionsTabPanelState.lat = store.syncData.originCoordinate[1];
+          featureCollectionsTabPanelState.lon = store.data.originCoordinate[0];
+          featureCollectionsTabPanelState.lat = store.data.originCoordinate[1];
         }}>
           Edit
         </Button>

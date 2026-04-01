@@ -7,7 +7,7 @@ import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode } from "@/lib/ws"
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
-  const syncData = store.syncData;
+  const syncData = store.data;
 
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:

@@ -19,7 +19,7 @@ import { MessageCode, send } from '@/lib/ws';
 import { store } from '@/lib/game';
 
 export default function FeatureCollectionTable() {
-  const { featureCollections } = useSnapshot(store.syncData);
+  const { featureCollections } = useSnapshot(store.data);
   const { visibleFeatureCollections } = useSnapshot(clientState);
 
   return <Paper square sx={{
@@ -40,7 +40,7 @@ export default function FeatureCollectionTable() {
       }}
       getValueOnEdit={(newId: string) => ({
         id: newId,
-        value: JSON.stringify(store.syncData.featureCollections[newId].value),
+        value: JSON.stringify(store.data.featureCollections[newId].value),
       })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
@@ -95,11 +95,11 @@ export default function FeatureCollectionTable() {
           </Tooltip>
           <Tooltip title="Move camera to object">
             <IconButton edge="end" onClick={() => {
-              const featureCollection = store.syncData.featureCollections[id].value
+              const featureCollection = store.data.featureCollections[id].value
               if (!featureCollection.features.length) return
 
               const targetCoordinate = turf.centroid(featureCollection).geometry.coordinates
-              setCameraTargetPosition(getRelativePosition(targetCoordinate, store.syncData.originCoordinate))
+              setCameraTargetPosition(getRelativePosition(targetCoordinate, store.data.originCoordinate))
 
               const bbox = turf.bbox(featureCollection);
               if (camerasState.mainCameraKey === "perspectiveCamera") {

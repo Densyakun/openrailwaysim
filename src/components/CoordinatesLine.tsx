@@ -15,7 +15,7 @@ export default function CoordinatesLine({
   featureIndex: number;
   coordinates: Position[];
 }) {
-  const { originCoordinate } = useSnapshot(store.syncData);
+  const { originCoordinate } = useSnapshot(store.data);
   const { segmentList, straightTracks } = useSnapshot(featureCollectionsTabPanelState);
 
   const points: THREE.Vector3[] = coordinates.map(coordinate => getRelativePosition(coordinate, originCoordinate as number[]));

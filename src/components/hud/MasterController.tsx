@@ -130,7 +130,7 @@ export default function MasterController({
   cabFormat: CabFormatType;
   cabState: CabStateType;
 }) {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.syncData);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
 
   const uiOptionId = cabFormat.oneHandleMasterControllerUIConfigId;
   const value = cabState.masterControllerValue;
@@ -147,7 +147,7 @@ export default function MasterController({
             "trains",
             trainsState.activeTrainId,
             "cabStates",
-            trainsState.activeBodyIndex - store.syncData.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - store.data.trains[trainsState.activeTrainId].bogies.length,
             "masterControllerValue"
           ],
           newValue

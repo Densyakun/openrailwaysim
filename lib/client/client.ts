@@ -24,5 +24,5 @@ export function updateClientOnTime(delta: number) {
 }
 
 export function getDate(timeZoneOffset: number) {
-  return new Date(store.syncData.nowDate + timeZoneOffset);
+  return new Date(store.data.nowDate + timeZoneOffset);
 }

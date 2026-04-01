@@ -53,7 +53,7 @@ export default function Reverser({
             "trains",
             trainsState.activeTrainId,
             "cabStates",
-            trainsState.activeBodyIndex - store.syncData.trains[trainsState.activeTrainId].bogies.length,
+            trainsState.activeBodyIndex - store.data.trains[trainsState.activeTrainId].bogies.length,
             "reverser"
           ],
           newValue

@@ -229,7 +229,7 @@ function AddingTracks() {
 
 function PointingOnTrack() {
   const { pointingOnTrack } = useSnapshot(tracksState);
-  const { tracks } = useSnapshot(store.syncData);
+  const { tracks } = useSnapshot(store.data);
 
   if (!pointingOnTrack) return null;
 
@@ -237,7 +237,7 @@ function PointingOnTrack() {
 }
 
 function PointingOnTrackDiagramSectionRoute() {
-  const { tracks } = useSnapshot(store.syncData);
+  const { tracks } = useSnapshot(store.data);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex } = useSnapshot(diagramsTabPanelState);
 
   if (!sections || selectingDiagramSectionIndex < 0 || selectingRouteIndex < 0) return null;
@@ -257,7 +257,7 @@ function PointingOnTrackMesh({ position }: { position: THREE.Vector3 }) {
 
 export default function Tracks() {
   // サーバー接続時にセーブデータを即時反映するために、分割代入でデータを参照する
-  const { tracks } = useSnapshot(store.syncData);
+  const { tracks } = useSnapshot(store.data);
   const { selectedTab } = useSnapshot(guiState);
 
   return <>
@@ -279,7 +279,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrainFormatId, isAddingTrainFormat, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { editingTrackId, beginCant, endCant } = useSnapshot(tracksSubMenuState);
-  const switches = useSnapshot(store.syncData.switches);
+  const switches = useSnapshot(store.data.switches);
 
   track = { ...track };
   if (editingTrackId) {
@@ -512,7 +512,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
-  const { switches } = useSnapshot(store.syncData);
+  const { switches } = useSnapshot(store.data);
 
   const lengthOfPoints = getLengthOfPoints(track, true);
   const points = lengthOfPoints.map(length => getPosition(track, length));
@@ -646,8 +646,8 @@ function useTrackColorOnTrackMode(trackId: string) {
   const { hoveredTracks, selectedTrackIds, pointingOnTrack } = useSnapshot(tracksState);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { focusedNextTrackIndex, nextTrackIds } = useSnapshot(editTracksInDiagramState);
-  const { tracks } = useSnapshot(store.syncData);
-  const { switches } = useSnapshot(store.syncData);
+  const { tracks } = useSnapshot(store.data);
+  const { switches } = useSnapshot(store.data);
 
   if (isAddingCurve) return "#888";
 

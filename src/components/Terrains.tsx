@@ -232,7 +232,7 @@ function TerrainTile({
 }
 
 export default function Terrains() {
-  const { terrains } = useSnapshot(store.syncData);
+  const { terrains } = useSnapshot(store.data);
   const { isVisible } = useSnapshot(terrainsState);
 
   if (!isVisible) return null;

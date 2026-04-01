@@ -42,7 +42,7 @@ export default function DiagramCurveEditPanel() {
 
 function AddCurveButton() {
   return <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
-    const stations = store.syncData.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].sections.length;
+    const stations = store.data.diagrams[diagramsTabPanelState.editingDiagramCurvesInDiagramId].sections.length;
     diagramsTabPanelState.diagramCurves.push({
       scheduledRouteIndexes: [...Array(stations)].map(_ => -1),
       passTime: [...Array(stations)].map(_ => TIME_IS_NOT_SET),
@@ -126,7 +126,7 @@ function DiagramCurveEditor() {
 }
 
 function SectionEditor() {
-  const { diagrams } = useSnapshot(store.syncData);
+  const { diagrams } = useSnapshot(store.data);
   const { scheduledRouteIndex, passTime, stopTime, isPasses } = useSnapshot(formState, { sync: true });
   const {
     diagramCurves,

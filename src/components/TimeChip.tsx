@@ -15,7 +15,7 @@ export const state = proxy<{
 export default function TimeChip() {
   const [date, setDate] = React.useState(getDate(state.timeZoneOffset));
 
-  React.useEffect(() => subscribe(store.syncData, () => {
+  React.useEffect(() => subscribe(store.data, () => {
     const newDate = getDate(state.timeZoneOffset);
 
     if (!(

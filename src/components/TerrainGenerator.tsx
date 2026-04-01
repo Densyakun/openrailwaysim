@@ -56,7 +56,7 @@ function NewTerrainTile({ tileX, tileY }: { tileX: number, tileY: number }) {
 const newTerrainWidth = 5;
 
 export default function TerrainGenerator() {
-  const { terrains, originCoordinate } = useSnapshot(store.syncData);
+  const { terrains, originCoordinate } = useSnapshot(store.data);
   const { selectedTab } = useSnapshot(guiState);
   const { target } = useSnapshot(cameraControlsState);
 

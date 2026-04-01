@@ -4,7 +4,7 @@ import { trainsState } from '@/lib/client/trains';
 import { store } from '@/lib/game';
 
 export default function Speed() {
-  const { trains } = useSnapshot(store.syncData);
+  const { trains } = useSnapshot(store.data);
 
   const train = trains[trainsState.activeTrainId];
 

@@ -5,7 +5,7 @@ import { Feature, GeoJsonProperties, Geometry, Point } from "geojson";
 import { useSnapshot } from "valtio";
 
 export default function PointGeometry({ feature }: { feature: Feature<Geometry, GeoJsonProperties> }) {
-  const { originCoordinate } = useSnapshot(store.syncData);
+  const { originCoordinate } = useSnapshot(store.data);
 
   return <ScreenSizer
     position={getRelativePosition((feature.geometry as Point).coordinates, originCoordinate as number[])}

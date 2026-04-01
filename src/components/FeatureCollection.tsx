@@ -9,7 +9,7 @@ export default function FeatureCollectionComponent({
 }: {
   featureCollectionId: string,
 }) {
-  const { featureCollections } = useSnapshot(store.syncData);
+  const { featureCollections } = useSnapshot(store.data);
 
   return (
     <>

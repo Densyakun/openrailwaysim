@@ -333,7 +333,7 @@ export function getLength(point: THREE.Vector3, track: Track): number {
 }
 
 export function switchTrack(switchId: string, newCurrentConnected: number) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const railroadSwitch = syncData.switches[switchId];
 
   let connectedTo = "";
@@ -493,7 +493,7 @@ export function applyTransitionCurveToSerializableTrack(serializableTrack: Seria
 }
 
 export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
-  const syncData = store.syncData;
+  const syncData = store.data;
   let newPointOnTrack: PointOnTrack = { ...pointOnTrack };
   let newDirectionIsReversed = directionIsReversed;
   let isDeadEnd = false;
@@ -632,7 +632,7 @@ export function connectTwoTracks(AB: Track | SerializableTrack, ABId: string, is
 }
 
 export function getDistance(trackIds: string[], toLength: number, fromLength: number, i = 0): number | undefined {
-  const syncData = store.syncData;
+  const syncData = store.data;
   const trackId = trackIds[i];
   if (i + 1 === trackIds.length)
     return toLength - fromLength;

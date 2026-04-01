@@ -10,7 +10,7 @@ import { MessageCode, send } from '@/lib/ws';
 import { store } from '@/lib/game';
 
 export default function TrainGroupTable() {
-  const { trainGroups } = useSnapshot(store.syncData);
+  const { trainGroups } = useSnapshot(store.data);
 
   return <Paper square sx={{
     width: "100%",
@@ -48,11 +48,11 @@ export default function TrainGroupTable() {
       handleSubmit={((inputs, editingId) =>
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["trainGroups", inputs.id],
-          store.syncData.trainGroups[editingId],
+          store.data.trainGroups[editingId],
           ["trainGroups", editingId],
         ] : [
           ["trainGroups", inputs.id],
-          store.syncData.trainGroups[inputs.id] || [],
+          store.data.trainGroups[inputs.id] || [],
         ])
       )}
       handleDelete={(id =>

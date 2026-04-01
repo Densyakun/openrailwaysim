@@ -14,7 +14,7 @@ import { MessageCode, send } from '@/lib/ws';
 import { store } from '@/lib/game';
 
 export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
-  const { trainGroups, trains } = useSnapshot(store.syncData);
+  const { trainGroups, trains } = useSnapshot(store.data);
 
   let trains_: { [key: string]: Train } = {};
   trainGroups[trainGroupId].forEach(trainId =>
@@ -63,7 +63,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
         {/** TODO Edit button */}
         <Tooltip title="Move camera to object" disableInteractive>
           <IconButton edge="end" onClick={() => {
-            const train = store.syncData.trains[id]
+            const train = store.data.trains[id]
 
             setCameraTargetPosition(train.bogies[0].axles[0].position)
           }}>

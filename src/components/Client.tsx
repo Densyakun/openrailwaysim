@@ -1,5 +1,5 @@
 import { clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
-import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, store, syncDataTypeId, updateTime } from "@/lib/game"
+import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { onFrame as onFrameTrains } from "./Trains"
@@ -7,14 +7,14 @@ import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode } from "@/lib/ws"
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
-  const syncData = store.data;
+  const data = store.data;
 
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
-      const saveData = fromSerializableSaveData(syncDataTypeId, value, syncData);
+      const saveData = fromSerializableSaveData(orsAppDataTypeId, value, data);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
-      Object.keys(syncData).forEach(key =>
-        syncData[key as keyof typeof syncData] = saveData[key]
+      Object.keys(data).forEach(key =>
+        data[key as keyof typeof data] = saveData[key]
       );
 
       clientState.isSynced = true
@@ -34,11 +34,11 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
           case "set":
             const setObj = function (obj: any, path: Path<SerializableSaveDataType>, value: any, n = 0) {
               if (n + 1 === path.length)
-                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, syncData)
+                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, data)
               else
                 setObj(obj[path[n]], path, value, n + 1)
             }
-            setObj(syncData, path, op[2])
+            setObj(data, path, op[2])
 
             break
           case "delete":
@@ -53,7 +53,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
               else
                 deleteObj(obj[path[n]], path, n + 1)
             }
-            deleteObj(syncData, path)
+            deleteObj(data, path)
 
             break
           /*case "resolve":

@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, SyncDataType, getNewSyncData, syncDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path, store } from "./game";
+import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, ORSAppDataType, createAppData, orsAppDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path, store } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -9,7 +9,7 @@ import { MessageCode, send } from "./ws";
 
 export const saveFilePath = "./save.json";
 
-function loadSavedSyncData() {
+function loadData() {
   const json = JSON.parse(readFileSync(saveFilePath, 'utf8'));
 
   // 開発用にセーブデータをアップデート
@@ -19,9 +19,9 @@ function loadSavedSyncData() {
     json.trainGroups = {};
   }
 
-  const syncData: SyncDataType = fromSerializableSaveData(syncDataTypeId, json, getNewSyncData());
+  const data: ORSAppDataType = fromSerializableSaveData(orsAppDataTypeId, json, createAppData());
 
-  return syncData;
+  return data;
 }
 
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
@@ -29,7 +29,7 @@ const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 export function setupServer(wss: WebSocketServer) {
   if (existsSync(saveFilePath)) {
     try {
-      store.data = loadSavedSyncData();
+      store.data = loadData();
     } catch (e) {
       console.error(e);
     }
@@ -40,8 +40,8 @@ export function setupServer(wss: WebSocketServer) {
   const unsubscribe = subscribe(store.data, ops => {
     const ops_: ["set" | "delete", Path<SerializableSaveDataType>, any?][] = []
     ops.forEach(([op_, path_, value, prevValue]) => {
-      // SyncDataTypeのパスのうち、Serializableなデータのみをクライアントに送信する
-      // subscribeするsyncDataはSerializableでは無いため、送信するデータのパスに限り、SyncDataTypeとSerializableSaveDataTypeが一致する必要がある
+      // Serializableなデータのみをクライアントに送信する
+      // subscribeするデータはSerializableでは無いため、パスと型が一致する必要がある
       const path = path_ as Path<SerializableSaveDataType>;
 
       // 削除するデータに依存するデータを変更する
@@ -226,7 +226,7 @@ export function setupServer(wss: WebSocketServer) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(syncDataTypeId, store.data, store.data);
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(orsAppDataTypeId, store.data, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
   });
 
@@ -255,7 +255,7 @@ export function setupServer(wss: WebSocketServer) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: SyncDataType = toSerializableSaveData(syncDataTypeId, store.data, store.data);
+          const gameState_: ORSAppDataType = toSerializableSaveData(orsAppDataTypeId, store.data, store.data);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 

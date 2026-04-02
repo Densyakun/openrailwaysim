@@ -1,4 +1,4 @@
-import { SyncDataType } from "./game";
+import { ORSAppDataType } from "./game";
 import moment from 'moment-timezone';
 
 /**
@@ -86,7 +86,7 @@ export const twelveHoursMilliseconds = 1000 * 60 * 60 * 12;
  * 列車編成が割り当てられていないダイヤを取得する
  * @returns キーにDiagramのIDを持つ、列車編成の割り当てられていないDiagramCurveのindexの配列が値のオブジェクトを返す
  */
-export function getUnassignedDiagrams(data: SyncDataType) {
+export function getUnassignedDiagrams(data: ORSAppDataType) {
   const res: { [key: string]: number[] } = {};
   Object.keys(data.diagrams).forEach(diagramId =>
     res[diagramId] = [...Array(data.diagrams[diagramId].diagramCurves.length).keys()]
@@ -105,7 +105,7 @@ export function getUnassignedDiagrams(data: SyncDataType) {
 /**
  * ダイヤが割り当てられていない列車編成に列車編成が割り当てられていないダイヤを割り当てる
  */
-export function assignSchedulesToTrains(data: SyncDataType) {
+export function assignSchedulesToTrains(data: ORSAppDataType) {
   const unassignedDiagrams = getUnassignedDiagrams(data);
 
   const trains = Object.values(data.trains);

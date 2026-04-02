@@ -1,6 +1,6 @@
 import { Position } from 'geojson';
 import * as THREE from 'three'
-import { store, SyncDataType } from './game';
+import { store, ORSAppDataType } from './game';
 import { getRelativePosition } from './gis';
 
 export type GradientsType = { [key: number]: number };
@@ -333,15 +333,15 @@ export function getLength(point: THREE.Vector3, track: Track): number {
 }
 
 export function switchTrack(switchId: string, newCurrentConnected: number) {
-  const syncData = store.data;
-  const railroadSwitch = syncData.switches[switchId];
+  const data = store.data;
+  const railroadSwitch = data.switches[switchId];
 
   let connectedTo = "";
   let isConnectedToTrack = true;
   let connectedIsToEnd = false;
 
   if (railroadSwitch.currentConnected !== -1) {
-    const track = syncData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+    const track = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
 
     if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
       connectedTo = track.idOfTrackOrSwitchConnectedFromEnd;
@@ -359,7 +359,7 @@ export function switchTrack(switchId: string, newCurrentConnected: number) {
   railroadSwitch.currentConnected = newCurrentConnected;
 
   if (railroadSwitch.currentConnected !== -1) {
-    const track = syncData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+    const track = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
 
     if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
       track.idOfTrackOrSwitchConnectedFromEnd = connectedTo;
@@ -493,7 +493,7 @@ export function applyTransitionCurveToSerializableTrack(serializableTrack: Seria
 }
 
 export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
-  const syncData = store.data;
+  const data = store.data;
   let newPointOnTrack: PointOnTrack = { ...pointOnTrack };
   let newDirectionIsReversed = directionIsReversed;
   let isDeadEnd = false;
@@ -504,10 +504,10 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
 
   if (newPointOnTrack.length < 0) {
     // 輪軸が軌道の始点より外に進入した場合
-    const track = syncData.tracks[newPointOnTrack.trackId];
+    const track = data.tracks[newPointOnTrack.trackId];
     if (track.idOfTrackOrSwitchConnectedFromStart) {
       if (track.connectedFromStartIsTrack) {
-        const connectedTo = syncData.tracks[track.idOfTrackOrSwitchConnectedFromStart];
+        const connectedTo = data.tracks[track.idOfTrackOrSwitchConnectedFromStart];
         if (track.connectedFromStartIsToEnd) {
           newPointOnTrack = {
             trackId: track.idOfTrackOrSwitchConnectedFromStart,
@@ -524,13 +524,13 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
         }
       } else {
         // 分岐器が接続している軌道を取得する
-        const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromStart];
+        const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromStart];
         if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
           // 接続先がない場合
           isDeadEnd = true;
           newPointOnTrack.length = 0;
         } else {
-          const connectedTo = syncData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+          const connectedTo = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
           if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
             newPointOnTrack = {
               trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
@@ -551,12 +551,12 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
       newPointOnTrack.length = 0;
     }
   } else {
-    const track = syncData.tracks[newPointOnTrack.trackId];
+    const track = data.tracks[newPointOnTrack.trackId];
     if (track.length < newPointOnTrack.length) {
       // 輪軸が軌道の終点より外に進入した場合
       if (track.idOfTrackOrSwitchConnectedFromEnd) {
         if (track.connectedFromEndIsTrack) {
-          const connectedTo = syncData.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
+          const connectedTo = data.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
           if (track.connectedFromEndIsToEnd) {
             newPointOnTrack = {
               trackId: track.idOfTrackOrSwitchConnectedFromEnd,
@@ -570,13 +570,13 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
             };
           }
         } else {
-          const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+          const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
           if (!railroadSwitch || railroadSwitch.currentConnected === -1) {
             // 接続先がない場合
             isDeadEnd = true;
             newPointOnTrack.length = track.length;
           } else {
-            const connectedTo = syncData.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+            const connectedTo = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
             if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
               newPointOnTrack = {
                 trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
@@ -632,17 +632,17 @@ export function connectTwoTracks(AB: Track | SerializableTrack, ABId: string, is
 }
 
 export function getDistance(trackIds: string[], toLength: number, fromLength: number, i = 0): number | undefined {
-  const syncData = store.data;
+  const data = store.data;
   const trackId = trackIds[i];
   if (i + 1 === trackIds.length)
     return toLength - fromLength;
   else {
-    const track = syncData.tracks[trackId];
+    const track = data.tracks[trackId];
     const nextTrackId = trackIds[i + 1];
     if (track.connectedFromStartIsTrack) {
       if (track.idOfTrackOrSwitchConnectedFromStart === nextTrackId) {
         if (track.connectedFromStartIsToEnd) {
-          const nextTrack = syncData.tracks[nextTrackId];
+          const nextTrack = data.tracks[nextTrackId];
           const d = getDistance(trackIds, toLength, nextTrack.length, i + 1);
           if (d !== undefined)
             return d - fromLength;
@@ -653,11 +653,11 @@ export function getDistance(trackIds: string[], toLength: number, fromLength: nu
         }
       }
     } else {
-      const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromStart];
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromStart];
       const i1 = railroadSwitch.connectedTrackIds.indexOf(nextTrackId);
       if (0 <= i1) {
         if (railroadSwitch.isConnectedToEnd[i1]) {
-          const nextTrack = syncData.tracks[nextTrackId];
+          const nextTrack = data.tracks[nextTrackId];
           const d = getDistance(trackIds, toLength, nextTrack.length, i + 1);
           if (d !== undefined)
             return d - fromLength;
@@ -671,7 +671,7 @@ export function getDistance(trackIds: string[], toLength: number, fromLength: nu
     if (track.connectedFromEndIsTrack) {
       if (track.idOfTrackOrSwitchConnectedFromEnd === nextTrackId) {
         if (track.connectedFromEndIsToEnd) {
-          const nextTrack = syncData.tracks[nextTrackId];
+          const nextTrack = data.tracks[nextTrackId];
           const d = getDistance(trackIds, toLength, nextTrack.length, i + 1);
           if (d !== undefined)
             return track.length - fromLength - d;
@@ -682,11 +682,11 @@ export function getDistance(trackIds: string[], toLength: number, fromLength: nu
         }
       }
     } else {
-      const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
       const i1 = railroadSwitch.connectedTrackIds.indexOf(nextTrackId);
       if (0 <= i1) {
         if (railroadSwitch.isConnectedToEnd[i1]) {
-          const nextTrack = syncData.tracks[nextTrackId];
+          const nextTrack = data.tracks[nextTrackId];
           const d = getDistance(trackIds, toLength, nextTrack.length, i + 1);
           if (d !== undefined)
             return track.length - fromLength - d;

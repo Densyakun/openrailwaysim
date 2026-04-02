@@ -21,7 +21,7 @@ export const editTracksInDiagramState = proxy<{
  * @param excludedTrackIds 除外する軌道のID配列
  */
 export function getConnectedTracks(track: Track, excludedTrackIds: string[]) {
-  const syncData = store.data;
+  const data = store.data;
   const connectedTracks: string[] = [];
 
   if (track.idOfTrackOrSwitchConnectedFromStart)
@@ -29,7 +29,7 @@ export function getConnectedTracks(track: Track, excludedTrackIds: string[]) {
       if (!excludedTrackIds.includes(track.idOfTrackOrSwitchConnectedFromStart))
         connectedTracks.push(track.idOfTrackOrSwitchConnectedFromStart);
     } else {
-      const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromStart];
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromStart];
       railroadSwitch.connectedTrackIds.forEach(trackId => {
         if (!excludedTrackIds.includes(trackId))
           connectedTracks.push(trackId);
@@ -40,7 +40,7 @@ export function getConnectedTracks(track: Track, excludedTrackIds: string[]) {
       if (!excludedTrackIds.includes(track.idOfTrackOrSwitchConnectedFromEnd))
         connectedTracks.push(track.idOfTrackOrSwitchConnectedFromEnd);
     } else {
-      const railroadSwitch = syncData.switches[track.idOfTrackOrSwitchConnectedFromEnd];
+      const railroadSwitch = data.switches[track.idOfTrackOrSwitchConnectedFromEnd];
       railroadSwitch.connectedTrackIds.forEach(trackId => {
         if (!excludedTrackIds.includes(trackId))
           connectedTracks.push(trackId);

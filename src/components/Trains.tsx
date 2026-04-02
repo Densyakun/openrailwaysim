@@ -7,6 +7,7 @@ import { guiState } from '@/lib/client/gui'
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
 import { setCameraTargetPosition } from '@/lib/client/camera'
+import { store } from '@/lib/game'
 
 function BogieModel({
   trainId,
@@ -235,14 +236,14 @@ function OtherBodyModel({
 export function onFrame() {
   // Track the camera to the selected car body
   if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
-    const selectedTrain = store.syncData.trains[trainsState.activeTrainId]
+    const selectedTrain = store.data.trains[trainsState.activeTrainId]
     const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
     setCameraTargetPosition(selectedBody.position)
   }
 }
 
 export default function Trains() {
-  const { trains } = useSnapshot(store.syncData);
+  const { trains } = useSnapshot(store.data);
   useSnapshot(trainsState);
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrain } = useSnapshot(trainsTabPanelState);

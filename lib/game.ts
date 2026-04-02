@@ -1,3 +1,4 @@
+// クライアントとサーバーに共通するデータの管理と操作
 import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
@@ -9,11 +10,13 @@ import { Diagram } from './diagram';
 import { MessageCode, MessageValueMap } from './ws';
 import { proxy } from 'valtio';
 
-export type GameStateType = {
-  data: SyncDataType;
-};
+export const store = proxy<{
+  data: ORSAppDataType;
+}>({
+  data: createAppData(),
+});
 
-export type SyncDataType = {
+export type ORSAppDataType = {
   originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
@@ -32,12 +35,6 @@ export type SyncDataType = {
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };
-
-// サーバーからクライアント、クライアントからサーバーのコードに依存することなく、
-// クライアントとサーバーの共通するコードから同期データにアクセスするために必要
-export const store = proxy<GameStateType>({
-  data: getNewSyncData(),
-});
 
 // TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 // Prevent infinite recursion in types with circular references by limiting recursion depth
@@ -84,8 +81,8 @@ export type SerializableSaveDataType = {
 
 export type SerializableEuler = [number, number, number, THREE.EulerOrder];
 
-export function getNewSyncData() {
-  const data: SyncDataType = {
+export function createAppData(): ORSAppDataType {
+  return {
     originCoordinate: [139.7, 35.691],
     terrains: {},
     featureCollections: {},
@@ -98,11 +95,9 @@ export function getNewSyncData() {
     nowDate: Date.now(),
     diagrams: {},
   };
-
-  return data;
 }
 
-export const syncDataTypeId = "syncData";
+export const orsAppDataTypeId = "orsAppData";
 export const tracksObjectTypeId = "tracksObject";
 export const trackTypeId = "track";
 export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
@@ -123,7 +118,7 @@ export const threeVector3TypeId = "THREE.Vector3";
 export const threeEulerTypeId = "THREE.Euler";
 
 export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
-  if (!path.length) return syncDataTypeId;
+  if (!path.length) return orsAppDataTypeId;
   if (path[0] === "tracks") {
     if (path.length === 1) return tracksObjectTypeId;
     if (path.length === 2) return trackTypeId;
@@ -163,15 +158,15 @@ export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
   return "";
 }
 
-export function toSerializableSaveData(type: string, value: any, data: SyncDataType): any {
-  if (type === syncDataTypeId) {
-    const syncData: SyncDataType = value;
+export function toSerializableSaveData(type: string, value: any, data: ORSAppDataType): any {
+  if (type === orsAppDataTypeId) {
+    const orsAppData: ORSAppDataType = value;
 
     const serializableSaveData: SerializableSaveDataType = {
-      ...syncData,
-      tracks: toSerializableSaveData(tracksObjectTypeId, syncData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
-      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, syncData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
-      trains: toSerializableSaveData(trainsObjectTypeId, syncData.trains, data) as { [key: string]: SerializableTrain },
+      ...orsAppData,
+      tracks: toSerializableSaveData(tracksObjectTypeId, orsAppData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
+      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, orsAppData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
+      trains: toSerializableSaveData(trainsObjectTypeId, orsAppData.trains, data) as { [key: string]: SerializableTrain },
     };
 
     return serializableSaveData;
@@ -370,21 +365,21 @@ export function toSerializableSaveData(type: string, value: any, data: SyncDataT
   return value;
 }
 
-export function fromSerializableSaveData(type: string, value: any, data: SyncDataType): any {
-  if (type === syncDataTypeId) {
+export function fromSerializableSaveData(type: string, value: any, data: ORSAppDataType): any {
+  if (type === orsAppDataTypeId) {
     const serializableSaveData: SerializableSaveDataType = value;
 
-    const syncData: SyncDataType = {
-      ...getNewSyncData(),
+    const orsAppData: ORSAppDataType = {
+      ...createAppData(),
       ...value,
       tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks, data) as { [key: string]: Track },
       trainFormats: fromSerializableSaveData(trainFormatsObjectTypeId, serializableSaveData.trainFormats, data) as { [key: string]: TrainFormat },
     };
 
     // 他のデータを参照するため、後からデシリアライズする
-    syncData.trains = fromSerializableSaveData(trainsObjectTypeId, serializableSaveData.trains, syncData) as { [key: string]: Train };
+    orsAppData.trains = fromSerializableSaveData(trainsObjectTypeId, serializableSaveData.trains, orsAppData) as { [key: string]: Train };
 
-    return syncData;
+    return orsAppData;
   } else if (type === tracksObjectTypeId) {
     const serializableTracks: { [key: string]: SerializableTrack } = value;
     const tracks: { [key: string]: Track } = {};
@@ -611,17 +606,17 @@ export function fromSerializableSaveData(type: string, value: any, data: SyncDat
 let timeRemainder = 0;
 
 export function updateTime(delta: number) {
-  const syncData = store.data;
+  const orsAppData = store.data;
 
   // Time
   timeRemainder += delta * 1000
   const deltaMilliseconds = Math.floor(timeRemainder)
   timeRemainder -= deltaMilliseconds
-  syncData.nowDate += deltaMilliseconds
+  orsAppData.nowDate += deltaMilliseconds
 
   // Trains
-  Object.keys(syncData.trains).forEach(trainId => {
-    const train = syncData.trains[trainId]
+  Object.keys(orsAppData.trains).forEach(trainId => {
+    const train = orsAppData.trains[trainId]
 
     updateTrainOnTime(train, delta)
   })

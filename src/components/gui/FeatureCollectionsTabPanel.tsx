@@ -117,7 +117,7 @@ function onUpdateSegmentList() {
   };
 
   featureCollectionsTabPanelState.nextSegmentList = selectAdjoinedLineStringSegments(
-    store.data,
+    store.data.featureCollections,
     points,
     lastFeatureAt.featureCollectionId,
     featureCollectionsTabPanelState.segmentList,

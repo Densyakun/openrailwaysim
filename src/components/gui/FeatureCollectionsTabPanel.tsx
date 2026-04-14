@@ -246,8 +246,7 @@ export function finishCreateTracks() {
       ["tracks", CDId],
       toSerializableSaveData(
         trackTypeId,
-        CD,
-        store.data
+        CD
       ) as SerializableTrack
     ]);
 
@@ -393,8 +392,7 @@ function MainMenu() {
           createStraightTrackFromLineStrings(
             store.data.originCoordinate,
             coordinatePairs,
-          ),
-          store.data
+          )
         );
 
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [

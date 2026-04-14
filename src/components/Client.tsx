@@ -11,7 +11,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
 
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
-      const saveData = fromSerializableSaveData(orsAppDataTypeId, value, data);
+      const saveData = fromSerializableSaveData(orsAppDataTypeId, value);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
       Object.keys(data).forEach(key =>
         data[key as keyof typeof data] = saveData[key]
@@ -34,7 +34,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
           case "set":
             const setObj = function (obj: any, path: Path<SerializableSaveDataType>, value: any, n = 0) {
               if (n + 1 === path.length)
-                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value, data)
+                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value)
               else
                 setObj(obj[path[n]], path, value, n + 1)
             }

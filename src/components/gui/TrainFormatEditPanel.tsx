@@ -106,7 +106,7 @@ function saveEditingTrain() {
     return;
 
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain(), store.data);
+  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
 
   const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);

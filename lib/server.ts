@@ -19,7 +19,7 @@ function loadData() {
     json.trainGroups = {};
   }
 
-  const data: ORSAppDataType = fromSerializableSaveData(orsAppDataTypeId, json, createAppData());
+  const data: ORSAppDataType = fromSerializableSaveData(orsAppDataTypeId, json);
 
   return data;
 }
@@ -122,7 +122,7 @@ export function setupServer(wss: WebSocketServer) {
       // 変更されたステートをクライアントに同期する
       const push = function () {
         ops_.push(op_ === 'delete' ? [op_, path] :
-          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value, store.data)]
+          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value)]
         )
       }
 
@@ -226,7 +226,7 @@ export function setupServer(wss: WebSocketServer) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(orsAppDataTypeId, store.data, store.data);
+    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
   });
 
@@ -255,7 +255,7 @@ export function setupServer(wss: WebSocketServer) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: ORSAppDataType = toSerializableSaveData(orsAppDataTypeId, store.data, store.data);
+          const gameState_: ORSAppDataType = toSerializableSaveData(orsAppDataTypeId, store.data);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
@@ -291,7 +291,7 @@ export function setupServer(wss: WebSocketServer) {
           let object = store.data;
           for (let n = 0; n < propPath.length - 1; n++)
             object = (object as any)[propPath[n]];
-          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue, store.data);
+          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue);
 
           // 依存するデータの参照を新しくする
           if (oldPath) {

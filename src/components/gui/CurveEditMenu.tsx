@@ -395,7 +395,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB, store.data)
+        toSerializableSaveData(trackTypeId, AB)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= s_ - AB.length) {
     // ABの終点と接続する場合
@@ -426,7 +426,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB, store.data)
+        toSerializableSaveData(trackTypeId, AB)
       ]]);
   } else {
     // ABの中間と接続する場合
@@ -522,7 +522,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", ABId],
-      toSerializableSaveData(trackTypeId, AB, store.data)
+      toSerializableSaveData(trackTypeId, AB)
     ]]);
   }
 
@@ -556,7 +556,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD, store.data)
+        toSerializableSaveData(trackTypeId, CD)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= t_ - CD.length) {
     let track1IsChanged = false;
@@ -586,7 +586,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD, store.data)
+        toSerializableSaveData(trackTypeId, CD)
       ]]);
   } else {
     if (createSwitch) {
@@ -677,7 +677,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", CDId],
-      toSerializableSaveData(trackTypeId, CD, store.data)
+      toSerializableSaveData(trackTypeId, CD)
     ]]);
   }
 

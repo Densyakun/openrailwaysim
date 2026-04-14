@@ -119,8 +119,7 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.data.trains[trainsState.activeTrainId],
-              store.data
+              store.data.trains[trainsState.activeTrainId]
             ) as SerializableTrain])
         }}>
           {`<`}
@@ -131,8 +130,7 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.data.trains[trainsState.activeTrainId],
-              store.data
+              store.data.trains[trainsState.activeTrainId]
             ) as SerializableTrain])
         }}>
           {`o`}
@@ -143,8 +141,7 @@ export default function ControlStand() {
             ["trains", trainsState.activeTrainId],
             toSerializableSaveData(
               trainTypeId,
-              store.data.trains[trainsState.activeTrainId],
-              store.data
+              store.data.trains[trainsState.activeTrainId]
             ) as SerializableTrain])
         }}>
           {`>`}

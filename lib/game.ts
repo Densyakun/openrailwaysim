@@ -158,15 +158,15 @@ export function getTypeIdByPath(path: Path<SerializableSaveDataType>) {
   return "";
 }
 
-export function toSerializableSaveData(type: string, value: any, data: ORSAppDataType): any {
+export function toSerializableSaveData(type: string, value: any): any {
   if (type === orsAppDataTypeId) {
     const orsAppData: ORSAppDataType = value;
 
     const serializableSaveData: SerializableSaveDataType = {
       ...orsAppData,
-      tracks: toSerializableSaveData(tracksObjectTypeId, orsAppData.tracks, data) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
-      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, orsAppData.trainFormats, data) as { [key: string]: SerializableTrainFormat },
-      trains: toSerializableSaveData(trainsObjectTypeId, orsAppData.trains, data) as { [key: string]: SerializableTrain },
+      tracks: toSerializableSaveData(tracksObjectTypeId, orsAppData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
+      trainFormats: toSerializableSaveData(trainFormatsObjectTypeId, orsAppData.trainFormats) as { [key: string]: SerializableTrainFormat },
+      trains: toSerializableSaveData(trainsObjectTypeId, orsAppData.trains) as { [key: string]: SerializableTrain },
     };
 
     return serializableSaveData;
@@ -174,7 +174,7 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
     const tracks: { [key: string]: Track | TransitionCurve } = value;
     const serializableTracks: { [key: string]: SerializableTrack | SerializableTransitionCurve } = {};
 
-    Object.keys(tracks).forEach(id => serializableTracks[id] = toSerializableSaveData(trackTypeId, tracks[id], data) as SerializableTrack | SerializableTransitionCurve);
+    Object.keys(tracks).forEach(id => serializableTracks[id] = toSerializableSaveData(trackTypeId, tracks[id]) as SerializableTrack | SerializableTransitionCurve);
 
     return serializableTracks;
   } else if (type === trackTypeId) {
@@ -196,7 +196,7 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
     }: Track = value;
 
     const serializableTrack: SerializableTrack = {
-      position: toSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3Tuple,
+      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
       rotationY,
       length,
       radius,
@@ -228,9 +228,9 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
         ...serializableTrack,
         beginCurvature,
         endCurvature,
-        endPosition: toSerializableSaveData(threeVector3TypeId, endPosition, data) as THREE.Vector3Tuple,
+        endPosition: toSerializableSaveData(threeVector3TypeId, endPosition) as THREE.Vector3Tuple,
         endRotationY,
-        transitionCurves: toSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves, data) as SerializableTransitionCurveSegment[],
+        transitionCurves: toSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves) as SerializableTransitionCurveSegment[],
         curveDirection,
       };
 
@@ -239,12 +239,12 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
   } else if (type === transitionCurveSegmentArrayTypeId) {
     const transitionCurves: TransitionCurveSegment[] = value;
 
-    return transitionCurves.map(transitionCurve => toSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve, data) as SerializableTransitionCurveSegment);
+    return transitionCurves.map(transitionCurve => toSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve) as SerializableTransitionCurveSegment);
   } else if (type === transitionCurveSegmentTypeId) {
     const { position, rotationY, curvature }: TransitionCurveSegment = value;
 
     const serializableTransitionCurveSegment: SerializableTransitionCurveSegment = {
-      position: toSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3Tuple,
+      position: toSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3Tuple,
       rotationY: rotationY,
       curvature: curvature,
     };
@@ -254,7 +254,7 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
     const trainFormats: { [key: string]: TrainFormat } = value;
     const serializableTrainFormats: { [key: string]: SerializableTrainFormat } = {};
 
-    Object.keys(trainFormats).forEach(id => serializableTrainFormats[id] = toSerializableSaveData(trainFormatTypeId, trainFormats[id], data) as SerializableTrainFormat);
+    Object.keys(trainFormats).forEach(id => serializableTrainFormats[id] = toSerializableSaveData(trainFormatTypeId, trainFormats[id]) as SerializableTrainFormat);
 
     return serializableTrainFormats;
   } else if (type === trainFormatTypeId) {
@@ -272,8 +272,8 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
       otherBodyOffsets,
       otherBodyWeights,
       cabFormats,
-      bodySupporterJoints: toSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as SerializableBodySupporterJoint[],
-      otherJoints: toSerializableSaveData(jointArrayTypeId, otherJoints, data) as SerializableJoint[],
+      bodySupporterJoints: toSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints) as SerializableBodySupporterJoint[],
+      otherJoints: toSerializableSaveData(jointArrayTypeId, otherJoints) as SerializableJoint[],
     };
 
     return serializableTrainFormat;
@@ -281,7 +281,7 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
     const trains: { [key: string]: Train } = value;
     const serializableTrains: { [key: string]: SerializableTrain } = {};
 
-    Object.keys(trains).forEach(id => serializableTrains[id] = toSerializableSaveData(trainTypeId, trains[id], data) as SerializableTrain);
+    Object.keys(trains).forEach(id => serializableTrains[id] = toSerializableSaveData(trainTypeId, trains[id]) as SerializableTrain);
 
     return serializableTrains;
   } else if (type === trainTypeId) {
@@ -315,7 +315,7 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
   } else if (type === bodySupporterJointArrayTypeId) {
     const bodySupporterJoints: BodySupporterJoint[] = value;
 
-    return bodySupporterJoints.map(bodySupporterJoint => toSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint, data) as SerializableBodySupporterJoint);
+    return bodySupporterJoints.map(bodySupporterJoint => toSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint) as SerializableBodySupporterJoint);
   } else if (type === bodySupporterJointTypeId) {
     const {
       otherBodyIndex,
@@ -326,16 +326,16 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
 
     const serializableBodySupporterJoint: SerializableBodySupporterJoint = {
       otherBodyIndex,
-      otherBodyPosition: toSerializableSaveData(threeVector3TypeId, otherBodyPosition, data) as THREE.Vector3Tuple,
+      otherBodyPosition: toSerializableSaveData(threeVector3TypeId, otherBodyPosition) as THREE.Vector3Tuple,
       bogieIndex,
-      bogiePosition: toSerializableSaveData(threeVector3TypeId, bogiePosition, data) as THREE.Vector3Tuple,
+      bogiePosition: toSerializableSaveData(threeVector3TypeId, bogiePosition) as THREE.Vector3Tuple,
     };
 
     return serializableBodySupporterJoint;
   } else if (type === jointArrayTypeId) {
     const joints: Joint[] = value;
 
-    return joints.map(joint => toSerializableSaveData(jointTypeId, joint, data) as SerializableJoint);
+    return joints.map(joint => toSerializableSaveData(jointTypeId, joint) as SerializableJoint);
   } else if (type === jointTypeId) {
     const {
       bodyIndexA,
@@ -346,9 +346,9 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
 
     const serializableJoint: SerializableJoint = {
       bodyIndexA,
-      positionA: toSerializableSaveData(threeVector3TypeId, positionA, data) as THREE.Vector3Tuple,
+      positionA: toSerializableSaveData(threeVector3TypeId, positionA) as THREE.Vector3Tuple,
       bodyIndexB,
-      positionB: toSerializableSaveData(threeVector3TypeId, positionB, data) as THREE.Vector3Tuple,
+      positionB: toSerializableSaveData(threeVector3TypeId, positionB) as THREE.Vector3Tuple,
     };
 
     return serializableJoint;
@@ -365,15 +365,15 @@ export function toSerializableSaveData(type: string, value: any, data: ORSAppDat
   return value;
 }
 
-export function fromSerializableSaveData(type: string, value: any, data: ORSAppDataType): any {
+export function fromSerializableSaveData(type: string, value: any): any {
   if (type === orsAppDataTypeId) {
     const serializableSaveData: SerializableSaveDataType = value;
 
     const orsAppData: ORSAppDataType = {
       ...createAppData(),
       ...value,
-      tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks, data) as { [key: string]: Track },
-      trainFormats: fromSerializableSaveData(trainFormatsObjectTypeId, serializableSaveData.trainFormats, data) as { [key: string]: TrainFormat },
+      tracks: fromSerializableSaveData(tracksObjectTypeId, serializableSaveData.tracks) as { [key: string]: Track },
+      trainFormats: fromSerializableSaveData(trainFormatsObjectTypeId, serializableSaveData.trainFormats) as { [key: string]: TrainFormat },
     };
 
     // 他のデータを参照するため、後からデシリアライズする
@@ -385,7 +385,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     const tracks: { [key: string]: Track } = {};
 
     Object.keys(serializableTracks).forEach(id =>
-      tracks[id] = fromSerializableSaveData(trackTypeId, serializableTracks[id], data) as Track
+      tracks[id] = fromSerializableSaveData(trackTypeId, serializableTracks[id]) as Track
     );
 
     return tracks;
@@ -408,7 +408,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     }: SerializableTrack = value;
 
     const track: Track = {
-      position: fromSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3,
+      position: fromSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3,
       rotationY,
       length,
       radius,
@@ -440,9 +440,9 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
         ...track,
         beginCurvature,
         endCurvature,
-        endPosition: fromSerializableSaveData(threeVector3TypeId, endPosition, data) as THREE.Vector3,
+        endPosition: fromSerializableSaveData(threeVector3TypeId, endPosition) as THREE.Vector3,
         endRotationY,
-        transitionCurves: fromSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves, data) as TransitionCurveSegment[],
+        transitionCurves: fromSerializableSaveData(transitionCurveSegmentArrayTypeId, transitionCurves) as TransitionCurveSegment[],
         curveDirection,
       };
 
@@ -452,7 +452,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     const serializableTransitionCurves: SerializableTransitionCurveSegment[] = value;
 
     const transitionCurves: TransitionCurveSegment[] = serializableTransitionCurves.map(transitionCurve =>
-      fromSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve, data)
+      fromSerializableSaveData(transitionCurveSegmentTypeId, transitionCurve)
     );
 
     return transitionCurves;
@@ -464,7 +464,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     }: SerializableTransitionCurveSegment = value;
 
     const transitionCurveSegment: TransitionCurveSegment = {
-      position: fromSerializableSaveData(threeVector3TypeId, position, data) as THREE.Vector3,
+      position: fromSerializableSaveData(threeVector3TypeId, position) as THREE.Vector3,
       rotationY,
       curvature,
     };
@@ -475,7 +475,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     const trainFormats: { [key: string]: TrainFormat } = {};
 
     Object.keys(serializableTrainFormats).forEach(id =>
-      trainFormats[id] = fromSerializableSaveData(trainFormatTypeId, serializableTrainFormats[id], data) as TrainFormat
+      trainFormats[id] = fromSerializableSaveData(trainFormatTypeId, serializableTrainFormats[id]) as TrainFormat
     );
 
     return trainFormats;
@@ -494,8 +494,8 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
       otherBodyOffsets,
       otherBodyWeights,
       cabFormats,
-      bodySupporterJoints: fromSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints, data) as BodySupporterJoint[],
-      otherJoints: fromSerializableSaveData(jointArrayTypeId, otherJoints, data) as Joint[],
+      bodySupporterJoints: fromSerializableSaveData(bodySupporterJointArrayTypeId, bodySupporterJoints) as BodySupporterJoint[],
+      otherJoints: fromSerializableSaveData(jointArrayTypeId, otherJoints) as Joint[],
     };
 
     return trainFormat;
@@ -505,7 +505,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
 
     Object.keys(serializableTrains).forEach(id => {
       // Nullable
-      const train = fromSerializableSaveData(trainTypeId, serializableTrains[id], data) as Train | null;
+      const train = fromSerializableSaveData(trainTypeId, serializableTrains[id]) as Train | null;
       if (train) trains[id] = train;
     });
 
@@ -546,7 +546,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     const serializableBodySupporterJoints: SerializableBodySupporterJoint[] = value;
 
     const bodySupporterJoints: BodySupporterJoint[] = serializableBodySupporterJoints.map(bodySupporterJoint =>
-      fromSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint, data)
+      fromSerializableSaveData(bodySupporterJointTypeId, bodySupporterJoint)
     );
 
     return bodySupporterJoints;
@@ -560,9 +560,9 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
 
     const bodySupporterJoint: BodySupporterJoint = {
       otherBodyIndex,
-      otherBodyPosition: fromSerializableSaveData(threeVector3TypeId, otherBodyPosition, data),
+      otherBodyPosition: fromSerializableSaveData(threeVector3TypeId, otherBodyPosition),
       bogieIndex,
-      bogiePosition: fromSerializableSaveData(threeVector3TypeId, bogiePosition, data),
+      bogiePosition: fromSerializableSaveData(threeVector3TypeId, bogiePosition),
     };
 
     return bodySupporterJoint;
@@ -570,7 +570,7 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
     const serializableJoints: SerializableJoint[] = value;
 
     const joints: Joint[] = serializableJoints.map(joint =>
-      fromSerializableSaveData(jointTypeId, joint, data)
+      fromSerializableSaveData(jointTypeId, joint)
     );
 
     return joints;
@@ -584,9 +584,9 @@ export function fromSerializableSaveData(type: string, value: any, data: ORSAppD
 
     const joint: Joint = {
       bodyIndexA,
-      positionA: fromSerializableSaveData(threeVector3TypeId, positionA, data),
+      positionA: fromSerializableSaveData(threeVector3TypeId, positionA),
       bodyIndexB,
-      positionB: fromSerializableSaveData(threeVector3TypeId, positionB, data),
+      positionB: fromSerializableSaveData(threeVector3TypeId, positionB),
     };
 
     return joint;

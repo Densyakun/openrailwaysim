@@ -114,19 +114,6 @@ export type Train = {
   isStopping: boolean;
 };
 
-export type SerializableTrain = {
-  trainFormatId: string;
-  cabStates: (CabStateType | null)[];
-  speed: number;
-  currentDiagramId: string;
-  currentDiagramCurveIndex: number;
-  currentDiagramSectionIndex: number;
-  currentRouteIndex: number;
-  isStopping: boolean;
-  pointOnTrack: PointOnTrack;
-  directionIsReversed: boolean;
-};
-
 /**
  * 列車を設置して、設置した列車と判定結果を返す。ワールドに設置する列車には後からtrainFormatIdを設定する必要がある
  * @param trainFormat 列車形式

@@ -2,7 +2,7 @@ import { Path, PathValue, SerializableORSAppDataType } from "./game";
 
 // 型推論のために、サーバーで使用するwsライブラリのWebSocketと、クライアントで使用するWebSocketに共通する型を定義する
 type SendableCommonSocket = {
-  send(data: string | ArrayBuffer | ArrayBufferView): void;
+  send(data: string | ArrayBuffer): void;
 }
 
 export enum MessageCode {

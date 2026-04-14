@@ -1,11 +1,11 @@
 import { useSnapshot } from 'valtio';
-import { CabFormatType, getDistanceToNextStop, SerializableTrain, Train } from '@/lib/trains';
+import { CabFormatType, getDistanceToNextStop, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
 import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { socket } from '../Client';
-import { store, serialize, trainTypeId } from '@/lib/game';
+import { store } from '@/lib/game';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
 import { DiagramTrackRoute, getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
@@ -117,10 +117,8 @@ export default function ControlStand() {
           store.data.trains[trainsState.activeTrainId].speed = -16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            serialize(
-              trainTypeId,
-              store.data.trains[trainsState.activeTrainId]
-            ) as SerializableTrain])
+            store.data.trains[trainsState.activeTrainId]
+          ])
         }}>
           {`<`}
         </Button>
@@ -128,10 +126,8 @@ export default function ControlStand() {
           store.data.trains[trainsState.activeTrainId].speed = 0
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            serialize(
-              trainTypeId,
-              store.data.trains[trainsState.activeTrainId]
-            ) as SerializableTrain])
+            store.data.trains[trainsState.activeTrainId]
+          ])
         }}>
           {`o`}
         </Button>
@@ -139,10 +135,8 @@ export default function ControlStand() {
           store.data.trains[trainsState.activeTrainId].speed = 16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["trains", trainsState.activeTrainId],
-            serialize(
-              trainTypeId,
-              store.data.trains[trainsState.activeTrainId]
-            ) as SerializableTrain])
+            store.data.trains[trainsState.activeTrainId]
+          ])
         }}>
           {`>`}
         </Button>

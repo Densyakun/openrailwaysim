@@ -1,39 +1,43 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, ORSAppDataType, createAppData, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
+import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
+import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
 
 export const saveFilePath = "./save.json";
 
 function loadData() {
-  const json = JSON.parse(readFileSync(saveFilePath, 'utf8'));
+  if (!existsSync(saveFilePath)) return;
 
-  // 開発用にセーブデータをアップデート
-  if (!json.trainFormats) {
-    json.trainFormats = {};
-    json.trains = {};
-    json.trainGroups = {};
+  try {
+    const saveData: ORSAppSaveDataType = JSON.parse(readFileSync(saveFilePath, 'utf8'));
+
+    // 開発用にセーブデータをアップデート
+    if (!saveData.trainFormats) {
+      saveData.trainFormats = {};
+      saveData.trains = {};
+      saveData.trainGroups = {};
+    }
+
+    storeSaveData(saveData);
+  } catch (e) {
+    console.error(e);
   }
+}
 
-  const data: ORSAppDataType = deserialize(orsAppDataTypeId, json);
-
-  return data;
+function saveData() {
+  writeFileSync(saveFilePath, JSON.stringify(getSaveData()), "utf8");
+  console.log("Data saved.");
 }
 
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
 export function setupServer(wss: WebSocketServer) {
-  if (existsSync(saveFilePath)) {
-    try {
-      store.data = loadData();
-    } catch (e) {
-      console.error(e);
-    }
-  }
+  loadData();
 
   let messageEmitter = new MessageEmitter();
 
@@ -255,9 +259,7 @@ export function setupServer(wss: WebSocketServer) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: ORSAppDataType = serialize(orsAppDataTypeId, store.data);
-          writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
-          console.log("Data saved.");
+          saveData();
 
           messageEmitter.isInvalidMessage = false;
           break;

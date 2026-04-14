@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
-import { BodySupporterJoint, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrain, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
+import { BodySupporterJoint, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
 import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
@@ -72,7 +72,7 @@ export type SerializableORSAppDataType = {
   tracks: { [key: string]: SerializableTrack | SerializableTransitionCurve };
   switches: { [key: string]: Switch };
   trainFormats: { [key: string]: SerializableTrainFormat };
-  trains: { [key: string]: SerializableTrain };
+  trains: { [key: string]: Train };
   trainGroups: { [key: string]: string[] };
   uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
@@ -104,12 +104,6 @@ export const transitionCurveSegmentArrayTypeId = "transitionCurveSegmentArray";
 export const transitionCurveSegmentTypeId = "transitionCurveSegment";
 export const trainFormatsObjectTypeId = "trainFormatsObject";
 export const trainFormatTypeId = "trainFormat";
-export const trainsObjectTypeId = "trainsObject";
-export const trainTypeId = "train";
-/*export const axleArrayTypeId = "axleArray";
-export const axleTypeId = "axle";
-export const otherBodyArrayTypeId = "otherBodyArray";
-export const otherBodyTypeId = "otherBody";*/
 export const bodySupporterJointArrayTypeId = "bodySupporterJointArray";
 export const bodySupporterJointTypeId = "bodySupporterJoint";
 export const jointArrayTypeId = "jointArray";
@@ -151,10 +145,6 @@ export function getTypeIdByPath(path: Path<SerializableORSAppDataType>) {
       ) return threeVector3TypeId;
     }
   }
-  if (path[0] === "trains") {
-    if (path.length === 1) return trainsObjectTypeId;
-    if (path.length === 2) return trainTypeId;
-  }
   return "";
 }
 
@@ -166,7 +156,6 @@ export function serialize(type: string, value: any): any {
       ...orsAppData,
       tracks: serialize(tracksObjectTypeId, orsAppData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
       trainFormats: serialize(trainFormatsObjectTypeId, orsAppData.trainFormats) as { [key: string]: SerializableTrainFormat },
-      trains: serialize(trainsObjectTypeId, orsAppData.trains) as { [key: string]: SerializableTrain },
     };
 
     return serializableORSAppData;
@@ -277,41 +266,6 @@ export function serialize(type: string, value: any): any {
     };
 
     return serializableTrainFormat;
-  } else if (type === trainsObjectTypeId) {
-    const trains: { [key: string]: Train } = value;
-    const serializableTrains: { [key: string]: SerializableTrain } = {};
-
-    Object.keys(trains).forEach(id => serializableTrains[id] = serialize(trainTypeId, trains[id]) as SerializableTrain);
-
-    return serializableTrains;
-  } else if (type === trainTypeId) {
-    const train: Train = value;
-    const {
-      trainFormatId,
-      cabStates,
-      speed,
-      currentDiagramId,
-      currentDiagramCurveIndex,
-      currentDiagramSectionIndex,
-      currentRouteIndex,
-      isStopping,
-    } = train;
-
-    // getPointOnTrackByTrainで現在のストアに依存している
-    const { newDirectionIsReversed, newPointOnTrack } = getPointOnTrackByTrain(train);
-    const serializableTrain: SerializableTrain = {
-      trainFormatId,
-      cabStates,
-      speed,
-      currentDiagramId,
-      currentDiagramCurveIndex,
-      currentDiagramSectionIndex,
-      currentRouteIndex,
-      isStopping,
-      pointOnTrack: newPointOnTrack,
-      directionIsReversed: newDirectionIsReversed,
-    };
-    return serializableTrain;
   } else if (type === bodySupporterJointArrayTypeId) {
     const bodySupporterJoints: BodySupporterJoint[] = value;
 
@@ -375,9 +329,6 @@ export function deserialize(type: string, value: any): any {
       tracks: deserialize(tracksObjectTypeId, serializableORSAppData.tracks) as { [key: string]: Track },
       trainFormats: deserialize(trainFormatsObjectTypeId, serializableORSAppData.trainFormats) as { [key: string]: TrainFormat },
     };
-
-    // 他のデータを参照するため、後からデシリアライズする
-    orsAppData.trains = deserialize(trainsObjectTypeId, serializableORSAppData.trains, orsAppData) as { [key: string]: Train };
 
     return orsAppData;
   } else if (type === tracksObjectTypeId) {
@@ -499,49 +450,6 @@ export function deserialize(type: string, value: any): any {
     };
 
     return trainFormat;
-  } else if (type === trainsObjectTypeId) {
-    const serializableTrains: { [key: string]: SerializableTrain } = value;
-    const trains: { [key: string]: Train } = {};
-
-    Object.keys(serializableTrains).forEach(id => {
-      // Nullable
-      const train = deserialize(trainTypeId, serializableTrains[id]) as Train | null;
-      if (train) trains[id] = train;
-    });
-
-    return trains;
-  } else if (type === trainTypeId) {
-    const {
-      trainFormatId,
-      cabStates,
-      speed,
-      currentDiagramId,
-      currentDiagramCurveIndex,
-      currentDiagramSectionIndex,
-      currentRouteIndex,
-      isStopping,
-      pointOnTrack,
-      directionIsReversed,
-    }: SerializableTrain = value;
-
-    const { train } = placeTrain(
-      data.trainFormats[trainFormatId],
-      pointOnTrack,
-      directionIsReversed,
-    );
-
-    if (!train) return null;
-
-    train.trainFormatId = trainFormatId;
-    train.cabStates = cabStates;
-    train.speed = speed;
-    train.currentDiagramId = currentDiagramId;
-    train.currentDiagramCurveIndex = currentDiagramCurveIndex;
-    train.currentDiagramSectionIndex = currentDiagramSectionIndex;
-    train.currentRouteIndex = currentRouteIndex;
-    train.isStopping = isStopping;
-
-    return train;
   } else if (type === bodySupporterJointArrayTypeId) {
     const serializableBodySupporterJoints: SerializableBodySupporterJoint[] = value;
 

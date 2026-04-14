@@ -17,7 +17,7 @@ import centroid from '@turf/centroid';
 import { point as turfPoint } from '@turf/helpers';
 import { SerializableTrack, Track, TransitionCurve, createStraightTrackFromLineStrings, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
-import { store, toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { store, serialize, trackTypeId } from '@/lib/game';
 import CurveEditMenu, { connectTwoStraightLinesWithCurve, updateAddingTracks } from './CurveEditMenu';
 import booleanEqual from '@turf/boolean-equal';
 import FeatureCollectionTable from './FeatureCollectionTable';
@@ -244,7 +244,7 @@ export function finishCreateTracks() {
 
     send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", CDId],
-      toSerializableSaveData(
+      serialize(
         trackTypeId,
         CD
       ) as SerializableTrack
@@ -387,7 +387,7 @@ function MainMenu() {
           });
 
         const trackId = uuidv4();
-        const track: SerializableTrack = toSerializableSaveData(
+        const track: SerializableTrack = serialize(
           trackTypeId,
           createStraightTrackFromLineStrings(
             store.data.originCoordinate,

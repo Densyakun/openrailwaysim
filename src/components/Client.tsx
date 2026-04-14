@@ -1,5 +1,5 @@
 import { clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
-import { OnMessageInClient, Path, SerializableSaveDataType, fromSerializableSaveData, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
+import { OnMessageInClient, Path, SerializableORSAppDataType, deserialize, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { onFrame as onFrameTrains } from "./Trains"
@@ -11,7 +11,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
 
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
-      const saveData = fromSerializableSaveData(orsAppDataTypeId, value);
+      const saveData = deserialize(orsAppDataTypeId, value);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
       Object.keys(data).forEach(key =>
         data[key as keyof typeof data] = saveData[key]
@@ -27,14 +27,14 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
         messageEmitter.isInvalidMessage = true;
         break;
       }
-      (value as unknown as ["set" | "delete", Path<SerializableSaveDataType>, any?][]).forEach(op => {
-        const path = op[1] as Path<SerializableSaveDataType>
+      (value as unknown as ["set" | "delete", Path<SerializableORSAppDataType>, any?][]).forEach(op => {
+        const path = op[1] as Path<SerializableORSAppDataType>
 
         switch (op[0]) {
           case "set":
-            const setObj = function (obj: any, path: Path<SerializableSaveDataType>, value: any, n = 0) {
+            const setObj = function (obj: any, path: Path<SerializableORSAppDataType>, value: any, n = 0) {
               if (n + 1 === path.length)
-                obj[path[n]] = fromSerializableSaveData(getTypeIdByPath(path), value)
+                obj[path[n]] = deserialize(getTypeIdByPath(path), value)
               else
                 setObj(obj[path[n]], path, value, n + 1)
             }
@@ -47,7 +47,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
               if (index !== -1) tracksState.selectedTrackIds.splice(index, 1);
             }
 
-            const deleteObj = function (obj: any, path: Path<SerializableSaveDataType>, n = 0) {
+            const deleteObj = function (obj: any, path: Path<SerializableORSAppDataType>, n = 0) {
               if (n + 1 === path.length)
                 delete obj[path[n]]
               else

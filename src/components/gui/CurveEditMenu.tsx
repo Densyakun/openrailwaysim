@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio';
 import { TextField } from '@mui/material';
 import { SerializableTrack, SerializableTransitionCurve, Switch, TOLERANCE_FOR_TRACK_CONNECTIONS, Track, TransitionCurve, TransitionCurveData, applyTransitionCurveToSerializableTrack, connectTwoTracks, createSerializableTrackBasedOnTrack, getPosition, getTransitionCurveData } from '@/lib/tracks';
 import { socket } from '../Client';
-import { Path, PathValue, SerializableSaveDataType, store, toSerializableSaveData, trackTypeId } from '@/lib/game';
+import { Path, PathValue, SerializableORSAppDataType, store, serialize, trackTypeId } from '@/lib/game';
 import { featureCollectionsTabPanelState, onClickCurve } from './FeatureCollectionsTabPanel';
 import { tracksState } from "@/lib/client/tracks/store";
 import { MessageCode, send } from '@/lib/ws';
@@ -322,7 +322,7 @@ export function onClickAddingTrack(curveIndex: number) {
 }
 
 export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Track, CDId: string, curveIndex: number, s: number, t: number, curve: Track, transitionCurveAB?: TransitionCurve, transitionCurveCD?: TransitionCurve, createSwitch = true) {
-  const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableSaveDataType>, PathValue<SerializableSaveDataType, Path<SerializableSaveDataType>>, Path<SerializableSaveDataType>?]][] = [];
+  const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?]][] = [];
 
   const sCurve: SerializableTrack = createSerializableTrackBasedOnTrack(
     curve,
@@ -395,7 +395,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB)
+        serialize(trackTypeId, AB)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= s_ - AB.length) {
     // ABの終点と接続する場合
@@ -426,7 +426,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track0IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", ABId],
-        toSerializableSaveData(trackTypeId, AB)
+        serialize(trackTypeId, AB)
       ]]);
   } else {
     // ABの中間と接続する場合
@@ -522,7 +522,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", ABId],
-      toSerializableSaveData(trackTypeId, AB)
+      serialize(trackTypeId, AB)
     ]]);
   }
 
@@ -556,7 +556,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD)
+        serialize(trackTypeId, CD)
       ]]);
   } else if (-TOLERANCE_FOR_TRACK_CONNECTIONS <= t_ - CD.length) {
     let track1IsChanged = false;
@@ -586,7 +586,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
     if (track1IsChanged)
       messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
         ["tracks", CDId],
-        toSerializableSaveData(trackTypeId, CD)
+        serialize(trackTypeId, CD)
       ]]);
   } else {
     if (createSwitch) {
@@ -677,7 +677,7 @@ export function connectTwoStraightLinesWithCurve(AB: Track, ABId: string, CD: Tr
 
     messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
       ["tracks", CDId],
-      toSerializableSaveData(trackTypeId, CD)
+      serialize(trackTypeId, CD)
     ]]);
   }
 

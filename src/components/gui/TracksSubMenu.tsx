@@ -14,7 +14,7 @@ import { tracksState } from "@/lib/client/tracks/store";
 import React from 'react';
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
-import { Path, PathValue, SerializableSaveDataType, store } from '@/lib/game';
+import { Path, PathValue, SerializableORSAppDataType, store } from '@/lib/game';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -361,7 +361,7 @@ function TrackEditMenu() {
         const endCant = tracksSubMenuState.endCant;
         if (isNaN(parseFloat(beginCant)) || isNaN(parseFloat(endCant))) return;
 
-        const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableSaveDataType>, PathValue<SerializableSaveDataType, Path<SerializableSaveDataType>>, Path<SerializableSaveDataType>?]][] = [
+        const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?]][] = [
           [MessageCode.FROM_CLIENT_SET_PROP, [
             ["tracks", tracksSubMenuState.editingTrackId, "beginCant"],
             parseFloat(beginCant),

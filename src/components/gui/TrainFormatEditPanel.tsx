@@ -11,7 +11,7 @@ import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains
 import { useEffect } from "react";
 import { getPosition } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { store, toSerializableSaveData, trainTypeId } from "@/lib/game";
+import { store, serialize, trainTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 import { setCameraTargetPosition } from "@/lib/client/camera";
@@ -106,7 +106,7 @@ function saveEditingTrain() {
     return;
 
   const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = toSerializableSaveData(trainTypeId, updateEditingTrain());
+  const train: SerializableTrain = serialize(trainTypeId, updateEditingTrain());
 
   const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
   trainGroup.push(trainId);

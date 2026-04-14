@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, fromSerializableSaveData, toSerializableSaveData, updateTime, ORSAppDataType, createAppData, orsAppDataTypeId, SerializableSaveDataType, getTypeIdByPath, Path, store } from "./game";
+import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, ORSAppDataType, createAppData, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
 import { WebSocketServer } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -19,7 +19,7 @@ function loadData() {
     json.trainGroups = {};
   }
 
-  const data: ORSAppDataType = fromSerializableSaveData(orsAppDataTypeId, json);
+  const data: ORSAppDataType = deserialize(orsAppDataTypeId, json);
 
   return data;
 }
@@ -38,11 +38,11 @@ export function setupServer(wss: WebSocketServer) {
   let messageEmitter = new MessageEmitter();
 
   const unsubscribe = subscribe(store.data, ops => {
-    const ops_: ["set" | "delete", Path<SerializableSaveDataType>, any?][] = []
+    const ops_: ["set" | "delete", Path<SerializableORSAppDataType>, any?][] = []
     ops.forEach(([op_, path_, value, prevValue]) => {
       // Serializableなデータのみをクライアントに送信する
       // subscribeするデータはSerializableでは無いため、パスと型が一致する必要がある
-      const path = path_ as Path<SerializableSaveDataType>;
+      const path = path_ as Path<SerializableORSAppDataType>;
 
       // 削除するデータに依存するデータを変更する
       if (op_ === 'delete') {
@@ -122,7 +122,7 @@ export function setupServer(wss: WebSocketServer) {
       // 変更されたステートをクライアントに同期する
       const push = function () {
         ops_.push(op_ === 'delete' ? [op_, path] :
-          [op_, path, toSerializableSaveData(getTypeIdByPath(path), value)]
+          [op_, path, serialize(getTypeIdByPath(path), value)]
         )
       }
 
@@ -226,7 +226,7 @@ export function setupServer(wss: WebSocketServer) {
       messageEmitter.emit("message", id, value, ws);
     });
 
-    const serializableGameState: SerializableSaveDataType = toSerializableSaveData(orsAppDataTypeId, store.data);
+    const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
   });
 
@@ -255,7 +255,7 @@ export function setupServer(wss: WebSocketServer) {
     try {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
-          const gameState_: ORSAppDataType = toSerializableSaveData(orsAppDataTypeId, store.data);
+          const gameState_: ORSAppDataType = serialize(orsAppDataTypeId, store.data);
           writeFileSync(saveFilePath, JSON.stringify(gameState_), "utf8");
           console.log("Data saved.");
 
@@ -285,13 +285,13 @@ export function setupServer(wss: WebSocketServer) {
           break;
         }
         case MessageCode.FROM_CLIENT_SET_PROP: {
-          const [propPath, newValue, oldPath] = value as [Path<SerializableSaveDataType>, any, Path<SerializableSaveDataType> | undefined];
+          const [propPath, newValue, oldPath] = value as [Path<SerializableORSAppDataType>, any, Path<SerializableORSAppDataType> | undefined];
 
           // 新しいキーを設定
           let object = store.data;
           for (let n = 0; n < propPath.length - 1; n++)
             object = (object as any)[propPath[n]];
-          (object as any)[propPath[propPath.length - 1]] = fromSerializableSaveData(getTypeIdByPath(propPath), newValue);
+          (object as any)[propPath[propPath.length - 1]] = deserialize(getTypeIdByPath(propPath), newValue);
 
           // 依存するデータの参照を新しくする
           if (oldPath) {

@@ -1,4 +1,4 @@
-import { Path, PathValue, SerializableSaveDataType } from "./game";
+import { Path, PathValue, SerializableORSAppDataType } from "./game";
 
 // 型推論のために、サーバーで使用するwsライブラリのWebSocketと、クライアントで使用するWebSocketに共通する型を定義する
 type SendableCommonSocket = {
@@ -18,11 +18,11 @@ export enum MessageCode {
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
 export type MessageValueMap = {
-  [MessageCode.FROM_SERVER_STATE]: SerializableSaveDataType;
-  [MessageCode.FROM_SERVER_STATE_OPS]: ["set" | "delete", Path<SerializableSaveDataType>, any?][];
+  [MessageCode.FROM_SERVER_STATE]: SerializableORSAppDataType;
+  [MessageCode.FROM_SERVER_STATE_OPS]: ["set" | "delete", Path<SerializableORSAppDataType>, any?][];
   [MessageCode.FROM_CLIENT_MESSAGES]: [MessageCode, unknown][];
-  [MessageCode.FROM_CLIENT_SET_PROP]: [Path<SerializableSaveDataType>, PathValue<SerializableSaveDataType, Path<SerializableSaveDataType>>, Path<SerializableSaveDataType>?];
-  [MessageCode.FROM_CLIENT_DELETE_PROP]: Path<SerializableSaveDataType>;
+  [MessageCode.FROM_CLIENT_SET_PROP]: [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?];
+  [MessageCode.FROM_CLIENT_DELETE_PROP]: Path<SerializableORSAppDataType>;
   [MessageCode.FROM_CLIENT_SAVE]: undefined;
   [MessageCode.FROM_CLIENT_SWITCH_TRACK]: [string, number];
   [MessageCode.FROM_CLIENT_GET_HEIGHTMAP]: [number, number];
@@ -43,10 +43,10 @@ export function send<
     : never;
   }
 ): void;
-export function send<P extends Path<SerializableSaveDataType>>(
+export function send<P extends Path<SerializableORSAppDataType>>(
   socket: SendableCommonSocket,
   code: MessageCode.FROM_CLIENT_SET_PROP,
-  value: [P, PathValue<SerializableSaveDataType, P>, Path<SerializableSaveDataType>?]
+  value: [P, PathValue<SerializableORSAppDataType, P>, Path<SerializableORSAppDataType>?]
 ): void;
 export function send<K extends Exclude<
   MessageCode,

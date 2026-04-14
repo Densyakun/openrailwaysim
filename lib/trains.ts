@@ -68,13 +68,15 @@ export type SerializableJoint = {
   positionB: THREE.Vector3Tuple;
 };
 
+export type AxleFormat = {
+  z: number;
+  diameter: number;
+  hasMotor: boolean;
+};
+
 export type BogieFormat = {
   offset: number;
-  axles: {
-    z: number;
-    diameter: number;
-    hasMotor: boolean;
-  }[];
+  axles: AxleFormat[];
   weight: number;
 };
 

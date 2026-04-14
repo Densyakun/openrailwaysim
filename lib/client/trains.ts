@@ -16,56 +16,75 @@ export const trainsState = proxy<{
 
 export const trainsTabPanelState = proxy<{
   isShowTable: boolean;
-  selectedTrainGroup: string;
+
+  // Train format
   isAddingTrainFormat: boolean;
-  editingTrainFormatId: string; // TODO 編集機能（今回の目的→次のコミットで実装）
-  newTrainId: string;
-  pointOnTrack?: PointOnTrack;
+  newTrainFormatId: string;
+  editingTrainFormatId: string;
+  editingTrainFormat?: TrainFormat;
   selectedCarBodyIndex: number;
   selectedAxleIndex: number;
   selectedBodySupporterJointIndex: number;
   selectedOtherJointIndex: number;
-  editingTrainFormat?: TrainFormat; // TODO
-  trainFormatId: string; // TODO
-
-  // TODO
-  //isAddingTrain: boolean;
-  //editingTrainId: string;
-  directionIsReversed: boolean;
-  editingTrain?: Train;
-  trainIsDeadEnd: boolean;
   isShowOneHandleMasterControllerConfig: boolean;
   isSelectingCarBodyA: boolean;
   isSelectingCarBodyB: boolean;
   isSelectingCarBodyToBodySupporterJoint: boolean;
+
+  // Train
+  selectedTrainGroup: string;
+  isAddingTrain: boolean;
+  newTrainId: string;
+  editingTrainId: string;
+  editingTrain?: Train;
+  trainFormatId: string;
+  directionIsReversed: boolean;
+  pointOnTrack?: PointOnTrack;
+  trainIsDeadEnd: boolean;
 }>({
   isShowTable: false,
-  selectedTrainGroup: "",
+
+  // Train format
   isAddingTrainFormat: false,
+  newTrainFormatId: "",
   editingTrainFormatId: "",
-  newTrainId: "",
   selectedCarBodyIndex: -1,
   selectedAxleIndex: -1,
   selectedBodySupporterJointIndex: -1,
   selectedOtherJointIndex: -1,
-  trainFormatId: "",
-  directionIsReversed: false,
-  trainIsDeadEnd: false,
   isShowOneHandleMasterControllerConfig: false,
   isSelectingCarBodyA: false,
   isSelectingCarBodyB: false,
   isSelectingCarBodyToBodySupporterJoint: false,
+
+  // Train
+  selectedTrainGroup: "",
+  isAddingTrain: false,
+  newTrainId: "",
+  editingTrainId: "",
+  trainFormatId: "",
+  directionIsReversed: false,
+  trainIsDeadEnd: false,
 });
 
 export function resetEditingTrainState() {
-  trainsTabPanelState.newTrainId = "";
-  trainsTabPanelState.pointOnTrack = undefined;
-  /*trainsTabPanelState.editingTrainFormat = {
-    bogies: [],
-  };*/
+  trainsTabPanelState.newTrainFormatId = "";
+  trainsTabPanelState.editingTrainFormatId = "";
+  trainsTabPanelState.editingTrainFormat = undefined;
+  trainsTabPanelState.selectedCarBodyIndex = -1;
+  trainsTabPanelState.selectedAxleIndex = -1;
+  trainsTabPanelState.selectedBodySupporterJointIndex = -1;
+  trainsTabPanelState.selectedOtherJointIndex = -1;
+  trainsTabPanelState.isShowOneHandleMasterControllerConfig = false;
+  trainsTabPanelState.isSelectingCarBodyA = false;
+  trainsTabPanelState.isSelectingCarBodyB = false;
+  trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint = false;
 
-  //trainsTabPanelState.editingTrainId = "";
-  trainsTabPanelState.directionIsReversed = false;
+  trainsTabPanelState.newTrainId = "";
+  trainsTabPanelState.editingTrainId = "";
   trainsTabPanelState.editingTrain = undefined;
+  trainsTabPanelState.trainFormatId = "";
+  trainsTabPanelState.pointOnTrack = undefined;
+  trainsTabPanelState.directionIsReversed = false;
   trainsTabPanelState.trainIsDeadEnd = false;
 }

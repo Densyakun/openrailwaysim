@@ -2,7 +2,7 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { Axle, Bogie, Train } from '@/lib/trains'
+import { Axle, Bogie, BogieFormat, CarBody, Train, TrainFormat } from '@/lib/trains'
 import { guiState } from '@/lib/client/gui'
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
@@ -13,6 +13,7 @@ function BogieModel({
   trainId,
   bogieIndex,
   bogie,
+  format,
   isHovered,
   isActive,
   isEditing = false,
@@ -21,6 +22,7 @@ function BogieModel({
   trainId: string;
   bogieIndex: number;
   bogie: Bogie;
+  format: BogieFormat;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
@@ -54,7 +56,7 @@ function BogieModel({
               }
             }*/
 
-            if (isEditing) {
+            /*if (isEditing) {
               if (trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
                 trainsState.hoveredBodyIndex = -1;
                 trainsState.hoveredTrainId = "";
@@ -71,7 +73,7 @@ function BogieModel({
                 else
                   trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
               }
-            }
+            }*/
           }}
           onPointerMove={() => {
             if (trainsState.activeTrainId) return;
@@ -108,13 +110,14 @@ function BogieModel({
         <WheelAndAxleModel
           key={axleIndex}
           axle={axle}
+          format={format.axles[axleIndex]}
         />
       ))}
     </>
   )
 }
 
-function WheelAndAxleModel({ axle, ...props }: { axle: Axle }) {
+function WheelAndAxleModel({ axle, format, ...props }: { axle: Axle, format: BogieFormat["axles"][0] }) {
   const groupRef = React.useRef<THREE.Group>(null)
 
   useFrame(() => {
@@ -127,10 +130,10 @@ function WheelAndAxleModel({ axle, ...props }: { axle: Axle }) {
       <mesh
         castShadow
         receiveShadow
-        position={[0, axle.diameter / 2, 0]}
+        position={[0, format.diameter / 2, 0]}
         rotation={[axle.rotationX, 0, Math.PI / 2]}
       >
-        <cylinderGeometry args={[axle.diameter / 2, axle.diameter / 2, 1.267, 8]} />
+        <cylinderGeometry args={[format.diameter / 2, format.diameter / 2, 1.267, 8]} />
         <meshStandardMaterial />
       </mesh>
     </group>
@@ -148,7 +151,7 @@ function OtherBodyModel({
 }: {
   trainId: string;
   bodyIndex: number;
-  otherBody: OtherBody;
+  otherBody: CarBody;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
@@ -181,7 +184,7 @@ function OtherBodyModel({
           }
         }
 
-        if (isEditing) {
+        /*if (isEditing) {
           if (trainsTabPanelState.isSelectingCarBodyA) {
             trainsState.hoveredBodyIndex = -1;
             trainsState.hoveredTrainId = "";
@@ -198,7 +201,7 @@ function OtherBodyModel({
 
             trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
           }
-        }
+        }*/
       }}
       onPointerMove={() => {
         if (trainsState.activeTrainId) return;
@@ -243,7 +246,7 @@ export function onFrame() {
 }
 
 export default function Trains() {
-  const { trains } = useSnapshot(store.data);
+  const { trains, trainFormats } = useSnapshot(store.data);
   useSnapshot(trainsState);
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrain } = useSnapshot(trainsTabPanelState);
@@ -252,13 +255,13 @@ export default function Trains() {
     {Object.keys(trains).map(trainId => {
       const train = trains[trainId];
 
-      return <TrainComponent key={trainId} trainId={trainId} train={train as Train} />;
+      return <TrainComponent key={trainId} trainId={trainId} train={train as Train} format={trainFormats[train.trainFormatId] as TrainFormat} />;
     })}
-    {selectedTab === "trains" && editingTrain && <TrainComponent train={editingTrain as Train} isEditing />}
+    {selectedTab === "trains" && editingTrain && <TrainComponent train={editingTrain as Train} format={trainFormats[editingTrain.trainFormatId] as TrainFormat} isEditing />}
   </>;
 }
 
-function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: string, train: Train, isEditing?: boolean }) {
+function TrainComponent({ trainId = "", train, format, isEditing = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean }) {
   return <>
     {train.bogies.map((bogie, bogieIndex) => {
       const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
@@ -270,6 +273,7 @@ function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: 
           trainId={trainId}
           bogieIndex={bogieIndex}
           bogie={bogie}
+          format={format.bogies[bogieIndex]}
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}
@@ -298,13 +302,13 @@ function TrainComponent({ trainId = "", train, isEditing = false }: { trainId?: 
 }
 
 function EditingJoints() {
-  const { editingTrain, selectedBodySupporterJointIndex, selectedOtherJointIndex, axleTable } = useSnapshot(trainsTabPanelState);
+  //const { editingTrain, selectedBodySupporterJointIndex, selectedOtherJointIndex, axleTable } = useSnapshot(trainsTabPanelState);
 
-  if (!editingTrain) return null;
+  //if (!editingTrain) return null;
 
   return <>
     <>
-      {editingTrain.bodySupporterJoints.map((bodySupporterJoint, index) => <React.Fragment key={index}>
+      {/*editingTrain.bodySupporterJoints.map((bodySupporterJoint, index) => <React.Fragment key={index}>
         {bodySupporterJoint.otherBodyIndex !== -1 && bodySupporterJoint.bogieIndex !== -1 &&
           selectedBodySupporterJointIndex === index && <>
             <Line
@@ -332,10 +336,10 @@ function EditingJoints() {
               depthTest={false}
             />
           </>}
-      </React.Fragment>)}
+      </React.Fragment>)*/}
     </>
     <>
-      {editingTrain.otherJoints.map((otherJoint, index) => <React.Fragment key={index}>
+      {/*editingTrain.otherJoints.map((otherJoint, index) => <React.Fragment key={index}>
         {otherJoint.bodyIndexA !== -1 && otherJoint.bodyIndexB !== -1 &&
           selectedOtherJointIndex === index && <>
             <Line
@@ -383,7 +387,7 @@ function EditingJoints() {
               depthTest={false}
             />
           </>}
-      </React.Fragment>)}
+      </React.Fragment>)*/}
     </>
   </>;
 }

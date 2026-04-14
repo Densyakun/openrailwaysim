@@ -1,33 +1,30 @@
-// TODO
 import * as THREE from "three";
 import { proxy, useSnapshot } from "valtio";
 import { Alert, Button, ButtonGroup, Checkbox, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack, TextField, ToggleButton, Typography } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
-import ScreenRotationIcon from '@mui/icons-material/ScreenRotation';
 import TuneIcon from '@mui/icons-material/Tune';
-import { placeTrain, SerializableTrain } from "@/lib/trains";
+import { placeTrain } from "@/lib/trains";
 import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
 import { useEffect } from "react";
 import { getPosition } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { store, serialize, trainTypeId } from "@/lib/game";
+import { store } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 import { setCameraTargetPosition } from "@/lib/client/camera";
 import { MessageCode, send } from "@/lib/ws";
 
 const formState = proxy<{
-  newTrainId: string;
+  newTrainFormatId: string;
   carBodyOffset: string;
   carBodyWeight: string;
   axleZ: string;
   diameter: string;
   hasMotor: boolean;
-  controlStand: boolean;
+  hasCab: boolean;
   directionIsReversed: boolean;
-  reverser: number;
-  masterController: OneHandleMasterController;
+  oneHandleMasterControllerUIConfigId: string;
   jointAPositionX: string;
   jointAPositionY: string;
   jointAPositionZ: string;
@@ -35,19 +32,15 @@ const formState = proxy<{
   jointBPositionY: string;
   jointBPositionZ: string;
 }>({
-  newTrainId: "",
+  newTrainFormatId: "",
   carBodyOffset: "",
   carBodyWeight: "",
   axleZ: String(0),
   diameter: String(0.86),
   hasMotor: true,
-  controlStand: false,
+  hasCab: false,
   directionIsReversed: false,
-  reverser: 0,
-  masterController: {
-    value: 0,
-    uiOptionId: "",
-  },
+  oneHandleMasterControllerUIConfigId: "",
   jointAPositionX: "",
   jointAPositionY: "",
   jointAPositionZ: "",
@@ -57,64 +50,65 @@ const formState = proxy<{
 });
 
 function focusCamera() {
-  if (!Object.keys(store.data.tracks).length) return;
+  /*if (!Object.keys(store.data.tracks).length) return;
   if (!trainsTabPanelState.editingTrain) return;
 
   if (0 <= trainsTabPanelState.selectedCarBodyIndex) {
     // To carbody
-    const selectedBody = trainsTabPanelState.selectedCarBodyIndex < trainsTabPanelState.axleTable.length
+    const selectedBody = trainsTabPanelState.selectedCarBodyIndex < trainsTabPanelState.editingTrain.bogies.length
       ? trainsTabPanelState.editingTrain.bogies[trainsTabPanelState.selectedCarBodyIndex]
-      : trainsTabPanelState.editingTrain.otherBodies[trainsTabPanelState.selectedCarBodyIndex - trainsTabPanelState.axleTable.length];
+      : trainsTabPanelState.editingTrain.otherBodies[trainsTabPanelState.selectedCarBodyIndex - trainsTabPanelState.editingTrain.bogies.length];
     setCameraTargetPosition(selectedBody.position);
   } else if (trainsTabPanelState.pointOnTrack) {
     // To train
     const track = store.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
     const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
     setCameraTargetPosition(position);
-  }
+  }*/
 }
 
-function updateEditingTrain() {
+function updateEditingTrainFormat() {
   const {
-    pointOnTrack,
-    directionIsReversed,
     editingTrainFormat,
   } = trainsTabPanelState;
 
   if (!Object.keys(store.data.tracks).length) return;
-  if (!editingTrainFormat || !pointOnTrack) return;
+  if (!editingTrainFormat) return;
 
-  const { train, isDeadEnd } = placeTrain(
+  // TODO 実際の軌道とは異なる場所に設置
+  /*const { train, isDeadEnd } = placeTrain(
     editingTrainFormat,
     pointOnTrack,
     directionIsReversed,
   );
 
-  trainsTabPanelState.trainIsDeadEnd = isDeadEnd;
+  trainsTabPanelState.trainIsDeadEnd = isDeadEnd;*/
 
-  return trainsTabPanelState.editingTrain = train;
+  //return trainsTabPanelState.editingTrainFormat = trainFormat;
+  return trainsTabPanelState.editingTrainFormat;
 }
 
-function saveEditingTrain() {
+function saveEditingTrainFormat() {
   if (trainsTabPanelState.editingTrainFormatId) {
     // TODO
     return;
   }
 
   // Add new train
-  if (Object.keys(store.data.trains).includes(trainsTabPanelState.newTrainId))
+  if (Object.keys(store.data.trainFormats).includes(trainsTabPanelState.newTrainFormatId))
     return;
 
-  const trainId = trainsTabPanelState.newTrainId || uuidv4();
-  const train: SerializableTrain = serialize(trainTypeId, updateEditingTrain());
+  const trainFormatId = trainsTabPanelState.newTrainFormatId || uuidv4();
+  const trainFormat = updateEditingTrainFormat();
 
-  const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
-  trainGroup.push(trainId);
+  // TODO
+  /*const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
+  trainGroup.push(trainFormatId);
 
   send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
-    [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainId], train]],
+    [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainFormatId], trainFormat]],
     [MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", trainsTabPanelState.selectedTrainGroup], trainGroup]],
-  ]);
+  ]);*/
 
   trainsTabPanelState.isAddingTrainFormat = false;
   resetEditingTrainState();
@@ -122,44 +116,26 @@ function saveEditingTrain() {
 
 export default function TrainFormatEditPanel() {
   const {
-    selectedTrainGroup,
-    editingTrain,
+    editingTrainFormat,
     selectedCarBodyIndex,
     selectedBodySupporterJointIndex,
     selectedOtherJointIndex,
-    pointOnTrack,
-    bogieOffsets,
-    bogieWeights,
-    axleTable,
-    otherBodyOffsets,
-    otherBodyWeights,
-    controlStands,
-    bodySupporterJoints,
-    otherJoints,
     directionIsReversed,
     trainIsDeadEnd,
   } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => {
-    updateEditingTrain();
+    updateEditingTrainFormat();
   }, [
-    pointOnTrack,
-    bogieOffsets,
-    bogieWeights,
-    axleTable,
-    otherBodyOffsets,
-    otherBodyWeights,
-    controlStands,
-    bodySupporterJoints,
-    otherJoints,
+    editingTrainFormat,
     directionIsReversed,
   ]);
 
   useEffect(() => {
     focusCamera();
-  }, [editingTrain]);
+  }, [editingTrainFormat]);
 
-  if (!selectedTrainGroup) return null;
+  if (!editingTrainFormat) return null;
 
   return <Paper sx={{
     p: 1,
@@ -167,26 +143,26 @@ export default function TrainFormatEditPanel() {
     userSelect: 'none',
   }}>
     {selectedCarBodyIndex !== -1
-      ? selectedCarBodyIndex < axleTable.length
+      ? selectedCarBodyIndex < editingTrainFormat.bogies.length
         ? <BogiesEditor />
         : <OtherBodiesEditor />
       : selectedBodySupporterJointIndex !== -1
         ? <BodySupporterJointsEditor />
         : selectedOtherJointIndex !== -1
           ? <OtherJointsEditor />
-          : <TrainEditor trainIsDeadEnd={trainIsDeadEnd} />}
+          : <TrainFormatEditor trainIsDeadEnd={trainIsDeadEnd} />}
   </Paper>;
 }
 
 function AddBogieButton() {
   return <Button variant="contained" onClick={() => {
-    trainsTabPanelState.bogieOffsets.push(0);
-    trainsTabPanelState.bogieWeights.push(0);
-    trainsTabPanelState.axleTable.push([{
-      z: 0,
-      diameter: 0.86,
-      hasMotor: true,
-    }]);
+    if (!trainsTabPanelState.editingTrainFormat) return;
+
+    trainsTabPanelState.editingTrainFormat.bogies.push({
+      axles: [],
+      offset: 0,
+      weight: 0,
+    });
   }}>
     Add bogie
   </Button>;
@@ -194,7 +170,9 @@ function AddBogieButton() {
 
 function AddAxleButton() {
   return <Button variant="contained" onClick={() => {
-    trainsTabPanelState.axleTable[trainsTabPanelState.selectedCarBodyIndex].push({
+    if (!trainsTabPanelState.editingTrainFormat) return;
+
+    trainsTabPanelState.editingTrainFormat.bogies[trainsTabPanelState.selectedCarBodyIndex].axles.push({
       z: 0,
       diameter: 0.86,
       hasMotor: true,
@@ -206,9 +184,11 @@ function AddAxleButton() {
 
 function AddOtherBodyButton() {
   return <Button variant="contained" onClick={() => {
-    trainsTabPanelState.otherBodyOffsets.push(0);
-    trainsTabPanelState.otherBodyWeights.push(0);
-    trainsTabPanelState.controlStands.push(null);
+    if (!trainsTabPanelState.editingTrainFormat) return;
+
+    trainsTabPanelState.editingTrainFormat.otherBodyOffsets.push(0);
+    trainsTabPanelState.editingTrainFormat.otherBodyWeights.push(0);
+    trainsTabPanelState.editingTrainFormat.cabFormats.push(null);
   }}>
     Add otherbody
   </Button>;
@@ -216,7 +196,8 @@ function AddOtherBodyButton() {
 
 function AddBodySupporterJointButton() {
   return <Button variant="contained" onClick={() =>
-    trainsTabPanelState.bodySupporterJoints.push({
+    trainsTabPanelState.editingTrainFormat &&
+    trainsTabPanelState.editingTrainFormat.bodySupporterJoints.push({
       otherBodyIndex: -1,
       otherBodyPosition: new THREE.Vector3(),
       bogieIndex: -1,
@@ -229,7 +210,8 @@ function AddBodySupporterJointButton() {
 
 function AddOtherJointButton() {
   return <Button variant="contained" onClick={() =>
-    trainsTabPanelState.otherJoints.push({
+    trainsTabPanelState.editingTrainFormat &&
+    trainsTabPanelState.editingTrainFormat.otherJoints.push({
       bodyIndexA: -1,
       positionA: new THREE.Vector3(),
       bodyIndexB: -1,
@@ -240,32 +222,27 @@ function AddOtherJointButton() {
   </Button>;
 }
 
-function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
+function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const {
     isAddingTrainFormat,
     selectedTrainGroup,
     editingTrainFormatId,
-    newTrainId,
-    pointOnTrack,
-    axleTable,
-    otherBodyOffsets,
-    controlStands,
-    bodySupporterJoints,
-    otherJoints,
-    directionIsReversed,
-    editingTrain,
+    newTrainFormatId,
+    editingTrainFormat,
   } = trainsTabPanelState;
 
-  const { newTrainId: newTrainId_ } = useSnapshot(formState, { sync: true });
+  const { newTrainFormatId: newTrainFormatIdValue } = useSnapshot(formState, { sync: true });
   const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
 
   useEffect(() => {
     focusCamera();
-    formState.newTrainId = newTrainId;
+    formState.newTrainFormatId = newTrainFormatId;
   }, []);
 
-  const invalidControlStandIndex = controlStands.findIndex(controlStand =>
-    controlStand && !Object.keys(uiOneHandleMasterControllerConfigs).includes(controlStand.masterController.uiOptionId)
+  if (!editingTrainFormat) return null;
+
+  const invalidCabIndex = editingTrainFormat.cabFormats.findIndex(cab =>
+    cab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(cab.oneHandleMasterControllerUIConfigId)
   );
 
   return <Stack spacing={1}>
@@ -286,11 +263,7 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       IDが重複しています
     </Alert>
     }
-    {!pointOnTrack && <Alert severity="error">
-      列車を設置する位置を選択してください
-    </Alert>
-    }
-    {!axleTable.length && <Alert
+    {!editingTrainFormat.bogies.length && <Alert
       severity="error"
       action={
         <AddBogieButton />
@@ -299,69 +272,59 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       台車を追加してください
     </Alert>
     }
-    {trainIsDeadEnd && <Alert severity="error">
-      列車が軌道の外に出ています
-    </Alert>
-    }
-    {0 <= invalidControlStandIndex && <Alert
+    {0 <= invalidCabIndex && <Alert
       severity="error"
     >
-      {`Otherbody ${invalidControlStandIndex + 1} のマスコンの形式IDが間違っています`}
+      {`Otherbody ${invalidCabIndex + 1} のマスコンの形式IDが間違っています`}
     </Alert>
     }
     <TextField
       label="ID"
-      value={newTrainId_}
+      value={newTrainFormatIdValue}
       onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-        trainsTabPanelState.newTrainId = formState.newTrainId = event.target.value
+        trainsTabPanelState.newTrainFormatId = formState.newTrainFormatId = event.target.value
       }
     />
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Bogies: {axleTable.length}</Typography>
+      <Typography>Bogies: {editingTrainFormat.bogies.length}</Typography>
       <AddBogieButton />
-      <Button variant="contained" disabled={!axleTable.length} onClick={() =>
+      <Button variant="contained" disabled={!editingTrainFormat.bogies.length} onClick={() =>
         trainsTabPanelState.selectedCarBodyIndex = 0
       }>
         Edit
       </Button>
     </Stack>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Otherbodies: {otherBodyOffsets.length}</Typography>
+      <Typography>Otherbodies: {editingTrainFormat.otherBodyOffsets.length}</Typography>
       <AddOtherBodyButton />
-      <Button variant="contained" disabled={!otherBodyOffsets.length} onClick={() =>
-        trainsTabPanelState.selectedCarBodyIndex = axleTable.length
+      <Button variant="contained" disabled={!editingTrainFormat.otherBodyOffsets.length} onClick={() =>
+        trainsTabPanelState.selectedCarBodyIndex = editingTrainFormat.bogies.length
       }>
         Edit
       </Button>
     </Stack>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Body supporter joints: {bodySupporterJoints.length}</Typography>
+      <Typography>Body supporter joints: {editingTrainFormat.bodySupporterJoints.length}</Typography>
       <AddBodySupporterJointButton />
-      <Button variant="contained" disabled={!bodySupporterJoints.length} onClick={() =>
+      <Button variant="contained" disabled={!editingTrainFormat.bodySupporterJoints.length} onClick={() =>
         trainsTabPanelState.selectedBodySupporterJointIndex = 0
       }>
         Edit
       </Button>
     </Stack>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Other joints: {otherJoints.length}</Typography>
+      <Typography>Other joints: {editingTrainFormat.otherJoints.length}</Typography>
       <AddOtherJointButton />
-      <Button variant="contained" disabled={!otherJoints.length} onClick={() =>
+      <Button variant="contained" disabled={!editingTrainFormat.otherJoints.length} onClick={() =>
         trainsTabPanelState.selectedOtherJointIndex = 0
       }>
         Edit
       </Button>
     </Stack>
-    <Button variant="contained" startIcon={<ScreenRotationIcon />} onClick={() =>
-      trainsTabPanelState.directionIsReversed = !directionIsReversed
-    }>
-      Reverse direction
-    </Button>
-    {editingTrain && <>
-      <Typography variant="h6" gutterBottom>Train weight: {editingTrain.weight}</Typography>
+    {editingTrainFormat && <>
       <Button variant="contained" startIcon={<SaveIcon />}
         disabled={trainIsDeadEnd}
-        onClick={() => saveEditingTrain()}>
+        onClick={() => saveEditingTrainFormat()}>
         Save
       </Button>
     </>}
@@ -370,16 +333,18 @@ function TrainEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 
 function BogiesEditor() {
   const { carBodyOffset, carBodyWeight } = useSnapshot(formState, { sync: true });
-  const { selectedCarBodyIndex, bogieOffsets, bogieWeights, axleTable, selectedAxleIndex } = useSnapshot(trainsTabPanelState);
+  const { selectedCarBodyIndex, editingTrainFormat, selectedAxleIndex } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => focusCamera(), []);
 
   useEffect(() => {
-    if (selectedCarBodyIndex === -1) return;
-    formState.carBodyOffset = bogieOffsets[selectedCarBodyIndex].toString();
-    formState.carBodyWeight = bogieWeights[selectedCarBodyIndex].toString();
+    if (selectedCarBodyIndex === -1 || !editingTrainFormat) return;
+    formState.carBodyOffset = editingTrainFormat.bogies[selectedCarBodyIndex].offset.toString();
+    formState.carBodyWeight = editingTrainFormat.bogies[selectedCarBodyIndex].weight.toString();
     focusCamera();
-  }, [selectedCarBodyIndex]);
+  }, [selectedCarBodyIndex, editingTrainFormat]);
+
+  if (!editingTrainFormat) return null;
 
   return selectedAxleIndex === -1
     ? <Stack spacing={1}>
@@ -389,17 +354,17 @@ function BogiesEditor() {
         }>
           Back
         </Button>
-        <Typography variant="h6" gutterBottom>Editing bogie {selectedCarBodyIndex + 1} / {axleTable.length}</Typography>
+        <Typography variant="h6" gutterBottom>Editing bogie {selectedCarBodyIndex + 1} / {editingTrainFormat.bogies.length}</Typography>
         <ButtonGroup variant="contained">
           <Button variant='contained' onClick={() =>
             trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === 0
-              ? axleTable.length - 1
+              ? editingTrainFormat.bogies.length - 1
               : selectedCarBodyIndex - 1
           }>
             {"<"}
           </Button>
           <Button variant='contained' onClick={() =>
-            trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === axleTable.length - 1
+            trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === editingTrainFormat.bogies.length - 1
               ? 0
               : selectedCarBodyIndex + 1
           }>
@@ -409,7 +374,7 @@ function BogiesEditor() {
       </Stack>
       {/** TODO Duplicate bogie */}
       {/** TODO Delete bogie */}
-      {!axleTable[selectedCarBodyIndex].length && <Alert
+      {!editingTrainFormat.bogies[selectedCarBodyIndex].axles.length && <Alert
         severity="error"
         action={
           <AddAxleButton />
@@ -424,9 +389,9 @@ function BogiesEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.carBodyOffset = event.target.value;
           const offset = parseFloat(event.target.value);
-          if (Number.isNaN(offset)) return;
+          if (Number.isNaN(offset) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bogieOffsets[selectedCarBodyIndex] = offset;
+          trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].offset = offset;
         }}
       />
       <TextField
@@ -435,15 +400,15 @@ function BogiesEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.carBodyWeight = event.target.value;
           const weight = parseFloat(event.target.value);
-          if (Number.isNaN(weight)) return;
+          if (Number.isNaN(weight) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bogieWeights[selectedCarBodyIndex] = Math.max(0, weight);
+          trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].weight = Math.max(0, weight);
         }}
       />
       <Stack direction="row" spacing={1} alignItems="center">
-        <Typography>Axles: {axleTable[selectedCarBodyIndex].length}</Typography>
+        <Typography>Axles: {editingTrainFormat.bogies[selectedCarBodyIndex].axles.length}</Typography>
         <AddAxleButton />
-        <Button variant="contained" disabled={!axleTable[selectedCarBodyIndex].length} onClick={() =>
+        <Button variant="contained" disabled={!editingTrainFormat.bogies[selectedCarBodyIndex].axles.length} onClick={() =>
           trainsTabPanelState.selectedAxleIndex = 0
         }>
           Edit
@@ -458,15 +423,17 @@ function AxlesEditor() {
   const {
     selectedCarBodyIndex,
     selectedAxleIndex,
-    axleTable,
+    editingTrainFormat,
   } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => {
-    if (selectedCarBodyIndex === -1 || selectedCarBodyIndex < 0 || axleTable.length <= selectedCarBodyIndex || selectedAxleIndex === -1) return;
-    formState.axleZ = String(axleTable[selectedCarBodyIndex][selectedAxleIndex].z);
-    formState.diameter = String(axleTable[selectedCarBodyIndex][selectedAxleIndex].diameter);
-    formState.hasMotor = axleTable[selectedCarBodyIndex][selectedAxleIndex].hasMotor;
+    if (selectedCarBodyIndex === -1 || selectedCarBodyIndex < 0 || !editingTrainFormat || editingTrainFormat.bogies.length <= selectedCarBodyIndex || selectedAxleIndex === -1) return;
+    formState.axleZ = String(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].z);
+    formState.diameter = String(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].diameter);
+    formState.hasMotor = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].hasMotor;
   }, [selectedAxleIndex]);
+
+  if (!editingTrainFormat) return null;
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -475,17 +442,17 @@ function AxlesEditor() {
       }>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing axle {selectedAxleIndex + 1} / {axleTable[selectedCarBodyIndex].length} in bogie {selectedCarBodyIndex + 1}</Typography>
+      <Typography variant="h6" gutterBottom>Editing axle {selectedAxleIndex + 1} / {editingTrainFormat.bogies[selectedCarBodyIndex].axles.length} in bogie {selectedCarBodyIndex + 1}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() =>
           trainsTabPanelState.selectedAxleIndex = selectedAxleIndex === 0
-            ? axleTable[selectedCarBodyIndex].length - 1
+            ? editingTrainFormat.bogies[selectedCarBodyIndex].axles.length - 1
             : selectedAxleIndex - 1
         }>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() =>
-          trainsTabPanelState.selectedAxleIndex = selectedAxleIndex === axleTable[selectedCarBodyIndex].length - 1
+          trainsTabPanelState.selectedAxleIndex = selectedAxleIndex === editingTrainFormat.bogies[selectedCarBodyIndex].axles.length - 1
             ? 0
             : selectedAxleIndex + 1
         }>
@@ -501,9 +468,9 @@ function AxlesEditor() {
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.axleZ = event.target.value;
         const z = parseFloat(event.target.value);
-        if (Number.isNaN(z)) return;
+        if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
-        trainsTabPanelState.axleTable[selectedCarBodyIndex][selectedAxleIndex].z = z;
+        trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].z = z;
       }}
     />
     <TextField
@@ -512,13 +479,14 @@ function AxlesEditor() {
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.diameter = event.target.value;
         const diameter = parseFloat(event.target.value);
-        if (Number.isNaN(diameter)) return;
+        if (Number.isNaN(diameter) || !trainsTabPanelState.editingTrainFormat) return;
 
-        trainsTabPanelState.axleTable[selectedCarBodyIndex][selectedAxleIndex].diameter = Math.max(0.1, diameter);
+        trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].diameter = Math.max(0.1, diameter);
       }}
     />
     <FormControlLabel control={<Checkbox size="small" checked={hasMotor} onChange={event => {
-      trainsTabPanelState.axleTable[selectedCarBodyIndex][selectedAxleIndex].hasMotor =
+      if (!trainsTabPanelState.editingTrainFormat) return;
+      trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].hasMotor =
         formState.hasMotor = event.target.checked;
     }} />} label="has motor" />
   </Stack>;
@@ -526,28 +494,30 @@ function AxlesEditor() {
 
 function OtherBodiesEditor() {
   const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
-  const { carBodyOffset, carBodyWeight, controlStand, directionIsReversed, reverser, masterController } = useSnapshot(formState, { sync: true });
-  const { selectedCarBodyIndex, axleTable, otherBodyOffsets, otherBodyWeights, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
+  const { carBodyOffset, carBodyWeight, hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId } = useSnapshot(formState, { sync: true });
+  const { selectedCarBodyIndex, editingTrainFormat, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => focusCamera(), []);
 
   useEffect(() => {
-    if (selectedCarBodyIndex === -1) return;
-    formState.carBodyOffset = otherBodyOffsets[selectedCarBodyIndex - axleTable.length].toString();
-    formState.carBodyWeight = otherBodyWeights[selectedCarBodyIndex - axleTable.length].toString();
+    if (selectedCarBodyIndex === -1 || !editingTrainFormat) return;
+    formState.carBodyOffset = editingTrainFormat.otherBodyOffsets[selectedCarBodyIndex - editingTrainFormat.bogies.length].toString();
+    formState.carBodyWeight = editingTrainFormat.otherBodyWeights[selectedCarBodyIndex - editingTrainFormat.bogies.length].toString();
     focusCamera();
   }, [selectedCarBodyIndex]);
 
   useEffect(() => {
-    trainsTabPanelState.controlStands[selectedCarBodyIndex - axleTable.length] =
-      controlStand && masterController.uiOptionId
+    if (!trainsTabPanelState.editingTrainFormat || !editingTrainFormat) return;
+    trainsTabPanelState.editingTrainFormat.cabFormats[selectedCarBodyIndex - editingTrainFormat.bogies.length] =
+      hasCab && oneHandleMasterControllerUIConfigId
         ? {
           directionIsReversed,
-          reverser,
-          masterController,
+          oneHandleMasterControllerUIConfigId,
         }
         : null;
-  }, [controlStand, directionIsReversed, reverser, masterController]);
+  }, [hasCab, directionIsReversed, editingTrainFormat]);
+
+  if (!editingTrainFormat) return null;
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -559,18 +529,18 @@ function OtherBodiesEditor() {
       }}>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing otherbody {selectedCarBodyIndex + 1 - axleTable.length} / {otherBodyOffsets.length}</Typography>
+      <Typography variant="h6" gutterBottom>Editing otherbody {selectedCarBodyIndex + 1 - editingTrainFormat.bogies.length} / {editingTrainFormat.otherBodyOffsets.length}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() =>
-          trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === axleTable.length
-            ? axleTable.length + otherBodyOffsets.length - 1
+          trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === editingTrainFormat.bogies.length
+            ? editingTrainFormat.bogies.length + editingTrainFormat.otherBodyOffsets.length - 1
             : selectedCarBodyIndex - 1
         }>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() =>
-          trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === axleTable.length + otherBodyOffsets.length - 1
-            ? axleTable.length
+          trainsTabPanelState.selectedCarBodyIndex = selectedCarBodyIndex === editingTrainFormat.bogies.length + editingTrainFormat.otherBodyOffsets.length - 1
+            ? editingTrainFormat.bogies.length
             : selectedCarBodyIndex + 1
         }>
           {">"}
@@ -585,9 +555,9 @@ function OtherBodiesEditor() {
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.carBodyOffset = event.target.value;
         const offset = parseFloat(event.target.value);
-        if (Number.isNaN(offset)) return;
+        if (Number.isNaN(offset) || !trainsTabPanelState.editingTrainFormat) return;
 
-        trainsTabPanelState.otherBodyOffsets[selectedCarBodyIndex - axleTable.length] = offset;
+        trainsTabPanelState.editingTrainFormat.otherBodyOffsets[selectedCarBodyIndex - editingTrainFormat.bogies.length] = offset;
       }}
     />
     <TextField
@@ -596,22 +566,22 @@ function OtherBodiesEditor() {
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         formState.carBodyWeight = event.target.value;
         const weight = parseFloat(event.target.value);
-        if (Number.isNaN(weight)) return;
+        if (Number.isNaN(weight) || !trainsTabPanelState.editingTrainFormat) return;
 
-        trainsTabPanelState.otherBodyWeights[selectedCarBodyIndex - axleTable.length] = Math.max(0, weight);
+        trainsTabPanelState.editingTrainFormat.otherBodyWeights[selectedCarBodyIndex - editingTrainFormat.bogies.length] = Math.max(0, weight);
       }}
     />
     <Typography variant="h6">Control stand</Typography>
-    {controlStand && !Object.keys(uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId) && <Alert
+    {hasCab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(oneHandleMasterControllerUIConfigId) && <Alert
       severity="error"
     >
       マスコンの形式IDが間違っています
     </Alert>
     }
-    <FormControlLabel control={<Checkbox size="small" checked={controlStand} onChange={event => {
-      formState.controlStand = event.target.checked;
+    <FormControlLabel control={<Checkbox size="small" checked={hasCab} onChange={event => {
+      formState.hasCab = event.target.checked;
     }} />} label="has control stand" />
-    <FormControlLabel control={<Checkbox size="small" disabled={!controlStand} checked={directionIsReversed} onChange={event => {
+    <FormControlLabel control={<Checkbox size="small" disabled={!hasCab} checked={directionIsReversed} onChange={event => {
       formState.directionIsReversed = event.target.checked;
     }} />} label="Direction is reversed" />
     <Stack direction="row" spacing={1} alignItems="center">
@@ -619,11 +589,11 @@ function OtherBodiesEditor() {
         <InputLabel id="master-controller-type-id-select-label">Master controller type ID</InputLabel>
         <Select
           labelId="master-controller-type-id-select-label"
-          disabled={!controlStand}
-          value={masterController.uiOptionId}
+          disabled={!hasCab}
+          value={oneHandleMasterControllerUIConfigId}
           label="Master controller type ID"
-          onChange={event => formState.masterController.uiOptionId = event.target.value}
-          error={!Object.keys(uiOneHandleMasterControllerConfigs).includes(masterController.uiOptionId)}
+          onChange={event => formState.oneHandleMasterControllerUIConfigId = event.target.value}
+          error={!Object.keys(uiOneHandleMasterControllerConfigs).includes(oneHandleMasterControllerUIConfigId)}
         >
           {Object.keys(uiOneHandleMasterControllerConfigs).map(id =>
             <MenuItem key={id} value={id}>{id}</MenuItem>
@@ -644,17 +614,19 @@ function OtherBodiesEditor() {
 
 function BodySupporterJointsEditor() {
   const { jointAPositionX, jointAPositionY, jointAPositionZ, jointBPositionX, jointBPositionY, jointBPositionZ } = useSnapshot(formState, { sync: true });
-  const { selectedBodySupporterJointIndex, bodySupporterJoints, isSelectingCarBodyA, isSelectingCarBodyB } = useSnapshot(trainsTabPanelState);
+  const { selectedBodySupporterJointIndex, editingTrainFormat, isSelectingCarBodyA, isSelectingCarBodyB } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => {
-    if (selectedBodySupporterJointIndex === -1) return;
-    formState.jointAPositionX = bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.x.toString();
-    formState.jointAPositionY = bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.y.toString();
-    formState.jointAPositionZ = bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.z.toString();
-    formState.jointBPositionX = bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.x.toString();
-    formState.jointBPositionY = bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.y.toString();
-    formState.jointBPositionZ = bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.z.toString();
-  }, [selectedBodySupporterJointIndex]);
+    if (selectedBodySupporterJointIndex === -1 || !editingTrainFormat) return;
+    formState.jointAPositionX = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.x.toString();
+    formState.jointAPositionY = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.y.toString();
+    formState.jointAPositionZ = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.z.toString();
+    formState.jointBPositionX = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.x.toString();
+    formState.jointBPositionY = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.y.toString();
+    formState.jointBPositionZ = editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.z.toString();
+  }, [selectedBodySupporterJointIndex, editingTrainFormat]);
+
+  if (!editingTrainFormat) return null;
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -666,17 +638,17 @@ function BodySupporterJointsEditor() {
       }}>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing body supporter joint {selectedBodySupporterJointIndex + 1} / {bodySupporterJoints.length}</Typography>
+      <Typography variant="h6" gutterBottom>Editing body supporter joint {selectedBodySupporterJointIndex + 1} / {editingTrainFormat.bodySupporterJoints.length}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() => {
           trainsTabPanelState.selectedBodySupporterJointIndex = selectedBodySupporterJointIndex === 0
-            ? bodySupporterJoints.length - 1
+            ? editingTrainFormat.bodySupporterJoints.length - 1
             : selectedBodySupporterJointIndex - 1;
         }}>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() => {
-          trainsTabPanelState.selectedBodySupporterJointIndex = selectedBodySupporterJointIndex === bodySupporterJoints.length - 1
+          trainsTabPanelState.selectedBodySupporterJointIndex = selectedBodySupporterJointIndex === editingTrainFormat.bodySupporterJoints.length - 1
             ? 0
             : selectedBodySupporterJointIndex + 1;
         }}>
@@ -687,9 +659,9 @@ function BodySupporterJointsEditor() {
     {/** TODO Delete otherBody */}
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Otherbody: {
-        bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyIndex === -1
+        editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyIndex === -1
           ? "Not selected"
-          : bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyIndex + 1
+          : editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyIndex + 1
       }</Typography>
       <ToggleButton
         size="small"
@@ -710,10 +682,10 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionX = event.target.value;
           const x = parseFloat(event.target.value);
-          if (Number.isNaN(x)) return;
+          if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.x = x;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.x = x;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -722,10 +694,10 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionY = event.target.value;
           const y = parseFloat(event.target.value);
-          if (Number.isNaN(y)) return;
+          if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.y = y;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.y = y;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -734,18 +706,18 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionZ = event.target.value;
           const z = parseFloat(event.target.value);
-          if (Number.isNaN(z)) return;
+          if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.z = z;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.z = z;
+          updateEditingTrainFormat();
         }}
       />
     </Stack>
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Bogie: {
-        bodySupporterJoints[selectedBodySupporterJointIndex].bogieIndex === -1
+        editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogieIndex === -1
           ? "Not selected"
-          : bodySupporterJoints[selectedBodySupporterJointIndex].bogieIndex + 1
+          : editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogieIndex + 1
       }</Typography>
       <ToggleButton
         size="small"
@@ -766,10 +738,10 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionX = event.target.value;
           const x = parseFloat(event.target.value);
-          if (Number.isNaN(x)) return;
+          if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.x = x;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.x = x;
+          updateEditingTrainFormat();
 
         }}
       />
@@ -779,10 +751,10 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionY = event.target.value;
           const y = parseFloat(event.target.value);
-          if (Number.isNaN(y)) return;
+          if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.y = y;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.y = y;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -791,10 +763,10 @@ function BodySupporterJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionZ = event.target.value;
           const z = parseFloat(event.target.value);
-          if (Number.isNaN(z)) return;
+          if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.z = z;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.z = z;
+          updateEditingTrainFormat();
         }}
       />
     </Stack>
@@ -803,17 +775,19 @@ function BodySupporterJointsEditor() {
 
 function OtherJointsEditor() {
   const { jointAPositionX, jointAPositionY, jointAPositionZ, jointBPositionX, jointBPositionY, jointBPositionZ } = useSnapshot(formState, { sync: true });
-  const { axleTable, selectedOtherJointIndex, otherJoints, isSelectingCarBodyA, isSelectingCarBodyB } = useSnapshot(trainsTabPanelState);
+  const { editingTrainFormat, selectedOtherJointIndex, isSelectingCarBodyA, isSelectingCarBodyB } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => {
-    if (selectedOtherJointIndex === -1) return;
-    formState.jointAPositionX = otherJoints[selectedOtherJointIndex].positionA.x.toString();
-    formState.jointAPositionY = otherJoints[selectedOtherJointIndex].positionA.y.toString();
-    formState.jointAPositionZ = otherJoints[selectedOtherJointIndex].positionA.z.toString();
-    formState.jointBPositionX = otherJoints[selectedOtherJointIndex].positionB.x.toString();
-    formState.jointBPositionY = otherJoints[selectedOtherJointIndex].positionB.y.toString();
-    formState.jointBPositionZ = otherJoints[selectedOtherJointIndex].positionB.z.toString();
+    if (selectedOtherJointIndex === -1 || !editingTrainFormat) return;
+    formState.jointAPositionX = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.x.toString();
+    formState.jointAPositionY = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.y.toString();
+    formState.jointAPositionZ = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.z.toString();
+    formState.jointBPositionX = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.x.toString();
+    formState.jointBPositionY = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.y.toString();
+    formState.jointBPositionZ = editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.z.toString();
   }, [selectedOtherJointIndex]);
+
+  if (!editingTrainFormat) return null;
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -824,17 +798,17 @@ function OtherJointsEditor() {
       }}>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing other joint {selectedOtherJointIndex + 1} / {otherJoints.length}</Typography>
+      <Typography variant="h6" gutterBottom>Editing other joint {selectedOtherJointIndex + 1} / {editingTrainFormat.otherJoints.length}</Typography>
       <ButtonGroup variant="contained">
         <Button variant='contained' onClick={() => {
           trainsTabPanelState.selectedOtherJointIndex = selectedOtherJointIndex === 0
-            ? otherJoints.length - 1
+            ? editingTrainFormat.otherJoints.length - 1
             : selectedOtherJointIndex - 1;
         }}>
           {"<"}
         </Button>
         <Button variant='contained' onClick={() => {
-          trainsTabPanelState.selectedOtherJointIndex = selectedOtherJointIndex === otherJoints.length - 1
+          trainsTabPanelState.selectedOtherJointIndex = selectedOtherJointIndex === editingTrainFormat.otherJoints.length - 1
             ? 0
             : selectedOtherJointIndex + 1;
         }}>
@@ -845,11 +819,11 @@ function OtherJointsEditor() {
     {/** TODO Delete otherBody */}
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Carbody A: {
-        otherJoints[selectedOtherJointIndex].bodyIndexA === -1
+        editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexA === -1
           ? "Not selected"
-          : otherJoints[selectedOtherJointIndex].bodyIndexA < axleTable.length
-            ? `Bogie ${otherJoints[selectedOtherJointIndex].bodyIndexA + 1}`
-            : `Otherbody ${otherJoints[selectedOtherJointIndex].bodyIndexA + 1 - axleTable.length}`
+          : editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexA < editingTrainFormat.bogies.length
+            ? `Bogie ${editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexA + 1}`
+            : `Otherbody ${editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexA + 1 - editingTrainFormat.bogies.length}`
       }</Typography>
       <ToggleButton
         size="small"
@@ -868,10 +842,10 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionX = event.target.value;
           const x = parseFloat(event.target.value);
-          if (Number.isNaN(x)) return;
+          if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionA.x = x;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.x = x;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -880,10 +854,10 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionY = event.target.value;
           const y = parseFloat(event.target.value);
-          if (Number.isNaN(y)) return;
+          if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionA.y = y;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.y = y;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -892,20 +866,20 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointAPositionZ = event.target.value;
           const z = parseFloat(event.target.value);
-          if (Number.isNaN(z)) return;
+          if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionA.z = z;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.z = z;
+          updateEditingTrainFormat();
         }}
       />
     </Stack>
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Carbody B: {
-        otherJoints[selectedOtherJointIndex].bodyIndexB === -1
+        editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexB === -1
           ? "Not selected"
-          : otherJoints[selectedOtherJointIndex].bodyIndexB < axleTable.length
-            ? `Bogie ${otherJoints[selectedOtherJointIndex].bodyIndexB + 1}`
-            : `Otherbody ${otherJoints[selectedOtherJointIndex].bodyIndexB + 1 - axleTable.length}`
+          : editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexB < editingTrainFormat.bogies.length
+            ? `Bogie ${editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexB + 1}`
+            : `Otherbody ${editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexB + 1 - editingTrainFormat.bogies.length}`
       }</Typography>
       <ToggleButton
         size="small"
@@ -924,10 +898,10 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionX = event.target.value;
           const x = parseFloat(event.target.value);
-          if (Number.isNaN(x)) return;
+          if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionB.x = x;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.x = x;
+          updateEditingTrainFormat();
 
         }}
       />
@@ -937,10 +911,10 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionY = event.target.value;
           const y = parseFloat(event.target.value);
-          if (Number.isNaN(y)) return;
+          if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionB.y = y;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.y = y;
+          updateEditingTrainFormat();
         }}
       />
       <TextField
@@ -949,10 +923,10 @@ function OtherJointsEditor() {
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
           formState.jointBPositionZ = event.target.value;
           const z = parseFloat(event.target.value);
-          if (Number.isNaN(z)) return;
+          if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.otherJoints[selectedOtherJointIndex].positionB.z = z;
-          updateEditingTrain();
+          trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.z = z;
+          updateEditingTrainFormat();
         }}
       />
     </Stack>

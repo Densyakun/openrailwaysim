@@ -8,6 +8,7 @@ import TrainFormatEditPanel from './TrainFormatEditPanel';
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
+import TrainEditPanel from './TrainEditPanel';
 
 function TrainsMenu() {
   return <Paper sx={{
@@ -29,19 +30,21 @@ function TrainsMenu() {
 }
 
 export default function TrainsTabPanel() {
-  const { isShowTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId } = useSnapshot(trainsTabPanelState);
+  const { isShowTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId, isAddingTrain, editingTrainId } = useSnapshot(trainsTabPanelState);
   const { activeTrainId } = useSnapshot(trainsState);
 
   useEffect(() => {
     guiState.alignItems = (isAddingTrainFormat || editingTrainFormatId) ? "end" : "center";
   }, [isAddingTrainFormat, editingTrainFormatId]);
 
-  // TODO
+  // TODO TrainFormatはTrainGroupからではなく、TrainFormatTableから
   return isShowTable
     ? selectedTrainGroup
-      ? /*isAddingTrainFormat || editingTrainFormatId
-        ? <TrainFormatEditPanel />
-        : */<TrainTable trainGroupId={selectedTrainGroup} />
+      ? isAddingTrainFormat || editingTrainFormatId
+        ? isAddingTrain || editingTrainId
+          ? <TrainEditPanel />
+          : <TrainFormatEditPanel />
+        : <TrainTable trainGroupId={selectedTrainGroup} />
       : <TrainGroupTable />
     : activeTrainId
       ? <ControlStand />

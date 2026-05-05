@@ -109,7 +109,8 @@ export default function GUI() {
       alignItems={alignItems}
       sx={{
         width: '100%',
-        height: '100%',
+        flexGrow: 1,
+        minHeight: 0,
       }}
     >
       {selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}

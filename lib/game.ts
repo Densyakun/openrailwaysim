@@ -309,7 +309,7 @@ export function serialize(type: string, value: any): any {
   } else if (type === threeVector3TypeId) {
     const position: THREE.Vector3 = value;
 
-    return position.toArray();
+    return position.toArray ? position.toArray() : [position.x, position.y, position.z];
   } else if (type === threeEulerTypeId) {
     const rotation: THREE.Euler = value;
 

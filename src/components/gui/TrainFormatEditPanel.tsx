@@ -1,19 +1,19 @@
 import * as THREE from "three";
 import { proxy, useSnapshot } from "valtio";
-import { Alert, Button, ButtonGroup, Checkbox, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack, TextField, ToggleButton, Typography } from "@mui/material";
+import { Alert, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, List, ListItem, ListItemSecondaryAction } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import TuneIcon from '@mui/icons-material/Tune';
-import { placeTrain } from "@/lib/trains";
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains";
-import { useEffect } from "react";
-import { getPosition } from "@/lib/tracks";
+import { useEffect, useState } from "react";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { serialize, store, trainFormatTypeId } from "@/lib/game";
+import { serialize, store, trainFormatTypeId, Path, SerializableORSAppDataType } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
-import { setCameraTargetPosition } from "@/lib/client/camera";
 import { MessageCode, send } from "@/lib/ws";
+import { createStandardTrainFormat, StandardCarFormat, getJNR103SeriesStandardData, convertTrainFormatToStandard } from "@/lib/trainExamples";
 
 const formState = proxy<{
   newTrainFormatId: string;
@@ -31,6 +31,10 @@ const formState = proxy<{
   jointBPositionX: string;
   jointBPositionY: string;
   jointBPositionZ: string;
+  editingTrainFormatMode: "advanced" | "standard";
+  standardCarFormats: StandardCarFormat[];
+  standardCarFormatIndexes: number[];
+  standardMasterControllerUIOptionId: string;
 }>({
   newTrainFormatId: "",
   carBodyOffset: "",
@@ -47,6 +51,10 @@ const formState = proxy<{
   jointBPositionX: "",
   jointBPositionY: "",
   jointBPositionZ: "",
+  editingTrainFormatMode: "advanced",
+  standardCarFormats: [],
+  standardCarFormatIndexes: [],
+  standardMasterControllerUIOptionId: "",
 });
 
 function focusCamera() {
@@ -103,24 +111,28 @@ function saveEditingTrainFormat() {
   if (isAddingTrainFormat && Object.keys(store.data.trainFormats).includes(newTrainFormatId))
     return;
 
-  const trainFormatId = editingTrainFormatId || newTrainFormatId || uuidv4();
+  const targetId = newTrainFormatId || editingTrainFormatId || uuidv4();
   const serializedTrainFormat = serialize(trainFormatTypeId, editingTrainFormat);
 
-  if (editingTrainFormatId) {
-    send(socket, MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", trainFormatId], serializedTrainFormat]);
+  // If renaming, specify oldPath to server
+  const oldPath: Path<SerializableORSAppDataType> | undefined = (editingTrainFormatId && editingTrainFormatId !== targetId)
+    ? ["trainFormats", editingTrainFormatId]
+    : undefined;
+
+  const messages: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
+    [MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", targetId], serializedTrainFormat, oldPath]],
+  ];
+
+  if (isAddingTrainFormat && selectedTrainGroup && store.data.trainGroups[selectedTrainGroup]) {
+    const trainGroup = [...store.data.trainGroups[selectedTrainGroup]];
+    trainGroup.push(targetId);
+    messages.push([MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", selectedTrainGroup], trainGroup]]);
+  }
+
+  if (messages.length > 1) {
+    send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages as any); // eslint-disable-line @typescript-eslint/no-explicit-any
   } else {
-    const messages: [MessageCode, any][] = [
-      [MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", trainFormatId], serializedTrainFormat]],
-    ];
-
-    if (selectedTrainGroup && store.data.trainGroups[selectedTrainGroup]) {
-      const trainGroup = [...store.data.trainGroups[selectedTrainGroup]];
-      trainGroup.push(trainFormatId);
-
-      messages.push([MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", selectedTrainGroup], trainGroup]]);
-    }
-
-    send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
+    send(socket, MessageCode.FROM_CLIENT_SET_PROP, messages[0][1] as any); // eslint-disable-line @typescript-eslint/no-explicit-any
   }
 
   trainsTabPanelState.isAddingTrainFormat = false;
@@ -154,6 +166,9 @@ export default function TrainFormatEditPanel() {
     p: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    width: 400,
+    maxHeight: '100%',
+    overflowY: 'auto',
   }}>
     {selectedCarBodyIndex !== -1
       ? selectedCarBodyIndex < editingTrainFormat.bogies.length
@@ -235,6 +250,137 @@ function AddOtherJointButton() {
   </Button>;
 }
 
+function updateEditingTrainFormatFromStandard() {
+  const { standardCarFormats, standardCarFormatIndexes, standardMasterControllerUIOptionId } = formState;
+  const trainFormat = createStandardTrainFormat(
+    [...standardCarFormats],
+    [...standardCarFormatIndexes],
+    standardMasterControllerUIOptionId
+  );
+  trainsTabPanelState.editingTrainFormat = trainFormat;
+}
+
+function StandardCarFormatEditor({ index }: { index: number }) {
+  const { standardCarFormats } = useSnapshot(formState);
+  const carFormat = standardCarFormats[index];
+
+  return <Stack spacing={1} sx={{ p: 1, border: '1px solid #ccc', borderRadius: 1 }}>
+    <Typography variant="subtitle2">Car template {index + 1}</Typography>
+    <TextField label="Length" type="number" size="small" value={carFormat.carLength} onChange={e => {
+      formState.standardCarFormats[index].carLength = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <TextField label="Weight" type="number" size="small" value={carFormat.carWeight} onChange={e => {
+      formState.standardCarFormats[index].carWeight = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <TextField label="Coupler offset (Front)" type="number" size="small" value={carFormat.couplerJointOffset} onChange={e => {
+      formState.standardCarFormats[index].couplerJointOffset = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <TextField label="Coupler offset (Rear)" type="number" size="small" value={carFormat.couplerJointOffset1} onChange={e => {
+      formState.standardCarFormats[index].couplerJointOffset1 = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+      formState.standardCarFormats.splice(index, 1);
+      // Adjust indexes
+      formState.standardCarFormatIndexes = formState.standardCarFormatIndexes.map(i => i >= index ? Math.max(0, i - 1) : i);
+      updateEditingTrainFormatFromStandard();
+    }}>Delete template</Button>
+  </Stack>;
+}
+
+function StandardModeEditor() {
+  const { standardCarFormats, standardCarFormatIndexes, standardMasterControllerUIOptionId } = useSnapshot(formState);
+  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
+
+  return <Stack spacing={2}>
+    <Button variant="outlined" onClick={() => {
+      const { carFormats, carFormatIndexes } = getJNR103SeriesStandardData();
+      formState.standardCarFormats = [...carFormats];
+      formState.standardCarFormatIndexes = [...carFormatIndexes];
+      updateEditingTrainFormatFromStandard();
+    }}>Apply JNR 103 Series template</Button>
+    <Typography variant="h6">Car templates</Typography>
+    <Stack spacing={1}>
+      {standardCarFormats.map((_, index) => <StandardCarFormatEditor key={index} index={index} />)}
+      <Button variant="outlined" startIcon={<AddIcon />} onClick={() => {
+        formState.standardCarFormats.push({
+          carLength: 20,
+          bogies: [
+            { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
+            { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
+          ],
+          carWeight: 30,
+          couplerJointOffset: 0.5,
+          couplerJointOffset1: 0.5
+        });
+        updateEditingTrainFormatFromStandard();
+      }}>Add template</Button>
+    </Stack>
+
+    <Typography variant="h6">Formation</Typography>
+    <List dense>
+      {standardCarFormatIndexes.map((carIndex, i) => (
+        <ListItem key={i}>
+          <Typography sx={{ mr: 2 }}>{i + 1}:</Typography>
+          <Select
+            size="small"
+            value={carIndex}
+            onChange={e => {
+              formState.standardCarFormatIndexes[i] = e.target.value as number;
+              updateEditingTrainFormatFromStandard();
+            }}
+          >
+            {standardCarFormats.map((_, idx) => <MenuItem key={idx} value={idx}>Template {idx + 1}</MenuItem>)}
+          </Select>
+          <ListItemSecondaryAction>
+            <IconButton size="small" onClick={() => {
+              formState.standardCarFormatIndexes.splice(i, 1);
+              updateEditingTrainFormatFromStandard();
+            }}>
+              <DeleteIcon />
+            </IconButton>
+          </ListItemSecondaryAction>
+        </ListItem>
+      ))}
+    </List>
+    <Button variant="outlined" startIcon={<AddIcon />} onClick={() => {
+      formState.standardCarFormatIndexes.push(0);
+      updateEditingTrainFormatFromStandard();
+    }}>Add car to formation</Button>
+
+    <Stack direction="row" spacing={1} alignItems="center">
+      <FormControl fullWidth>
+        <InputLabel id="standard-master-controller-select-label">Master controller</InputLabel>
+        <Select
+          labelId="standard-master-controller-select-label"
+          value={standardMasterControllerUIOptionId}
+          label="Master controller"
+          onChange={e => {
+            formState.standardMasterControllerUIOptionId = e.target.value as string;
+            updateEditingTrainFormatFromStandard();
+          }}
+        >
+          {Object.keys(uiOneHandleMasterControllerConfigs).map(id =>
+            <MenuItem key={id} value={id}>{id}</MenuItem>
+          )}
+        </Select>
+      </FormControl>
+      <IconButton color="primary" onClick={() => trainsTabPanelState.isShowOneHandleMasterControllerConfig = true}>
+        <TuneIcon />
+      </IconButton>
+      <Drawer anchor="right" open={isShowOneHandleMasterControllerConfig} onClose={() => trainsTabPanelState.isShowOneHandleMasterControllerConfig = false}>
+        <Stack sx={{ width: 480 }}>
+          <UIOneHandleMasterControllerConfigTable />
+        </Stack>
+      </Drawer>
+    </Stack>
+  </Stack>;
+}
+
 function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const {
     isAddingTrainFormat,
@@ -243,13 +389,43 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     editingTrainFormat,
   } = trainsTabPanelState;
 
-  const { newTrainFormatId: newTrainFormatIdValue } = useSnapshot(formState, { sync: true });
+  const { newTrainFormatId: newTrainFormatIdValue, editingTrainFormatMode } = useSnapshot(formState, { sync: true });
   const { trainFormats, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const [openConfirmStandard, setOpenConfirmStandard] = useState(false);
 
   useEffect(() => {
     focusCamera();
     formState.newTrainFormatId = newTrainFormatId;
-  }, []);
+    const initialMode = isAddingTrainFormat ? "standard" : "advanced";
+    formState.editingTrainFormatMode = initialMode;
+
+    if (editingTrainFormat) {
+      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat);
+      if (carFormats.length > 0) {
+        formState.standardCarFormats = [...carFormats];
+        formState.standardCarFormatIndexes = [...carFormatIndexes];
+        if (masterControllerUIOptionId) {
+          formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
+        }
+      } else if (isAddingTrainFormat) {
+        // Default car for new format in Standard Mode
+        formState.standardCarFormats = [{
+          carLength: 20,
+          bogies: [
+            { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
+            { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
+          ],
+          carWeight: 30,
+          couplerJointOffset: 0.5,
+          couplerJointOffset1: 0.5
+        }];
+        formState.standardCarFormatIndexes = [0];
+        if (initialMode === "standard") {
+          updateEditingTrainFormatFromStandard();
+        }
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!editingTrainFormat) return null;
 
@@ -263,6 +439,55 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const hasInvalidCab = 0 <= invalidCabIndex;
 
   const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab;
+
+  const handleModeChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    newMode: "advanced" | "standard",
+  ) => {
+    if (!newMode) return;
+    if (editingTrainFormatMode === "advanced" && newMode === "standard") {
+      setOpenConfirmStandard(true);
+    } else {
+      formState.editingTrainFormatMode = newMode;
+      if (newMode === "standard") {
+          updateEditingTrainFormatFromStandard();
+      }
+    }
+  };
+
+  const handleConfirmStandardMode = () => {
+    formState.editingTrainFormatMode = "standard";
+    setOpenConfirmStandard(false);
+    
+    if (editingTrainFormat) {
+      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat);
+      formState.standardCarFormats = [...carFormats];
+      formState.standardCarFormatIndexes = [...carFormatIndexes];
+      if (masterControllerUIOptionId) {
+        formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
+      }
+    }
+    
+    if (formState.standardCarFormats.length === 0) {
+      formState.standardCarFormats = [{
+        carLength: 20,
+        bogies: [
+          { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
+          { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
+        ],
+        carWeight: 30,
+        couplerJointOffset: 0.5,
+        couplerJointOffset1: 0.5
+      }];
+      formState.standardCarFormatIndexes = [0];
+    }
+    
+    if (!formState.standardMasterControllerUIOptionId && Object.keys(uiOneHandleMasterControllerConfigs).length > 0) {
+        formState.standardMasterControllerUIOptionId = Object.keys(uiOneHandleMasterControllerConfigs)[0];
+    }
+
+    updateEditingTrainFormatFromStandard();
+  };
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -282,27 +507,31 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       IDが重複しています
     </Alert>
     }
-    {hasNoBogies && <Alert
-      severity="error"
-      action={
-        <AddBogieButton />
-      }
-    >
-      台車を追加してください
-    </Alert>
-    }
-    {hasNoAxles && <Alert
-      severity="error"
-    >
-      台車に輪軸を追加してください
-    </Alert>
-    }
-    {hasInvalidCab && <Alert
-      severity="error"
-    >
-      {`Otherbody ${invalidCabIndex + 1} のマスコンの形式IDが間違っています`}
-    </Alert>
-    }
+    {editingTrainFormatMode === "advanced" && (
+      <>
+        {hasNoBogies && <Alert
+          severity="error"
+          action={
+            <AddBogieButton />
+          }
+        >
+          台車を追加してください
+        </Alert>
+        }
+        {hasNoAxles && <Alert
+          severity="error"
+        >
+          台車に輪軸を追加してください
+        </Alert>
+        }
+        {hasInvalidCab && <Alert
+          severity="error"
+        >
+          {`Otherbody ${invalidCabIndex + 1} のマスコンの形式IDが間違っています`}
+        </Alert>
+        }
+      </>
+    )}
     <TextField
       label="ID"
       value={newTrainFormatIdValue}
@@ -310,42 +539,74 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         trainsTabPanelState.newTrainFormatId = formState.newTrainFormatId = event.target.value
       }
     />
-    <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Bogies: {editingTrainFormat.bogies.length}</Typography>
-      <AddBogieButton />
-      <Button variant="contained" disabled={!editingTrainFormat.bogies.length} onClick={() =>
-        trainsTabPanelState.selectedCarBodyIndex = 0
-      }>
-        Edit
-      </Button>
-    </Stack>
-    <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Otherbodies: {editingTrainFormat.otherBodyOffsets.length}</Typography>
-      <AddOtherBodyButton />
-      <Button variant="contained" disabled={!editingTrainFormat.otherBodyOffsets.length} onClick={() =>
-        trainsTabPanelState.selectedCarBodyIndex = editingTrainFormat.bogies.length
-      }>
-        Edit
-      </Button>
-    </Stack>
-    <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Body supporter joints: {editingTrainFormat.bodySupporterJoints.length}</Typography>
-      <AddBodySupporterJointButton />
-      <Button variant="contained" disabled={!editingTrainFormat.bodySupporterJoints.length} onClick={() =>
-        trainsTabPanelState.selectedBodySupporterJointIndex = 0
-      }>
-        Edit
-      </Button>
-    </Stack>
-    <Stack direction="row" spacing={1} alignItems="center">
-      <Typography>Other joints: {editingTrainFormat.otherJoints.length}</Typography>
-      <AddOtherJointButton />
-      <Button variant="contained" disabled={!editingTrainFormat.otherJoints.length} onClick={() =>
-        trainsTabPanelState.selectedOtherJointIndex = 0
-      }>
-        Edit
-      </Button>
-    </Stack>
+    <ToggleButtonGroup
+      color="primary"
+      value={editingTrainFormatMode}
+      exclusive
+      onChange={handleModeChange}
+      size="small"
+    >
+      <ToggleButton value="standard">Standard Mode</ToggleButton>
+      <ToggleButton value="advanced">Advanced Mode</ToggleButton>
+    </ToggleButtonGroup>
+
+    {editingTrainFormatMode === "standard" ? (
+      <StandardModeEditor />
+    ) : (
+      <>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography>Bogies: {editingTrainFormat.bogies.length}</Typography>
+          <AddBogieButton />
+          <Button variant="contained" disabled={!editingTrainFormat.bogies.length} onClick={() =>
+            trainsTabPanelState.selectedCarBodyIndex = 0
+          }>
+            Edit
+          </Button>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography>Otherbodies: {editingTrainFormat.otherBodyOffsets.length}</Typography>
+          <AddOtherBodyButton />
+          <Button variant="contained" disabled={!editingTrainFormat.otherBodyOffsets.length} onClick={() =>
+            trainsTabPanelState.selectedCarBodyIndex = editingTrainFormat.bogies.length
+          }>
+            Edit
+          </Button>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography>Body supporter joints: {editingTrainFormat.bodySupporterJoints.length}</Typography>
+          <AddBodySupporterJointButton />
+          <Button variant="contained" disabled={!editingTrainFormat.bodySupporterJoints.length} onClick={() =>
+            trainsTabPanelState.selectedBodySupporterJointIndex = 0
+          }>
+            Edit
+          </Button>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography>Other joints: {editingTrainFormat.otherJoints.length}</Typography>
+          <AddOtherJointButton />
+          <Button variant="contained" disabled={!editingTrainFormat.otherJoints.length} onClick={() =>
+            trainsTabPanelState.selectedOtherJointIndex = 0
+          }>
+            Edit
+          </Button>
+        </Stack>
+      </>
+    )}
+
+    <Dialog open={openConfirmStandard} onClose={() => setOpenConfirmStandard(false)}>
+      <DialogTitle>Switch to Standard Mode?</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          Switching to Standard Mode will overwrite your current manual edits. Are you sure you want to proceed?
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setOpenConfirmStandard(false)}>Cancel</Button>
+        <Button onClick={handleConfirmStandardMode} color="error" variant="contained">
+          Proceed
+        </Button>
+      </DialogActions>
+    </Dialog>
     {editingTrainFormat && <>
       <Button variant="contained" startIcon={<SaveIcon />}
         disabled={trainIsDeadEnd || hasError}
@@ -628,7 +889,7 @@ function OtherBodiesEditor() {
       <IconButton color="primary" onClick={() => trainsTabPanelState.isShowOneHandleMasterControllerConfig = true}>
         <TuneIcon />
       </IconButton>
-      <Drawer open={isShowOneHandleMasterControllerConfig} onClose={() => trainsTabPanelState.isShowOneHandleMasterControllerConfig = false}>
+      <Drawer anchor="right" open={isShowOneHandleMasterControllerConfig} onClose={() => trainsTabPanelState.isShowOneHandleMasterControllerConfig = false}>
         <Stack sx={{ width: 480 }}>
           <UIOneHandleMasterControllerConfigTable />
         </Stack>

@@ -136,6 +136,8 @@ export function setupServer(wss: WebSocketServer) {
         push()
       } else if (path[0] === "nowDate") {
         push()
+      } else if (path[0] === "trainFormats") {
+        push()
       } else if (path[0] === "trains") {
         if (3 <= path.length) {
           // TODO 同期するシリアライズでなければいけないが、シリアライズTrainにはボギーのデータがない（ボギーは保存しないのでシリアライズTrainに含まない）

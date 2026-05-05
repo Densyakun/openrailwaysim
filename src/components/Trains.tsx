@@ -171,7 +171,7 @@ function OtherBodyModel({
       onClick={() => {
         if (trainsState.activeTrainId) return;
 
-        if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
+        if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
           trainsState.hoveredBodyIndex = -1;
           trainsState.hoveredTrainId = "";
 
@@ -207,7 +207,7 @@ function OtherBodyModel({
         if (trainsState.activeTrainId) return;
 
         if (
-          guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
+          guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable
           || isEditing && (
             trainsTabPanelState.isSelectingCarBodyA
             || trainsTabPanelState.isSelectingCarBodyB && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint

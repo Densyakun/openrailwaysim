@@ -9,6 +9,7 @@ import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
 import TrainEditPanel from './TrainEditPanel';
+import TrainFormatTable from './TrainFormatTable';
 
 function TrainsMenu() {
   return <Paper sx={{
@@ -17,12 +18,22 @@ function TrainsMenu() {
     userSelect: 'none',
   }}>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Tooltip title="Toggle table" disableInteractive>
-        <Fab size="small" color="primary" onClick={() => trainsTabPanelState.isShowTable = true} sx={{
+      <Tooltip title="Toggle train format table" disableInteractive>
+        <Fab variant="extended" size="small" color="primary" onClick={() => trainsTabPanelState.isShowTrainFormatTable = true} sx={{
           pointerEvents: 'auto',
           userSelect: 'none'
         }}>
-          <TableViewIcon />
+          <TableViewIcon sx={{ mr: 1 }} />
+          Formats
+        </Fab>
+      </Tooltip>
+      <Tooltip title="Toggle train table" disableInteractive>
+        <Fab variant="extended" size="small" color="primary" onClick={() => trainsTabPanelState.isShowTrainTable = true} sx={{
+          pointerEvents: 'auto',
+          userSelect: 'none'
+        }}>
+          <TableViewIcon sx={{ mr: 1 }} />
+          Train groups
         </Fab>
       </Tooltip>
     </Stack>
@@ -30,23 +41,24 @@ function TrainsMenu() {
 }
 
 export default function TrainsTabPanel() {
-  const { isShowTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId, isAddingTrain, editingTrainId } = useSnapshot(trainsTabPanelState);
+  const { isShowTrainTable, isShowTrainFormatTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId, isAddingTrain, editingTrainId } = useSnapshot(trainsTabPanelState);
   const { activeTrainId } = useSnapshot(trainsState);
 
   useEffect(() => {
     guiState.alignItems = (isAddingTrainFormat || editingTrainFormatId) ? "end" : "center";
   }, [isAddingTrainFormat, editingTrainFormatId]);
 
-  // TODO TrainFormatはTrainGroupからではなく、TrainFormatTableから
-  return isShowTable
-    ? selectedTrainGroup
-      ? isAddingTrainFormat || editingTrainFormatId
+  return isShowTrainFormatTable
+    ? isAddingTrainFormat || editingTrainFormatId
+      ? <TrainFormatEditPanel />
+      : <TrainFormatTable />
+    : isShowTrainTable
+      ? selectedTrainGroup
         ? isAddingTrain || editingTrainId
           ? <TrainEditPanel />
-          : <TrainFormatEditPanel />
-        : <TrainTable trainGroupId={selectedTrainGroup} />
-      : <TrainGroupTable />
-    : activeTrainId
-      ? <ControlStand />
-      : <TrainsMenu />;
+          : <TrainTable trainGroupId={selectedTrainGroup} />
+        : <TrainGroupTable />
+      : activeTrainId
+        ? <ControlStand />
+        : <TrainsMenu />;
 }

@@ -27,7 +27,7 @@ export default function TrainGroupTable() {
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
-            trainsTabPanelState.isShowTable = false
+            trainsTabPanelState.isShowTrainTable = false
           }>
             Back
           </Button>

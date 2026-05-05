@@ -21,8 +21,8 @@ export default function DataMenu<FormValues extends { id: string }>({
   listItemButtons,
   handleSubmit: handleSubmit_,
   handleDelete: handleDelete_,
-  addable = true,
-  editable = true,
+  showDefaultAddButton = true,
+  showDefaultEditButton = true,
 }: {
   defaultValues?: DefaultValues<FormValues>;
   getValueOnEdit?: (newEditingId: string) => FormValues;
@@ -34,8 +34,8 @@ export default function DataMenu<FormValues extends { id: string }>({
   listItemButtons?: (id: string) => JSX.Element;
   handleSubmit?: (inputs: FormValues, editingId: string) => void;
   handleDelete?: (id: string) => void;
-  addable?: boolean;
-  editable?: boolean;
+  showDefaultAddButton?: boolean;
+  showDefaultEditButton?: boolean;
 }) {
   const form = useForm<FormValues>({
     defaultValues,
@@ -107,7 +107,7 @@ export default function DataMenu<FormValues extends { id: string }>({
           </>
           :
           <>
-            {getValueOnEdit && addable &&
+            {getValueOnEdit && showDefaultAddButton &&
               <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
                 setAdding(true);
                 reset(defaultValues);
@@ -125,7 +125,7 @@ export default function DataMenu<FormValues extends { id: string }>({
                     secondaryAction={
                       <>
                         {listItemButtons && listItemButtons(id)}
-                        {editable &&
+                        {showDefaultEditButton &&
                           <Tooltip title="Edit" disableInteractive>
                             <IconButton edge="end" onClick={() =>
                               setEditingId(id)

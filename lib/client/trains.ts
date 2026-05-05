@@ -15,9 +15,8 @@ export const trainsState = proxy<{
 });
 
 export const trainsTabPanelState = proxy<{
-  isShowTable: boolean;
-
   // Train format
+  isShowTrainFormatTable: boolean;
   isAddingTrainFormat: boolean;
   newTrainFormatId: string;
   editingTrainFormatId: string;
@@ -32,6 +31,7 @@ export const trainsTabPanelState = proxy<{
   isSelectingCarBodyToBodySupporterJoint: boolean;
 
   // Train
+  isShowTrainTable: boolean;
   selectedTrainGroup: string;
   isAddingTrain: boolean;
   newTrainId: string;
@@ -42,9 +42,8 @@ export const trainsTabPanelState = proxy<{
   pointOnTrack?: PointOnTrack;
   trainIsDeadEnd: boolean;
 }>({
-  isShowTable: false,
-
   // Train format
+  isShowTrainFormatTable: false,
   isAddingTrainFormat: false,
   newTrainFormatId: "",
   editingTrainFormatId: "",
@@ -58,6 +57,7 @@ export const trainsTabPanelState = proxy<{
   isSelectingCarBodyToBodySupporterJoint: false,
 
   // Train
+  isShowTrainTable: false,
   selectedTrainGroup: "",
   isAddingTrain: false,
   newTrainId: "",

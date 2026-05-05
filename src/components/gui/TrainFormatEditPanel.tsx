@@ -9,7 +9,7 @@ import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains
 import { useEffect } from "react";
 import { getPosition } from "@/lib/tracks";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
-import { store } from "@/lib/game";
+import { serialize, store, trainFormatTypeId } from "@/lib/game";
 import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
 import { setCameraTargetPosition } from "@/lib/client/camera";
@@ -89,26 +89,39 @@ function updateEditingTrainFormat() {
 }
 
 function saveEditingTrainFormat() {
-  if (trainsTabPanelState.editingTrainFormatId) {
-    // TODO
-    return;
-  }
+  const {
+    editingTrainFormatId,
+    newTrainFormatId,
+    editingTrainFormat,
+    selectedTrainGroup,
+    isAddingTrainFormat,
+  } = trainsTabPanelState;
+
+  if (!editingTrainFormat) return;
 
   // Add new train
-  if (Object.keys(store.data.trainFormats).includes(trainsTabPanelState.newTrainFormatId))
+  if (isAddingTrainFormat && Object.keys(store.data.trainFormats).includes(newTrainFormatId))
     return;
 
-  const trainFormatId = trainsTabPanelState.newTrainFormatId || uuidv4();
-  const trainFormat = updateEditingTrainFormat();
+  const trainFormatId = editingTrainFormatId || newTrainFormatId || uuidv4();
+  const serializedTrainFormat = serialize(trainFormatTypeId, editingTrainFormat);
 
-  // TODO
-  /*const trainGroup = [...store.data.trainGroups[trainsTabPanelState.selectedTrainGroup]];
-  trainGroup.push(trainFormatId);
+  if (editingTrainFormatId) {
+    send(socket, MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", trainFormatId], serializedTrainFormat]);
+  } else {
+    const messages: [MessageCode, any][] = [
+      [MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", trainFormatId], serializedTrainFormat]],
+    ];
 
-  send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
-    [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainFormatId], trainFormat]],
-    [MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", trainsTabPanelState.selectedTrainGroup], trainGroup]],
-  ]);*/
+    if (selectedTrainGroup && store.data.trainGroups[selectedTrainGroup]) {
+      const trainGroup = [...store.data.trainGroups[selectedTrainGroup]];
+      trainGroup.push(trainFormatId);
+
+      messages.push([MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", selectedTrainGroup], trainGroup]]);
+    }
+
+    send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
+  }
 
   trainsTabPanelState.isAddingTrainFormat = false;
   resetEditingTrainState();
@@ -225,14 +238,13 @@ function AddOtherJointButton() {
 function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const {
     isAddingTrainFormat,
-    selectedTrainGroup,
     editingTrainFormatId,
     newTrainFormatId,
     editingTrainFormat,
   } = trainsTabPanelState;
 
   const { newTrainFormatId: newTrainFormatIdValue } = useSnapshot(formState, { sync: true });
-  const { trains, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { trainFormats, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
 
   useEffect(() => {
     focusCamera();
@@ -245,6 +257,13 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     cab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(cab.oneHandleMasterControllerUIConfigId)
   );
 
+  const isDuplicateId = isAddingTrainFormat && Object.keys(trainFormats).includes(newTrainFormatId);
+  const hasNoBogies = !editingTrainFormat.bogies.length;
+  const hasNoAxles = editingTrainFormat.bogies.some(bogie => !bogie.axles.length);
+  const hasInvalidCab = 0 <= invalidCabIndex;
+
+  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab;
+
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() => {
@@ -255,15 +274,15 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         Back
       </Button>
       <Typography variant="h6" gutterBottom>{isAddingTrainFormat
-        ? `Add a train to ${selectedTrainGroup}`
-        : `Edit a train "${editingTrainFormatId}"`
+        ? `Add a train format`
+        : `Edit a train format "${editingTrainFormatId}"`
       }</Typography>
     </Stack>
-    {isAddingTrainFormat && Object.keys(trains).includes(trainsTabPanelState.newTrainId) && <Alert severity="error">
+    {isDuplicateId && <Alert severity="error">
       IDが重複しています
     </Alert>
     }
-    {!editingTrainFormat.bogies.length && <Alert
+    {hasNoBogies && <Alert
       severity="error"
       action={
         <AddBogieButton />
@@ -272,7 +291,13 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       台車を追加してください
     </Alert>
     }
-    {0 <= invalidCabIndex && <Alert
+    {hasNoAxles && <Alert
+      severity="error"
+    >
+      台車に輪軸を追加してください
+    </Alert>
+    }
+    {hasInvalidCab && <Alert
       severity="error"
     >
       {`Otherbody ${invalidCabIndex + 1} のマスコンの形式IDが間違っています`}
@@ -323,7 +348,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     </Stack>
     {editingTrainFormat && <>
       <Button variant="contained" startIcon={<SaveIcon />}
-        disabled={trainIsDeadEnd}
+        disabled={trainIsDeadEnd || hasError}
         onClick={() => saveEditingTrainFormat()}>
         Save
       </Button>

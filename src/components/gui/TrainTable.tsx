@@ -74,8 +74,8 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
       handleDelete={(id => {
         send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["trains", id]);
       })}
-      addable={false}
-      editable={false}
+      showDefaultAddButton={false}
+      showDefaultEditButton={false}
     />
   </Paper>;
 }

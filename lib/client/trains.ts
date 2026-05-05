@@ -68,6 +68,7 @@ export const trainsTabPanelState = proxy<{
 });
 
 export function resetEditingTrainState() {
+  trainsTabPanelState.isAddingTrainFormat = false;
   trainsTabPanelState.newTrainFormatId = "";
   trainsTabPanelState.editingTrainFormatId = "";
   trainsTabPanelState.editingTrainFormat = undefined;
@@ -80,6 +81,7 @@ export function resetEditingTrainState() {
   trainsTabPanelState.isSelectingCarBodyB = false;
   trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint = false;
 
+  trainsTabPanelState.isAddingTrain = false;
   trainsTabPanelState.newTrainId = "";
   trainsTabPanelState.editingTrainId = "";
   trainsTabPanelState.editingTrain = undefined;

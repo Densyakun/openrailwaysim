@@ -7,6 +7,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { socket } from '../Client';
 import { resetEditingTrainState, trainsTabPanelState } from '@/lib/client/trains';
+import { formState } from './TrainFormatEditPanel';
 import { MessageCode, send } from '@/lib/ws';
 import { serialize, store, trainFormatTypeId } from "@/lib/game";
 
@@ -37,8 +38,9 @@ export default function TrainFormatTable() {
             editingId ? `Edit a train format "${editingId}"` :
               "Train formats"}</Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
-            trainsTabPanelState.isAddingTrainFormat = true;
             resetEditingTrainState();
+            trainsTabPanelState.isAddingTrainFormat = true;
+            formState.editingTrainFormatMode = "standard";
             trainsTabPanelState.editingTrainFormat = {
               bogies: [],
               otherBodyOffsets: [],
@@ -58,6 +60,7 @@ export default function TrainFormatTable() {
         <Tooltip title="Edit" disableInteractive>
           <IconButton edge="end" onClick={() => {
             resetEditingTrainState();
+            formState.editingTrainFormatMode = "advanced";
             trainsTabPanelState.editingTrainFormatId = id;
             trainsTabPanelState.editingTrainFormat = JSON.parse(JSON.stringify(store.data.trainFormats[id]));
           }}>

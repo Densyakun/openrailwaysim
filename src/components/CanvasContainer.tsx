@@ -11,6 +11,11 @@ import TerrainGenerator from './TerrainGenerator'
 import Client from './Client'
 import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { useSnapshot } from 'valtio'
+import { trainsTabPanelState } from '@/lib/client/trains'
+import { guiState } from '@/lib/client/gui'
+import TrainFormatPreview from './TrainFormatPreview'
+import { TrainFormat } from '@/lib/trains'
 
 function ErrorFallback({ error }: FallbackProps) {
   const { resetBoundary } = useErrorBoundary();
@@ -30,6 +35,11 @@ function ErrorFallback({ error }: FallbackProps) {
 }
 
 export default function CanvasContainer() {
+  const { editingTrainFormat } = useSnapshot(trainsTabPanelState);
+  const { selectedTab } = useSnapshot(guiState);
+
+  const isPreviewMode = !!editingTrainFormat && selectedTab === "trains";
+
   return <ErrorBoundary
     FallbackComponent={ErrorFallback}
   >
@@ -44,13 +54,19 @@ export default function CanvasContainer() {
       <Cameras />
       <CameraControls />
       <SunAndSky />
-      <DreiSegments />
-      <FeatureCollections />
-      <Tracks />
-      {/*<Trains />*/}
-      <Terrains />
-      <TerrainGenerator />
       <Client />
+      {isPreviewMode ? (
+        <TrainFormatPreview format={editingTrainFormat as TrainFormat} />
+      ) : (
+        <>
+          <DreiSegments />
+          <FeatureCollections />
+          <Tracks />
+          <Trains />
+          <Terrains />
+          <TerrainGenerator />
+        </>
+      )}
     </Canvas>
   </ErrorBoundary>;
 }

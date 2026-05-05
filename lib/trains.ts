@@ -10,6 +10,9 @@ export const runningResistanceA = 1.273; // 走行抵抗の定数A。輪軸あ�
 export const runningResistanceB = 0.001; // 走行抵抗の定数B。輪軸あたりの車輪とレールの摩擦に依存する値
 export const runningResistanceC = 0.0001381; // 走行抵抗の定数C。空気抵抗に依存する値
 
+const cV = (v: THREE.Vector3) => v.clone ? v.clone() : new THREE.Vector3().copy(v);
+const cE = (e: THREE.Euler) => (e as any).clone ? (e as any).clone() : new THREE.Euler().copy(e); // eslint-disable-line @typescript-eslint/no-explicit-any
+
 export type Axle = {
   pointOnTrack: PointOnTrack;
   position: THREE.Vector3;
@@ -387,14 +390,14 @@ export function axlesToBogie(bogie: Bogie, bogieFormat: BogieFormat) {
 
 export function getBogiesQuaternion({ bogies }: Train) {
   return 2 <= bogies.length
-    ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), bogies[bogies.length - 1].position.clone().sub(bogies[0].position).normalize())
-    : new THREE.Quaternion().setFromEuler(bogies[0].rotation);
+    ? new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1), cV(bogies[bogies.length - 1].position).sub(cV(bogies[0].position)).normalize())
+    : new THREE.Quaternion().setFromEuler(cE(bogies[0].rotation));
 }
 
 export function getFromPosition(fromBody: CarBody, toBody: CarBody, fromPosition: THREE.Vector3, toPosition: THREE.Vector3) {
-  return toBody.position.clone()
-    .add(toPosition.clone().applyEuler(toBody.rotation))
-    .sub(fromPosition.clone().applyEuler(fromBody.rotation));
+  return cV(toBody.position)
+    .add(cV(toPosition).applyEuler(cE(toBody.rotation)))
+    .sub(cV(fromPosition).applyEuler(cE(fromBody.rotation)));
 }
 
 export function bodyIndexIsBogie(train: Train, bodyIndex: number) {
@@ -541,13 +544,13 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
       if (fromOtherBodyIndex === joint.otherBodyIndex) {
         if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
           fromJointEuler = train.bogies[joint.bogieIndex].rotation;
-          fromJointPosition = train.bogies[joint.bogieIndex].position.clone()
-            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+          fromJointPosition = cV(train.bogies[joint.bogieIndex].position)
+            .add(cV(joint.bogiePosition).applyEuler(cE(train.bogies[joint.bogieIndex].rotation)));
         }
         if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
           toJointEuler = train.bogies[joint.bogieIndex].rotation;
-          toJointPosition = train.bogies[joint.bogieIndex].position.clone()
-            .add(joint.bogiePosition.clone().applyEuler(train.bogies[joint.bogieIndex].rotation));
+          toJointPosition = cV(train.bogies[joint.bogieIndex].position)
+            .add(cV(joint.bogiePosition).applyEuler(cE(train.bogies[joint.bogieIndex].rotation)));
         }
       }
     });
@@ -558,38 +561,40 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
 
         if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
           fromJointEuler = toBody.rotation;
-          fromJointPosition = toBody.position.clone()
-            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+          fromJointPosition = cV(toBody.position)
+            .add(cV(joint.positionB).applyEuler(cE(toBody.rotation)));
         }
         if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
           toJointEuler = toBody.rotation;
-          toJointPosition = toBody.position.clone()
-            .add(joint.positionB.clone().applyEuler(toBody.rotation));
+          toJointPosition = cV(toBody.position)
+            .add(cV(joint.positionB).applyEuler(cE(toBody.rotation)));
         }
       } else if (fromBodyIndex === joint.bodyIndexB) {
         const toBody = getBodyFromBodyIndex(train, joint.bodyIndexA);
 
         if (train.fromJointIndexes[fromBodyIndex] === jointIndex) {
           fromJointEuler = toBody.rotation;
-          fromJointPosition = toBody.position.clone()
-            .add(joint.positionA.clone().applyEuler(toBody.rotation));
+          fromJointPosition = cV(toBody.position)
+            .add(cV(joint.positionA).applyEuler(cE(toBody.rotation)));
         }
         if (train.toJointIndexes[fromBodyIndex] === jointIndex) {
           toJointEuler = toBody.rotation;
-          toJointPosition = toBody.position.clone()
-            .add(joint.positionA.clone().applyEuler(toBody.rotation));
+          toJointPosition = cV(toBody.position)
+            .add(cV(joint.positionA).applyEuler(cE(toBody.rotation)));
         }
       }
     });
 
     if (fromJointEuler) {
-      if (fromJointPosition!.equals(toJointPosition!))
+      if (cV(fromJointPosition!).equals(cV(toJointPosition!)))
         fromBody.rotation.copy(fromJointEuler!);
       else {
+        const fromE = cE(fromJointEuler);
+        const toE = cE(toJointEuler!);
         fromBody.rotation.set(
-          (fromJointEuler.x + toJointEuler!.x) / 2,
-          (fromJointEuler.y + toJointEuler!.y) / 2,
-          (fromJointEuler.z + toJointEuler!.z) / 2,
+          (fromE.x + toE.x) / 2,
+          (fromE.y + toE.y) / 2,
+          (fromE.z + toE.z) / 2,
           'YXZ'
         );
       }

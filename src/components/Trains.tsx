@@ -261,7 +261,7 @@ export default function Trains() {
   </>;
 }
 
-function TrainComponent({ trainId = "", train, format, isEditing = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean }) {
+export function TrainComponent({ trainId = "", train, format, isEditing = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean }) {
   return <>
     {train.bogies.map((bogie, bogieIndex) => {
       const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex

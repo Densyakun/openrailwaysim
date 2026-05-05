@@ -15,7 +15,7 @@ import { socket } from "../Client";
 import { MessageCode, send } from "@/lib/ws";
 import { createStandardTrainFormat, StandardCarFormat, getJNR103SeriesStandardData, convertTrainFormatToStandard } from "@/lib/trainExamples";
 
-const formState = proxy<{
+export const formState = proxy<{
   newTrainFormatId: string;
   carBodyOffset: string;
   carBodyWeight: string;
@@ -492,9 +492,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
       <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() => {
-        trainsTabPanelState.isAddingTrainFormat = false;
-        trainsTabPanelState.editingTrainFormatId = "";
-        trainsTabPanelState.editingTrain = undefined;
+        resetEditingTrainState();
       }}>
         Back
       </Button>

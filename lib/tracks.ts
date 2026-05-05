@@ -5,6 +5,9 @@ import { getRelativePosition } from './gis';
 
 export type GradientsType = { [key: number]: number };
 
+const cV = (v: THREE.Vector3) => v.clone ? v.clone() : new THREE.Vector3().copy(v);
+const cE = (e: THREE.Euler) => (e as any).clone ? (e as any).clone() : new THREE.Euler().copy(e); // eslint-disable-line @typescript-eslint/no-explicit-any
+
 export type TrackShape = {
   position: THREE.Vector3;
   rotationY: number;
@@ -220,7 +223,7 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
   const { position, rotationY, radius, length: curveLength, gradients } = track;
 
   if (length === 0)
-    return position.clone();
+    return cV(position);
 
   const rotation = new THREE.Euler(0, rotationY);
 
@@ -230,7 +233,7 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
     // TODO 位置が間違っている！（カクカクする）
     return getPosition(
       {
-        position: transition.position.clone().multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
+        position: cV(transition.position).multiply(new THREE.Vector3(1, 1, (track as TransitionCurve).curveDirection ? 1 : -1)),
         rotationY: (track as TransitionCurve).curveDirection ? transition.rotationY : -transition.rotationY,
         radius: transition.curvature === 0 ? 0 :
           ((track as TransitionCurve).curveDirection ? -1 : 1) / transition.curvature,
@@ -238,15 +241,15 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
         gradients: { 0: 0 },
       },
       length - i * curveLength / (track as TransitionCurve).transitionCurves.length
-    ).applyEuler(rotation).add(position)
+    ).applyEuler(rotation).add(cV(position))
       .add(new THREE.Vector3(0, getHeight(length, gradients)));
   }
 
   if (radius === 0)
-    return position.clone().add(new THREE.Vector3(1).applyEuler(rotation).multiplyScalar(length))
+    return cV(position).add(new THREE.Vector3(1).applyEuler(rotation).multiplyScalar(length))
       .add(new THREE.Vector3(0, getHeight(length, gradients)));
   else
-    return position.clone()
+    return cV(position)
       .add(new THREE.Vector3(0, 0, radius).applyEuler(rotation))
       .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)))
       .add(new THREE.Vector3(0, getHeight(length, gradients)));
@@ -304,7 +307,7 @@ function transitionCurveA(point: THREE.Vector3, transitionCurves: TransitionCurv
 }
 
 export function getLength(point: THREE.Vector3, track: Track): number {
-  const point1 = point.clone().sub(track.position)
+  const point1 = cV(point).sub(cV(track.position))
     .applyEuler(new THREE.Euler(0, -track.rotationY));
 
   if ((track as TransitionCurve).endPosition !== undefined) {
@@ -387,7 +390,7 @@ export function createStraightTrackFromLineStrings(
   for (let i = 0; i < points.length; i += 2) {
     const a = points[i];
     const b = points[i + 1];
-    const v = b.clone().sub(a);
+    const v = cV(b).sub(cV(a));
     if (sumVec.lengthSq() === 0) {
       sumVec.copy(v);
     } else {
@@ -396,20 +399,20 @@ export function createStraightTrackFromLineStrings(
     }
   }
 
-  const avgDir = sumVec.clone().divideScalar(numLines).normalize();
+  const avgDir = cV(sumVec).divideScalar(numLines).normalize();
   const rotationY = Math.atan2(-avgDir.z, avgDir.x);
 
-  const base = points[0].clone();
+  const base = cV(points[0]);
 
   let minProj = Infinity;
   let maxProj = -Infinity;
   points.forEach(p => {
-    const proj = p.clone().sub(base).dot(avgDir);
+    const proj = cV(p).sub(base).dot(avgDir);
     if (proj < minProj) minProj = proj;
     if (proj > maxProj) maxProj = proj;
   });
 
-  const startPos = base.clone().add(avgDir.clone().multiplyScalar(minProj));
+  const startPos = cV(base).add(cV(avgDir).multiplyScalar(minProj));
   const length = maxProj - minProj;
 
   return {
@@ -498,9 +501,11 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
   let newDirectionIsReversed = directionIsReversed;
   let isDeadEnd = false;
 
-  directionIsReversed
-    ? newPointOnTrack.length -= distance
-    : newPointOnTrack.length += distance;
+  if (directionIsReversed) {
+    newPointOnTrack.length -= distance;
+  } else {
+    newPointOnTrack.length += distance;
+  }
 
   if (newPointOnTrack.length < 0) {
     // 輪軸が軌道の始点より外に進入した場合

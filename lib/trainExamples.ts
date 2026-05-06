@@ -470,7 +470,7 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
       trainFormat.bodySupporterJoints.push(
         {
           otherBodyIndex: index,
-          otherBodyPosition: new THREE.Vector3(0, -1, bogieOffset),
+          otherBodyPosition: new THREE.Vector3(0, -1, -bogieOffset),
           bogieIndex: trainFormat.bogies.length - 1,
           bogiePosition: new THREE.Vector3(),
         },
@@ -492,15 +492,15 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
     trainFormat.otherJoints.push(
       {
         bodyIndexA: trainFormat.bogies.length + i,
-        positionA: new THREE.Vector3(0, 0, carFormat.carLength / 2 - carFormat.couplerJointOffset),
+        positionA: new THREE.Vector3(0, 0, carFormat.couplerJointOffset - carFormat.carLength / 2),
         bodyIndexB: trainFormat.bogies.length + carFormatIndexes.length + i,
-        positionB: new THREE.Vector3(0, 0, -carFormat.couplerJointOffset),
+        positionB: new THREE.Vector3(0, 0, carFormat.couplerJointOffset),
       },
       {
         bodyIndexA: trainFormat.bogies.length + i + 1,
-        positionA: new THREE.Vector3(0, 0, carFormat1.couplerJointOffset1 - carFormat1.carLength / 2),
+        positionA: new THREE.Vector3(0, 0, carFormat1.carLength / 2 - carFormat1.couplerJointOffset1),
         bodyIndexB: trainFormat.bogies.length + carFormatIndexes.length + i,
-        positionB: new THREE.Vector3(0, 0, carFormat1.couplerJointOffset1),
+        positionB: new THREE.Vector3(0, 0, -carFormat1.couplerJointOffset1),
       },
     );
 
@@ -573,10 +573,10 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
     carJoints.forEach(j => {
       if (j.positionA.z > 0) {
         // 後方連結器
-        couplerJointOffset = carLength / 2 - j.positionA.z;
+        couplerJointOffset1 = carLength / 2 - j.positionA.z;
       } else {
         // 前方連結器
-        couplerJointOffset1 = j.positionA.z + carLength / 2;
+        couplerJointOffset = j.positionA.z + carLength / 2;
       }
     });
 
@@ -690,25 +690,25 @@ export const twoTestCarsWithJacobsBogies: TrainFormat = {
   bodySupporterJoints: [
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, distanceBetweenBogiesHalf),
       bogieIndex: 0,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, carLengthHalf - couplerLengthHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, -(carLengthHalf + couplerLengthHalf)),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(0, 0, -couplerLengthHalf),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, couplerLengthHalf - carLengthHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, (carLengthHalf + couplerLengthHalf)),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(0, 0, couplerLengthHalf),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, distanceBetweenBogiesHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
       bogieIndex: 2,
       bogiePosition: new THREE.Vector3(),
     },
@@ -873,49 +873,49 @@ export const shikiSeries700Test: TrainFormat = {
   bodySupporterJoints: [
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
+      otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
       bogieIndex: 0,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
+      otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
       bogieIndex: 2,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
       bogieIndex: 3,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 2,
-      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
       bogieIndex: 4,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 2,
-      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
       bogieIndex: 5,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 3,
-      otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
+      otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
       bogieIndex: 6,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 3,
-      otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
+      otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
       bogieIndex: 7,
       bogiePosition: new THREE.Vector3(),
     },
@@ -925,37 +925,37 @@ export const shikiSeries700Test: TrainFormat = {
       bodyIndexA: 8,
       positionA: new THREE.Vector3(),
       bodyIndexB: 12,
-      positionB: new THREE.Vector3(0, 0, -1.6 - 4.07),
+      positionB: new THREE.Vector3(0, 0, 4.07),
     },
     {
       bodyIndexA: 9,
       positionA: new THREE.Vector3(),
       bodyIndexB: 12,
-      positionB: new THREE.Vector3(0, 0, -1.6 + 5.48),
+      positionB: new THREE.Vector3(0, 0, -5.48),
     },
     {
       bodyIndexA: 10,
       positionA: new THREE.Vector3(),
       bodyIndexB: 13,
-      positionB: new THREE.Vector3(0, 0, 1.6 - 5.48),
+      positionB: new THREE.Vector3(0, 0, 5.48),
     },
     {
       bodyIndexA: 11,
       positionA: new THREE.Vector3(),
       bodyIndexB: 13,
-      positionB: new THREE.Vector3(0, 0, 1.6 + 4.07),
+      positionB: new THREE.Vector3(0, 0, -4.07),
     },
     {
       bodyIndexA: 12,
       positionA: new THREE.Vector3(),
       bodyIndexB: 14,
-      positionB: new THREE.Vector3(0, 0, -12.6),
+      positionB: new THREE.Vector3(0, 0, 12.6),
     },
     {
       bodyIndexA: 13,
       positionA: new THREE.Vector3(),
       bodyIndexB: 14,
-      positionB: new THREE.Vector3(0, 0, 12.6),
+      positionB: new THREE.Vector3(0, 0, -12.6),
     },
   ],
 };

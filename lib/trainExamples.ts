@@ -540,7 +540,7 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
     if (carBogieIndices.length >= 2) {
       const b1 = bogies[carBogieIndices[0]];
       const b2 = bogies[carBogieIndices[1]];
-      bogieDistance = Math.abs(b1.offset - b2.offset);
+      bogieDistance = Math.round(Math.abs(b1.offset - b2.offset) * 1000) / 1000;
       
       if (b1.axles.length >= 2) {
         wheelbase = Math.abs(b1.axles[0].z - b1.axles[1].z);
@@ -550,7 +550,7 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
     } else if (carBogieIndices.length === 1) {
       const b = bogies[carBogieIndices[0]];
       // 1つの台車しかない場合はoffsetの2倍を距離とする（車体中心からの対称性を仮定）
-      bogieDistance = Math.abs(b.offset - carCenter) * 2;
+      bogieDistance = Math.round(Math.abs(b.offset - carCenter) * 2 * 1000) / 1000;
       if (b.axles.length >= 2) {
         wheelbase = Math.abs(b.axles[0].z - b.axles[1].z);
         axleDiameter = b.axles[0].diameter;

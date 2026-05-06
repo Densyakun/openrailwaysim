@@ -403,7 +403,10 @@ export const twoBogiesTwoTestCars: TrainFormat = {
 
 export type StandardCarFormat = {
   carLength: number;
-  bogies: BogieFormat[];
+  bogieDistance: number;
+  wheelbase: number;
+  axleDiameter: number;
+  axleHasMotor: boolean;
   carWeight: number;
   /**
    * 正の値
@@ -425,7 +428,7 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
     otherJoints: [],
   };
 
-  let length = carFormats.reduce((accumulator, carFormat) => accumulator + carFormat.carLength, 0) / -2;
+  let length = carFormatIndexes.reduce((accumulator, index) => accumulator + carFormats[index].carLength, 0) / -2;
   const carCenters: number[] = [];
 
   carFormatIndexes.forEach((carFormatIndex, index) => {
@@ -452,12 +455,14 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
     );
 
     // 台車を追加
-    carFormat.bogies.forEach(bogie => {
+    const bogieOffsets = [-carFormat.bogieDistance / 2, carFormat.bogieDistance / 2];
+    bogieOffsets.forEach((bogieOffset, bogieIndex) => {
       trainFormat.bogies.push({
-        offset: carCenter + bogie.offset,
-        axles: bogie.axles.map(({ z, diameter, hasMotor }) => (
-          { z, diameter, hasMotor }
-        )),
+        offset: carCenter + bogieOffset,
+        axles: [
+          { z: -carFormat.wheelbase / 2, diameter: carFormat.axleDiameter, hasMotor: carFormat.axleHasMotor },
+          { z: carFormat.wheelbase / 2, diameter: carFormat.axleDiameter, hasMotor: carFormat.axleHasMotor },
+        ],
         weight: 0,
       });
 
@@ -465,14 +470,8 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
       trainFormat.bodySupporterJoints.push(
         {
           otherBodyIndex: index,
-          otherBodyPosition: new THREE.Vector3(0, -1, -bogie.offset),
-          bogieIndex: index * 2,
-          bogiePosition: new THREE.Vector3(),
-        },
-        {
-          otherBodyIndex: index,
-          otherBodyPosition: new THREE.Vector3(0, -1, bogie.offset),
-          bogieIndex: index * 2 + 1,
+          otherBodyPosition: new THREE.Vector3(0, -1, bogieOffset),
+          bogieIndex: trainFormat.bogies.length - 1,
           bogiePosition: new THREE.Vector3(),
         },
       );
@@ -532,14 +531,32 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
 
     // この車体に属する台車を抽出
     const carBogieIndices = Array.from(new Set(bodySupporterJoints.filter(j => j.otherBodyIndex === carBodyIndex).map(j => j.bogieIndex))).sort((a, b) => a - b);
-    const carBogies: BogieFormat[] = carBogieIndices.map(bi => {
-      const b = bogies[bi];
-      return {
-        offset: b.offset - carCenter,
-        axles: b.axles.map(a => ({ ...a })),
-        weight: b.weight
-      };
-    });
+    
+    let bogieDistance = 13.8;
+    let wheelbase = 2.1;
+    let axleDiameter = 0.86;
+    let axleHasMotor = false;
+
+    if (carBogieIndices.length >= 2) {
+      const b1 = bogies[carBogieIndices[0]];
+      const b2 = bogies[carBogieIndices[1]];
+      bogieDistance = Math.abs(b1.offset - b2.offset);
+      
+      if (b1.axles.length >= 2) {
+        wheelbase = Math.abs(b1.axles[0].z - b1.axles[1].z);
+        axleDiameter = b1.axles[0].diameter;
+        axleHasMotor = b1.axles[0].hasMotor;
+      }
+    } else if (carBogieIndices.length === 1) {
+      const b = bogies[carBogieIndices[0]];
+      // 1つの台車しかない場合はoffsetの2倍を距離とする（車体中心からの対称性を仮定）
+      bogieDistance = Math.abs(b.offset - carCenter) * 2;
+      if (b.axles.length >= 2) {
+        wheelbase = Math.abs(b.axles[0].z - b.axles[1].z);
+        axleDiameter = b.axles[0].diameter;
+        axleHasMotor = b.axles[0].hasMotor;
+      }
+    }
 
     // 車体長と連結器オフセットの推定
     let carLength = 20;
@@ -549,8 +566,8 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
       carLength = carCenter - otherBodyOffsets[carBodyIndices[i - 1]];
     }
 
-    let couplerJointOffset = 0.5;
-    let couplerJointOffset1 = 0.5;
+    let couplerJointOffset = 0.8;
+    let couplerJointOffset1 = 0.8;
 
     const carJoints = otherJoints.filter(j => j.bodyIndexA === carBodyIndex);
     carJoints.forEach(j => {
@@ -565,7 +582,10 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
 
     tempCarFormats.push({
       carLength,
-      bogies: carBogies,
+      bogieDistance,
+      wheelbase,
+      axleDiameter,
+      axleHasMotor,
       carWeight,
       couplerJointOffset,
       couplerJointOffset1
@@ -601,33 +621,6 @@ export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[]
   const wheelbaseHalfT = 2.1 / 2;
   const axleDiameterM = 0.91;
   const axleDiameterT = 0.86;
-
-  const bogiesMCar: BogieFormat[] = [
-    {
-      offset: -distanceBetweenBogiesHalf,
-      axles: [{ z: -wheelbaseHalfM, diameter: axleDiameterM, hasMotor: true }, { z: wheelbaseHalfM, diameter: axleDiameterM, hasMotor: true }],
-      weight: 0
-    },
-    {
-      offset: distanceBetweenBogiesHalf,
-      axles: [{ z: -wheelbaseHalfM, diameter: axleDiameterM, hasMotor: true }, { z: wheelbaseHalfM, diameter: axleDiameterM, hasMotor: true }],
-      weight: 0
-    }
-  ];
-
-  const bogiesTCar: BogieFormat[] = [
-    {
-      offset: -distanceBetweenBogiesHalf,
-      axles: [{ z: -wheelbaseHalfT, diameter: axleDiameterT, hasMotor: false }, { z: wheelbaseHalfT, diameter: axleDiameterT, hasMotor: false }],
-      weight: 0
-    },
-    {
-      offset: distanceBetweenBogiesHalf,
-      axles: [{ z: -wheelbaseHalfT, diameter: axleDiameterT, hasMotor: false }, { z: wheelbaseHalfT, diameter: axleDiameterT, hasMotor: false }],
-      weight: 0
-    }
-  ];
-
   const massKuha = 30.6;
   const massMoha102 = 40.2;
   const massMoha103 = 39.7;
@@ -635,10 +628,10 @@ export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[]
 
   return {
     carFormats: [
-      { carLength, bogies: bogiesTCar, carWeight: massKuha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogies: bogiesMCar, carWeight: massMoha102, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogies: bogiesMCar, carWeight: massMoha103, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogies: bogiesTCar, carWeight: massSaha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massKuha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha102, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha103, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfT * 2, axleDiameter: axleDiameterT, axleHasMotor: false, carWeight: massSaha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
     ],
     carFormatIndexes: [0, 1, 2, 3, 1, 2, 3, 1, 2, 0]
   };

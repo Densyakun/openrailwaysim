@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { proxy, useSnapshot } from "valtio";
-import { Alert, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, List, ListItem, ListItemSecondaryAction } from "@mui/material";
+import { Alert, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, Menu, MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, List, ListItem, ListItemSecondaryAction } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -10,10 +10,11 @@ import { resetEditingTrainState, trainsTabPanelState } from "@/lib/client/trains
 import { useEffect, useState } from "react";
 import UIOneHandleMasterControllerConfigTable from "./UIOneHandleMasterControllerConfigTable";
 import { serialize, store, trainFormatTypeId, Path, SerializableORSAppDataType } from "@/lib/game";
-import { v4 as uuidv4 } from 'uuid';
 import { socket } from "../Client";
-import { MessageCode, send } from "@/lib/ws";
-import { createStandardTrainFormat, StandardCarFormat, getJNR103SeriesStandardData, convertTrainFormatToStandard } from "@/lib/trainExamples";
+import { MessageCode, send, MessageValueMap } from "@/lib/ws";
+import { TrainFormat } from "@/lib/trains";
+import { cameraControlsState } from "../cameras-and-controls/CameraControls";
+import { createStandardTrainFormat, StandardCarFormat, getJNR103SeriesStandardData, convertTrainFormatToStandard, twoAxlesTestCar, twoAxlesTestCarWithBogies, twoBogiesTestCar, twoTestCarsWithJacobsBogies, malletLocomotiveTest, shikiSeries700Test } from "@/lib/trainExamples";
 
 export const formState = proxy<{
   newTrainFormatId: string;
@@ -35,6 +36,7 @@ export const formState = proxy<{
   standardCarFormats: StandardCarFormat[];
   standardCarFormatIndexes: number[];
   standardMasterControllerUIOptionId: string;
+  standardBulkCouplerOffset: string;
 }>({
   newTrainFormatId: "",
   carBodyOffset: "",
@@ -55,46 +57,34 @@ export const formState = proxy<{
   standardCarFormats: [],
   standardCarFormatIndexes: [],
   standardMasterControllerUIOptionId: "",
+  standardBulkCouplerOffset: "0.8",
 });
 
 function focusCamera() {
-  /*if (!Object.keys(store.data.tracks).length) return;
-  if (!trainsTabPanelState.editingTrain) return;
-
-  if (0 <= trainsTabPanelState.selectedCarBodyIndex) {
-    // To carbody
-    const selectedBody = trainsTabPanelState.selectedCarBodyIndex < trainsTabPanelState.editingTrain.bogies.length
-      ? trainsTabPanelState.editingTrain.bogies[trainsTabPanelState.selectedCarBodyIndex]
-      : trainsTabPanelState.editingTrain.otherBodies[trainsTabPanelState.selectedCarBodyIndex - trainsTabPanelState.editingTrain.bogies.length];
-    setCameraTargetPosition(selectedBody.position);
-  } else if (trainsTabPanelState.pointOnTrack) {
-    // To train
-    const track = store.data.tracks[trainsTabPanelState.pointOnTrack.trackId];
-    const position = getPosition(track, trainsTabPanelState.pointOnTrack.length);
-    setCameraTargetPosition(position);
-  }*/
-}
-
-function updateEditingTrainFormat() {
-  const {
-    editingTrainFormat,
-  } = trainsTabPanelState;
-
-  if (!Object.keys(store.data.tracks).length) return;
+  const { editingTrainFormat, selectedCarBodyIndex, selectedAxleIndex } = trainsTabPanelState;
   if (!editingTrainFormat) return;
 
-  // TODO 実際の軌道とは異なる場所に設置
-  /*const { train, isDeadEnd } = placeTrain(
-    editingTrainFormat,
-    pointOnTrack,
-    directionIsReversed,
-  );
+  const orbitControls = cameraControlsState.controlsRefs["orbitControls"];
+  if (!orbitControls) return;
 
-  trainsTabPanelState.trainIsDeadEnd = isDeadEnd;*/
-
-  //return trainsTabPanelState.editingTrainFormat = trainFormat;
-  return trainsTabPanelState.editingTrainFormat;
+  if (selectedCarBodyIndex !== -1) {
+    let x = 0;
+    if (selectedCarBodyIndex < editingTrainFormat.bogies.length) {
+      const bogie = editingTrainFormat.bogies[selectedCarBodyIndex];
+      x = bogie.offset;
+      if (selectedAxleIndex !== -1 && bogie.axles[selectedAxleIndex]) {
+        x += bogie.axles[selectedAxleIndex].z;
+      }
+    } else {
+      x = editingTrainFormat.otherBodyOffsets[selectedCarBodyIndex - editingTrainFormat.bogies.length];
+    }
+    orbitControls.target.set(x, 0, 0);
+  } else {
+    orbitControls.target.set(0, 0, 0);
+  }
+  orbitControls.update();
 }
+
 
 function saveEditingTrainFormat() {
   const {
@@ -111,7 +101,9 @@ function saveEditingTrainFormat() {
   if (isAddingTrainFormat && Object.keys(store.data.trainFormats).includes(newTrainFormatId))
     return;
 
-  const targetId = newTrainFormatId || editingTrainFormatId || uuidv4();
+  const targetId = newTrainFormatId || editingTrainFormatId;
+  if (!targetId) return;
+
   const serializedTrainFormat = serialize(trainFormatTypeId, editingTrainFormat);
 
   // If renaming, specify oldPath to server
@@ -119,7 +111,7 @@ function saveEditingTrainFormat() {
     ? ["trainFormats", editingTrainFormatId]
     : undefined;
 
-  const messages: any[] = [ // eslint-disable-line @typescript-eslint/no-explicit-any
+  const messages: [MessageCode.FROM_CLIENT_SET_PROP, MessageValueMap[MessageCode.FROM_CLIENT_SET_PROP]][] = [
     [MessageCode.FROM_CLIENT_SET_PROP, [["trainFormats", targetId], serializedTrainFormat, oldPath]],
   ];
 
@@ -130,9 +122,10 @@ function saveEditingTrainFormat() {
   }
 
   if (messages.length > 1) {
-    send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages as [MessageCode.FROM_CLIENT_SET_PROP, MessageValueMap[MessageCode.FROM_CLIENT_SET_PROP]][]);
   } else {
-    send(socket, MessageCode.FROM_CLIENT_SET_PROP, messages[0][1] as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    const message = messages[0];
+    send(socket, MessageCode.FROM_CLIENT_SET_PROP, message[1]);
   }
 
   trainsTabPanelState.isAddingTrainFormat = false;
@@ -142,6 +135,9 @@ function saveEditingTrainFormat() {
 export default function TrainFormatEditPanel() {
   const {
     editingTrainFormat,
+    editingTrainFormatId,
+    isAddingTrainFormat,
+    newTrainFormatId,
     selectedCarBodyIndex,
     selectedBodySupporterJointIndex,
     selectedOtherJointIndex,
@@ -150,11 +146,40 @@ export default function TrainFormatEditPanel() {
   } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => {
-    updateEditingTrainFormat();
-  }, [
-    editingTrainFormat,
-    directionIsReversed,
-  ]);
+    // スナップショットからではなく、プロキシから直接取得することで依存関係の警告を回避する
+    const { newTrainFormatId, editingTrainFormatId, isAddingTrainFormat, editingTrainFormat } = trainsTabPanelState;
+    formState.newTrainFormatId = trainsTabPanelState.newTrainFormatId = newTrainFormatId || editingTrainFormatId;
+    const initialMode = isAddingTrainFormat ? "standard" : "advanced";
+    formState.editingTrainFormatMode = initialMode;
+
+    if (editingTrainFormat) {
+      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat as TrainFormat);
+      if (carFormats.length > 0) {
+        formState.standardCarFormats = [...carFormats];
+        formState.standardCarFormatIndexes = [...carFormatIndexes];
+        if (masterControllerUIOptionId) {
+          formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
+        }
+      } else if (isAddingTrainFormat) {
+        // Default car for new format in Standard Mode
+        formState.standardCarFormats = [{
+          carLength: 20,
+          bogieDistance: 13.8,
+          wheelbase: 2.1,
+          axleDiameter: 0.86,
+          axleHasMotor: true,
+          carWeight: 0,
+          couplerJointOffset: 0.8,
+          couplerJointOffset1: 0.8
+        }];
+        formState.standardCarFormatIndexes = [0];
+        if (initialMode === "standard") {
+          updateEditingTrainFormatFromStandard();
+        }
+      }
+    }
+  }, [editingTrainFormatId]);
+
 
   useEffect(() => {
     focusCamera();
@@ -274,6 +299,30 @@ function StandardCarFormatEditor({ index }: { index: number }) {
       formState.standardCarFormats[index].carWeight = parseFloat(e.target.value) || 0;
       updateEditingTrainFormatFromStandard();
     }} />
+    <TextField label="Bogie distance" type="number" size="small" value={carFormat.bogieDistance} onChange={e => {
+      formState.standardCarFormats[index].bogieDistance = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <TextField label="Wheelbase" type="number" size="small" value={carFormat.wheelbase} onChange={e => {
+      formState.standardCarFormats[index].wheelbase = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <TextField label="Axle diameter" type="number" size="small" value={carFormat.axleDiameter} onChange={e => {
+      formState.standardCarFormats[index].axleDiameter = parseFloat(e.target.value) || 0;
+      updateEditingTrainFormatFromStandard();
+    }} />
+    <FormControlLabel
+      control={
+        <Checkbox
+          checked={carFormat.axleHasMotor}
+          onChange={e => {
+            formState.standardCarFormats[index].axleHasMotor = e.target.checked;
+            updateEditingTrainFormatFromStandard();
+          }}
+        />
+      }
+      label="Has motor"
+    />
     <TextField label="Coupler offset (Front)" type="number" size="small" value={carFormat.couplerJointOffset} onChange={e => {
       formState.standardCarFormats[index].couplerJointOffset = parseFloat(e.target.value) || 0;
       updateEditingTrainFormatFromStandard();
@@ -292,30 +341,54 @@ function StandardCarFormatEditor({ index }: { index: number }) {
 }
 
 function StandardModeEditor() {
-  const { standardCarFormats, standardCarFormatIndexes, standardMasterControllerUIOptionId } = useSnapshot(formState);
+  const { standardCarFormats, standardCarFormatIndexes, standardMasterControllerUIOptionId, standardBulkCouplerOffset } = useSnapshot(formState);
   const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
   const { isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
   return <Stack spacing={2}>
-    <Button variant="outlined" onClick={() => {
-      const { carFormats, carFormatIndexes } = getJNR103SeriesStandardData();
-      formState.standardCarFormats = [...carFormats];
-      formState.standardCarFormatIndexes = [...carFormatIndexes];
-      updateEditingTrainFormatFromStandard();
-    }}>Apply JNR 103 Series template</Button>
     <Typography variant="h6">Car templates</Typography>
+
+    <Stack direction="row" spacing={1} alignItems="center" sx={{ p: 1, border: '1px solid #ddd', borderRadius: 1 }}>
+      <Typography variant="body2" sx={{ minWidth: 120 }}>Bulk set couplers:</Typography>
+      <TextField
+        size="small"
+        label="Offset value"
+        value={standardBulkCouplerOffset}
+        onChange={e => {
+          formState.standardBulkCouplerOffset = e.target.value;
+        }}
+        sx={{ width: 120 }}
+      />
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => {
+          const val = parseFloat(formState.standardBulkCouplerOffset);
+          if (!isNaN(val)) {
+            formState.standardCarFormats.forEach((format, i) => {
+              formState.standardCarFormats[i].couplerJointOffset = val;
+              formState.standardCarFormats[i].couplerJointOffset1 = val;
+            });
+            updateEditingTrainFormatFromStandard();
+          }
+        }}
+      >
+        Apply to all
+      </Button>
+    </Stack>
+
     <Stack spacing={1}>
       {standardCarFormats.map((_, index) => <StandardCarFormatEditor key={index} index={index} />)}
       <Button variant="outlined" startIcon={<AddIcon />} onClick={() => {
         formState.standardCarFormats.push({
           carLength: 20,
-          bogies: [
-            { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
-            { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
-          ],
-          carWeight: 30,
-          couplerJointOffset: 0.5,
-          couplerJointOffset1: 0.5
+          bogieDistance: 13.8,
+          wheelbase: 2.1,
+          axleDiameter: 0.86,
+          axleHasMotor: true,
+          carWeight: 0,
+          couplerJointOffset: 0.8,
+          couplerJointOffset1: 0.8
         });
         updateEditingTrainFormatFromStandard();
       }}>Add template</Button>
@@ -381,6 +454,66 @@ function StandardModeEditor() {
   </Stack>;
 }
 
+function PresetMenu() {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const applyStandardPreset = (carFormats: StandardCarFormat[], carFormatIndexes: number[], masterControllerUIOptionId?: string) => {
+    formState.standardCarFormats = [...carFormats];
+    formState.standardCarFormatIndexes = [...carFormatIndexes];
+    if (masterControllerUIOptionId) {
+      formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
+    }
+    formState.editingTrainFormatMode = "standard";
+    updateEditingTrainFormatFromStandard();
+    handleClose();
+  };
+
+  const applyAdvancedPreset = (preset: any) => {
+    trainsTabPanelState.editingTrainFormat = JSON.parse(JSON.stringify(preset));
+    formState.editingTrainFormatMode = "advanced";
+    handleClose();
+  };
+
+  return (
+    <div>
+      <Button
+        variant="outlined"
+        onClick={handleClick}
+        fullWidth
+      >
+        プリセットを適用
+      </Button>
+      <Menu
+        anchorEl={anchorEl}
+        open={open}
+        onClose={handleClose}
+      >
+        <MenuItem onClick={() => {
+          const { carFormats, carFormatIndexes } = getJNR103SeriesStandardData();
+          applyStandardPreset(carFormats, carFormatIndexes);
+        }}>日本国有鉄道103系電車</MenuItem>
+        <MenuItem onClick={() => applyAdvancedPreset(twoAxlesTestCar)}>単台車式二軸車</MenuItem>
+        <MenuItem onClick={() => applyAdvancedPreset(twoAxlesTestCarWithBogies)}>一軸台車式二軸車</MenuItem>
+        <MenuItem onClick={() => {
+          const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(twoBogiesTestCar);
+          applyStandardPreset(carFormats, carFormatIndexes, masterControllerUIOptionId);
+        }}>ボギー車</MenuItem>
+        <MenuItem onClick={() => applyAdvancedPreset(twoTestCarsWithJacobsBogies)}>連接台車で連結した2両編成</MenuItem>
+        <MenuItem onClick={() => applyAdvancedPreset(malletLocomotiveTest)}>マレー式機関車</MenuItem>
+        <MenuItem onClick={() => applyAdvancedPreset(shikiSeries700Test)}>日本国有鉄道シキ700形貨車</MenuItem>
+      </Menu>
+    </div>
+  );
+}
+
+
 function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const {
     isAddingTrainFormat,
@@ -395,37 +528,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 
   useEffect(() => {
     focusCamera();
-    formState.newTrainFormatId = newTrainFormatId;
-    const initialMode = isAddingTrainFormat ? "standard" : "advanced";
-    formState.editingTrainFormatMode = initialMode;
-
-    if (editingTrainFormat) {
-      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat);
-      if (carFormats.length > 0) {
-        formState.standardCarFormats = [...carFormats];
-        formState.standardCarFormatIndexes = [...carFormatIndexes];
-        if (masterControllerUIOptionId) {
-          formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
-        }
-      } else if (isAddingTrainFormat) {
-        // Default car for new format in Standard Mode
-        formState.standardCarFormats = [{
-          carLength: 20,
-          bogies: [
-            { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
-            { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
-          ],
-          carWeight: 30,
-          couplerJointOffset: 0.5,
-          couplerJointOffset1: 0.5
-        }];
-        formState.standardCarFormatIndexes = [0];
-        if (initialMode === "standard") {
-          updateEditingTrainFormatFromStandard();
-        }
-      }
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!editingTrainFormat) return null;
 
@@ -438,7 +541,9 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const hasNoAxles = editingTrainFormat.bogies.some(bogie => !bogie.axles.length);
   const hasInvalidCab = 0 <= invalidCabIndex;
 
-  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab;
+  const hasInvalidStandardCab = editingTrainFormatMode === "standard" && (!formState.standardMasterControllerUIOptionId || !Object.keys(uiOneHandleMasterControllerConfigs).includes(formState.standardMasterControllerUIOptionId));
+
+  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab;
 
   const handleModeChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -450,7 +555,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     } else {
       formState.editingTrainFormatMode = newMode;
       if (newMode === "standard") {
-          updateEditingTrainFormatFromStandard();
+        updateEditingTrainFormatFromStandard();
       }
     }
   };
@@ -458,32 +563,32 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const handleConfirmStandardMode = () => {
     formState.editingTrainFormatMode = "standard";
     setOpenConfirmStandard(false);
-    
+
     if (editingTrainFormat) {
-      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat);
+      const { carFormats, carFormatIndexes, masterControllerUIOptionId } = convertTrainFormatToStandard(editingTrainFormat as TrainFormat);
       formState.standardCarFormats = [...carFormats];
       formState.standardCarFormatIndexes = [...carFormatIndexes];
       if (masterControllerUIOptionId) {
         formState.standardMasterControllerUIOptionId = masterControllerUIOptionId;
       }
     }
-    
+
     if (formState.standardCarFormats.length === 0) {
       formState.standardCarFormats = [{
         carLength: 20,
-        bogies: [
-          { offset: -7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 },
-          { offset: 7, axles: [{ z: -1.15, diameter: 0.86, hasMotor: true }, { z: 1.15, diameter: 0.86, hasMotor: true }], weight: 0 }
-        ],
-        carWeight: 30,
-        couplerJointOffset: 0.5,
-        couplerJointOffset1: 0.5
+        bogieDistance: 13.8,
+        wheelbase: 2.1,
+        axleDiameter: 0.86,
+        axleHasMotor: true,
+        carWeight: 0,
+        couplerJointOffset: 0.8,
+        couplerJointOffset1: 0.8
       }];
       formState.standardCarFormatIndexes = [0];
     }
-    
+
     if (!formState.standardMasterControllerUIOptionId && Object.keys(uiOneHandleMasterControllerConfigs).length > 0) {
-        formState.standardMasterControllerUIOptionId = Object.keys(uiOneHandleMasterControllerConfigs)[0];
+      formState.standardMasterControllerUIOptionId = Object.keys(uiOneHandleMasterControllerConfigs)[0];
     }
 
     updateEditingTrainFormatFromStandard();
@@ -530,6 +635,11 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         }
       </>
     )}
+    {editingTrainFormatMode === "standard" && hasInvalidStandardCab && (
+      <Alert severity="error">
+        マスコンを選択してください
+      </Alert>
+    )}
     <TextField
       label="ID"
       value={newTrainFormatIdValue}
@@ -537,6 +647,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
         trainsTabPanelState.newTrainFormatId = formState.newTrainFormatId = event.target.value
       }
     />
+    <PresetMenu />
     <ToggleButtonGroup
       color="primary"
       value={editingTrainFormatMode}
@@ -623,10 +734,9 @@ function BogiesEditor() {
 
   useEffect(() => {
     if (selectedCarBodyIndex === -1 || !editingTrainFormat) return;
-    formState.carBodyOffset = editingTrainFormat.bogies[selectedCarBodyIndex].offset.toString();
     formState.carBodyWeight = editingTrainFormat.bogies[selectedCarBodyIndex].weight.toString();
     focusCamera();
-  }, [selectedCarBodyIndex, editingTrainFormat]);
+  }, [selectedCarBodyIndex, selectedAxleIndex, editingTrainFormat]);
 
   if (!editingTrainFormat) return null;
 
@@ -656,8 +766,29 @@ function BogiesEditor() {
           </Button>
         </ButtonGroup>
       </Stack>
-      {/** TODO Duplicate bogie */}
-      {/** TODO Delete bogie */}
+      <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+        if (!trainsTabPanelState.editingTrainFormat) return;
+        const format = trainsTabPanelState.editingTrainFormat;
+        const index = selectedCarBodyIndex;
+
+        // 関連するジョイントの削除とインデックス調整
+        format.bodySupporterJoints = format.bodySupporterJoints.filter(j => j.bogieIndex !== index);
+        format.bodySupporterJoints.forEach(j => {
+          if (j.bogieIndex > index) j.bogieIndex--;
+        });
+        format.otherJoints = format.otherJoints.filter(j => j.bodyIndexA !== index && j.bodyIndexB !== index);
+        format.otherJoints.forEach(j => {
+          if (j.bodyIndexA > index) j.bodyIndexA--;
+          if (j.bodyIndexB > index) j.bodyIndexB--;
+        });
+
+        format.bogies.splice(index, 1);
+        if (format.bogies.length > 0) {
+          trainsTabPanelState.selectedCarBodyIndex = Math.min(index, format.bogies.length - 1);
+        } else {
+          trainsTabPanelState.selectedCarBodyIndex = -1;
+        }
+      }}>Delete bogie</Button>
       {!editingTrainFormat.bogies[selectedCarBodyIndex].axles.length && <Alert
         severity="error"
         action={
@@ -715,6 +846,7 @@ function AxlesEditor() {
     formState.axleZ = String(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].z);
     formState.diameter = String(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].diameter);
     formState.hasMotor = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].hasMotor;
+    focusCamera();
   }, [selectedAxleIndex]);
 
   if (!editingTrainFormat) return null;
@@ -744,8 +876,11 @@ function AxlesEditor() {
         </Button>
       </ButtonGroup>
     </Stack>
-    {/** TODO Duplicate axle */}
-    {/** TODO Delete axle */}
+    <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+      if (!trainsTabPanelState.editingTrainFormat) return;
+      trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles.splice(selectedAxleIndex, 1);
+      trainsTabPanelState.selectedAxleIndex = -1;
+    }}>Delete axle</Button>
     <TextField
       label="Z"
       value={axleZ}
@@ -831,8 +966,33 @@ function OtherBodiesEditor() {
         </Button>
       </ButtonGroup>
     </Stack>
-    {/** TODO Duplicate otherBody */}
-    {/** TODO Delete otherBody */}
+    <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+      if (!trainsTabPanelState.editingTrainFormat) return;
+      const format = trainsTabPanelState.editingTrainFormat;
+      const indexInOtherBodies = selectedCarBodyIndex - format.bogies.length;
+      const globalIndex = selectedCarBodyIndex;
+
+      // 関連するジョイントの削除とインデックス調整
+      format.bodySupporterJoints = format.bodySupporterJoints.filter(j => j.otherBodyIndex !== globalIndex);
+      format.bodySupporterJoints.forEach(j => {
+        if (j.otherBodyIndex > globalIndex) j.otherBodyIndex--;
+      });
+      format.otherJoints = format.otherJoints.filter(j => j.bodyIndexA !== globalIndex && j.bodyIndexB !== globalIndex);
+      format.otherJoints.forEach(j => {
+        if (j.bodyIndexA > globalIndex) j.bodyIndexA--;
+        if (j.bodyIndexB > globalIndex) j.bodyIndexB--;
+      });
+
+      format.otherBodyOffsets.splice(indexInOtherBodies, 1);
+      format.otherBodyWeights.splice(indexInOtherBodies, 1);
+      format.cabFormats.splice(indexInOtherBodies, 1);
+      
+      if (format.otherBodyOffsets.length > 0) {
+        trainsTabPanelState.selectedCarBodyIndex = format.bogies.length + Math.min(indexInOtherBodies, format.otherBodyOffsets.length - 1);
+      } else {
+        trainsTabPanelState.selectedCarBodyIndex = -1;
+      }
+    }}>Delete otherbody</Button>
     <TextField
       label="Offset"
       value={carBodyOffset}
@@ -940,7 +1100,11 @@ function BodySupporterJointsEditor() {
         </Button>
       </ButtonGroup>
     </Stack>
-    {/** TODO Delete otherBody */}
+    <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+      if (!trainsTabPanelState.editingTrainFormat) return;
+      trainsTabPanelState.editingTrainFormat.bodySupporterJoints.splice(selectedBodySupporterJointIndex, 1);
+      trainsTabPanelState.selectedBodySupporterJointIndex = -1;
+    }}>Delete joint</Button>
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Otherbody: {
         editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyIndex === -1
@@ -969,7 +1133,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.x = x;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -981,7 +1145,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.y = y;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -993,7 +1157,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].otherBodyPosition.z = z;
-          updateEditingTrainFormat();
+
         }}
       />
     </Stack>
@@ -1025,7 +1189,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.x = x;
-          updateEditingTrainFormat();
+
 
         }}
       />
@@ -1038,7 +1202,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.y = y;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -1050,7 +1214,7 @@ function BodySupporterJointsEditor() {
           if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.bodySupporterJoints[selectedBodySupporterJointIndex].bogiePosition.z = z;
-          updateEditingTrainFormat();
+
         }}
       />
     </Stack>
@@ -1100,7 +1264,11 @@ function OtherJointsEditor() {
         </Button>
       </ButtonGroup>
     </Stack>
-    {/** TODO Delete otherBody */}
+    <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={() => {
+      if (!trainsTabPanelState.editingTrainFormat) return;
+      trainsTabPanelState.editingTrainFormat.otherJoints.splice(selectedOtherJointIndex, 1);
+      trainsTabPanelState.selectedOtherJointIndex = -1;
+    }}>Delete joint</Button>
     <Stack direction="row" spacing={1} alignItems="center">
       <Typography variant="h6" gutterBottom>Carbody A: {
         editingTrainFormat.otherJoints[selectedOtherJointIndex].bodyIndexA === -1
@@ -1129,7 +1297,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.x = x;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -1141,7 +1309,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.y = y;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -1153,7 +1321,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionA.z = z;
-          updateEditingTrainFormat();
+
         }}
       />
     </Stack>
@@ -1185,7 +1353,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(x) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.x = x;
-          updateEditingTrainFormat();
+
 
         }}
       />
@@ -1198,7 +1366,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(y) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.y = y;
-          updateEditingTrainFormat();
+
         }}
       />
       <TextField
@@ -1210,7 +1378,7 @@ function OtherJointsEditor() {
           if (Number.isNaN(z) || !trainsTabPanelState.editingTrainFormat) return;
 
           trainsTabPanelState.editingTrainFormat.otherJoints[selectedOtherJointIndex].positionB.z = z;
-          updateEditingTrainFormat();
+
         }}
       />
     </Stack>

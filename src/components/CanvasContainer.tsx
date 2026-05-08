@@ -9,30 +9,13 @@ import Trains from './Trains'
 import Terrains from './Terrains'
 import TerrainGenerator from './TerrainGenerator'
 import Client from './Client'
-import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boundary'
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
+import { ErrorBoundary } from 'react-error-boundary'
 import { useSnapshot } from 'valtio'
 import { trainsTabPanelState } from '@/lib/client/trains'
 import { guiState } from '@/lib/client/gui'
 import TrainFormatPreview from './TrainFormatPreview'
 import { TrainFormat } from '@/lib/trains'
-
-function ErrorFallback({ error }: FallbackProps) {
-  const { resetBoundary } = useErrorBoundary();
-
-  return (
-    <Stack spacing={1} sx={{ position: "absolute", width: "100%", height: "100%", overflow: "scroll", zIndex: 1, backgroundColor: "#00000080", p: 1 }}>
-      <Typography variant="h5" component="h1">Something went wrong:</Typography>
-      <Alert severity="error">{(error as Error).name}: {(error as Error).message}</Alert>
-      <Paper sx={{ p: 1, overflow: "auto", border: 1, backgroundColor: "black" }}>
-        <pre style={{ color: "red" }}>{(error as Error).stack}</pre>
-      </Paper>
-      <Box>
-        <Button variant="contained" onClick={resetBoundary}>Try again</Button>
-      </Box>
-    </Stack>
-  );
-}
+import ErrorFallback from './ErrorFallback'
 
 export default function CanvasContainer() {
   const { editingTrainFormat } = useSnapshot(trainsTabPanelState);

@@ -3,6 +3,8 @@ import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import CanvasContainer from './components/CanvasContainer'
 import GUI from './components/gui/GUI'
+import { ErrorBoundary } from 'react-error-boundary'
+import ErrorFallback from './components/ErrorFallback'
 
 const darkTheme = createTheme({
   palette: {
@@ -15,8 +17,10 @@ function App() {
     <>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <CanvasContainer />
-        <GUI />
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
+          <CanvasContainer />
+          <GUI />
+        </ErrorBoundary>
       </ThemeProvider>
     </>
   )

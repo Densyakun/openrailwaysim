@@ -141,7 +141,15 @@ export default function MasterController({
     <MasterControllerSlider
       value={value}
       uiOneHandleMasterControllerConfig={uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
-      setValue={newValue =>
+      setValue={newValue => {
+        const activeTrain = store.data.trains[trainsState.activeTrainId];
+        if (activeTrain) {
+          const cabIndex = trainsState.activeBodyIndex - activeTrain.bogies.length;
+          if (activeTrain.cabStates[cabIndex]) {
+            activeTrain.cabStates[cabIndex].masterControllerValue = newValue;
+          }
+        }
+
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           [
             "trains",
@@ -151,8 +159,8 @@ export default function MasterController({
             "masterControllerValue"
           ],
           newValue
-        ] as any)
-      }
+        ] as any);
+      }}
     />
   );
 }

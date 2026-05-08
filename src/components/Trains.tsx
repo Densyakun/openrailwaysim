@@ -2,13 +2,14 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { Axle, Bogie, BogieFormat, CarBody, Train, TrainFormat, getBodyFromBodyIndex } from '@/lib/trains'
+import { Axle, Bogie, BogieFormat, CarBody, Train, TrainFormat, getBodyFromBodyIndex, placeTrain } from '@/lib/trains'
 import { guiState } from '@/lib/client/gui'
 import { trainsState, trainsTabPanelState, triggerPreviewUpdate } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
 import { setCameraTargetPosition } from '@/lib/client/camera'
 import { store } from '@/lib/game'
 import { formState } from './gui/TrainFormatEditPanel'
+import { tracksState } from '@/lib/client/tracks/store'
 
 function BogieModel({
   trainId,
@@ -18,6 +19,7 @@ function BogieModel({
   isHovered,
   isActive,
   isEditing = false,
+  isPreview = false,
   ...props
 }: {
   trainId: string;
@@ -27,13 +29,20 @@ function BogieModel({
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
+  isPreview?: boolean;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
   const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
-    groupRef.current!.position.copy(bogie.position)
-    groupRef.current!.rotation.copy(bogie.rotation)
+    const mutableBogie = trainId && store.data.trains[trainId]?.bogies[bogieIndex];
+    if (mutableBogie) {
+      groupRef.current!.position.copy(mutableBogie.position)
+      groupRef.current!.rotation.copy(mutableBogie.rotation)
+    } else {
+      groupRef.current!.position.copy(bogie.position)
+      groupRef.current!.rotation.copy(bogie.rotation)
+    }
   })
 
   // 編集中のジョイントに設定されている場合の色判定
@@ -75,6 +84,7 @@ function BogieModel({
     <>
       <group ref={groupRef} {...props}>
         <mesh
+          raycast={isPreview ? () => null : undefined}
           castShadow
           receiveShadow
           onClick={(event) => {
@@ -155,13 +165,15 @@ function BogieModel({
           rotation={[Math.PI / 2, 0, 0]}
         >
           <cylinderGeometry args={[0.5, 0, 3, 8]} />
-          {isHovered
-            ? <meshBasicMaterial color="yellow" />
-            : highlightColor
-              ? <meshBasicMaterial color={highlightColor} />
-              : isActive && !trainsState.activeTrainId
-                ? <meshBasicMaterial color="red" />
-                : <meshStandardMaterial />
+          {isPreview
+            ? <meshBasicMaterial color="#10b981" transparent opacity={0.6} depthWrite={false} />
+            : isHovered
+              ? <meshBasicMaterial color="yellow" />
+              : highlightColor
+                ? <meshBasicMaterial color={highlightColor} />
+                : isActive && !trainsState.activeTrainId
+                  ? <meshBasicMaterial color="red" />
+                  : <meshStandardMaterial />
           }
         </mesh>
       </group>
@@ -177,6 +189,7 @@ function BogieModel({
             axle={axle}
             format={axleFormat}
             isEditing={isEditing}
+            isPreview={isPreview}
           />
         );
       })}
@@ -191,6 +204,7 @@ function WheelAndAxleModel({
   axle,
   format,
   isEditing = false,
+  isPreview = false,
   ...props
 }: {
   trainId?: string;
@@ -199,13 +213,27 @@ function WheelAndAxleModel({
   axle: Axle;
   format: BogieFormat["axles"][0];
   isEditing?: boolean;
+  isPreview?: boolean;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
+  const meshRef = React.useRef<THREE.Mesh>(null)
   const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
-    groupRef.current!.position.copy(axle.position)
-    groupRef.current!.rotation.copy(axle.rotation)
+    const mutableAxle = trainId && bogieIndex !== undefined && axleIndex !== undefined && store.data.trains[trainId]?.bogies[bogieIndex]?.axles[axleIndex];
+    if (mutableAxle) {
+      groupRef.current!.position.copy(mutableAxle.position)
+      groupRef.current!.rotation.copy(mutableAxle.rotation)
+      if (meshRef.current) {
+        meshRef.current.rotation.set(mutableAxle.rotationX, 0, Math.PI / 2)
+      }
+    } else {
+      groupRef.current!.position.copy(axle.position)
+      groupRef.current!.rotation.copy(axle.rotation)
+      if (meshRef.current) {
+        meshRef.current.rotation.set(axle.rotationX, 0, Math.PI / 2)
+      }
+    }
   })
 
   // 選択・ホバー状態
@@ -233,6 +261,8 @@ function WheelAndAxleModel({
   return (
     <group ref={groupRef} {...props}>
       <mesh
+        ref={meshRef}
+        raycast={isPreview ? () => null : undefined}
         castShadow
         receiveShadow
         position={[0, format.diameter / 2, 0]}
@@ -263,9 +293,11 @@ function WheelAndAxleModel({
         } : undefined}
       >
         <cylinderGeometry args={[format.diameter / 2, format.diameter / 2, 1.267, 8]} />
-        {axleMeshColor
-          ? <meshBasicMaterial color={axleMeshColor} />
-          : <meshStandardMaterial />
+        {isPreview
+          ? <meshBasicMaterial color="#059669" transparent opacity={0.6} depthWrite={false} />
+          : axleMeshColor
+            ? <meshBasicMaterial color={axleMeshColor} />
+            : <meshStandardMaterial />
         }
       </mesh>
     </group>
@@ -280,6 +312,7 @@ function OtherBodyModel({
   isHovered,
   isActive,
   isEditing = false,
+  isPreview = false,
   ...props
 }: {
   trainId: string;
@@ -289,13 +322,20 @@ function OtherBodyModel({
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
+  isPreview?: boolean;
 }) {
   const meshRef = React.useRef<THREE.Mesh>(null)
   const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
-    meshRef.current!.position.copy(otherBody.position)
-    meshRef.current!.rotation.copy(otherBody.rotation)
+    const mutableOtherBody = trainId && store.data.trains[trainId]?.otherBodies[otherBodyIndex];
+    if (mutableOtherBody) {
+      meshRef.current!.position.copy(mutableOtherBody.position)
+      meshRef.current!.rotation.copy(mutableOtherBody.rotation)
+    } else {
+      meshRef.current!.position.copy(otherBody.position)
+      meshRef.current!.rotation.copy(otherBody.rotation)
+    }
   })
 
   // 編集中のジョイントに設定されている場合の色判定
@@ -331,6 +371,7 @@ function OtherBodyModel({
 
   return (
     <mesh
+      raycast={isPreview ? () => null : undefined}
       ref={meshRef}
       castShadow
       receiveShadow
@@ -424,13 +465,15 @@ function OtherBodyModel({
       }}
     >
       <boxGeometry args={[1, 0.3, 3]} />
-      {isHovered
-        ? <meshBasicMaterial color="yellow" />
-        : highlightColor
-          ? <meshBasicMaterial color={highlightColor} />
-          : isActive && !trainsState.activeTrainId
-            ? <meshBasicMaterial color="red" />
-            : <meshStandardMaterial />
+      {isPreview
+        ? <meshBasicMaterial color="#34d399" transparent opacity={0.5} depthWrite={false} />
+        : isHovered
+          ? <meshBasicMaterial color="yellow" />
+          : highlightColor
+            ? <meshBasicMaterial color={highlightColor} />
+            : isActive && !trainsState.activeTrainId
+              ? <meshBasicMaterial color="red" />
+              : <meshStandardMaterial />
       }
     </mesh>
   )
@@ -440,14 +483,52 @@ export function onFrame() {
   // Track the camera to the selected car body
   if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
     const selectedTrain = store.data.trains[trainsState.activeTrainId]
-    const selectedBody = trainsState.activeBodyIndex < selectedTrain.bogies.length ? selectedTrain.bogies[trainsState.activeBodyIndex] : selectedTrain.otherBodies[trainsState.activeBodyIndex - selectedTrain.bogies.length]
-    setCameraTargetPosition(selectedBody.position)
+    if (!selectedTrain) return;
+
+    const bogiesLength = selectedTrain.bogies?.length ?? 0;
+    const selectedBody = trainsState.activeBodyIndex < bogiesLength
+      ? selectedTrain.bogies?.[trainsState.activeBodyIndex]
+      : selectedTrain.otherBodies?.[trainsState.activeBodyIndex - bogiesLength];
+
+    if (selectedBody && selectedBody.position) {
+      setCameraTargetPosition(selectedBody.position)
+    }
   }
 }
 
 export default function Trains() {
   const { trains, trainFormats } = useSnapshot(store.data);
+  const panelState = useSnapshot(trainsTabPanelState);
+  const tracksStateSnap = useSnapshot(tracksState);
   useSnapshot(trainsState);
+
+  // Calculate and display a temporary preview train when placing a new train
+  let previewTrainComponent = null;
+  if (panelState.isAddingTrain && panelState.trainFormatId) {
+    const rawPoint = trainsTabPanelState.pointOnTrack ?? tracksState.pointingOnTrack;
+    const format = store.data.trainFormats[panelState.trainFormatId];
+    if (rawPoint && format) {
+      try {
+        const { train } = placeTrain(
+          format,
+          { trackId: rawPoint.trackId, length: rawPoint.length },
+          panelState.directionIsReversed
+        );
+        if (train) {
+          previewTrainComponent = (
+            <TrainComponent
+              trainId="preview"
+              train={train}
+              format={format}
+              isPreview={true}
+            />
+          );
+        }
+      } catch (e) {
+        console.error("Error creating preview train:", e);
+      }
+    }
+  }
 
   return <>
     {Object.keys(trains).map(trainId => {
@@ -455,10 +536,11 @@ export default function Trains() {
 
       return <TrainComponent key={trainId} trainId={trainId} train={train as Train} format={trainFormats[train.trainFormatId] as TrainFormat} />;
     })}
+    {previewTrainComponent}
   </>;
 }
 
-export function TrainComponent({ trainId = "", train, format, isEditing = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean }) {
+export function TrainComponent({ trainId = "", train, format, isEditing = false, isPreview = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean, isPreview?: boolean }) {
   const { activeTrainId, activeBodyIndex, hoveredTrainId, hoveredBodyIndex, hoveredAxleIndex } = useSnapshot(trainsState);
 
   return <>
@@ -477,6 +559,7 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false 
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}
+          isPreview={isPreview}
         />
       )
     })}
@@ -495,10 +578,11 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false 
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}
+          isPreview={isPreview}
         />
       )
     })}
-    {isEditing && (
+    {isEditing && !isPreview && (
       <>
         <EditingJoints train={train} format={format} />
         <arrowHelper

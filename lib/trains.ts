@@ -343,6 +343,18 @@ export function placeTrain(
       0),
     0);
 
+  // ボギーと車輪（輪軸）の初期位置と回転を計算して設定する
+  train.bogies.forEach(bogie => {
+    bogie.axles.forEach(axle => {
+      axle.position.copy(getAxlePosition(axle, customTracks));
+      axle.rotation.copy(getAxleRotation(axle.pointOnTrack, axle.rotationIsReversed, customTracks));
+    });
+    bogieToAxles(bogie, customTracks);
+  });
+
+  // ジョイントを考慮して各車体の相対位置関係を同期
+  syncOtherBodies(train, trainFormat);
+
   calcJointsToRotateBody(train, trainFormat);
 
   return {
@@ -424,12 +436,21 @@ export function bogieToAxles(bogie: Bogie, customTracks?: { [trackId: string]: T
 
   rotationX /= bogie.axles.length;
   rotationZ /= bogie.axles.length;
-  bogie.rotation.set(
-    rotationX,
-    Math.atan2(-rotationY.y, rotationY.x),
-    rotationZ,
-    'YXZ'
-  );
+  if (bogie.rotation && typeof bogie.rotation.set === "function") {
+    bogie.rotation.set(
+      rotationX,
+      Math.atan2(-rotationY.y, rotationY.x),
+      rotationZ,
+      'YXZ'
+    );
+  } else {
+    bogie.rotation = new THREE.Euler(
+      rotationX,
+      Math.atan2(-rotationY.y, rotationY.x),
+      rotationZ,
+      'YXZ'
+    );
+  }
 }
 
 export function updatePointOnTrackToTrack(pointOnTrack: PointOnTrack, position: THREE.Vector3) {
@@ -447,10 +468,22 @@ export function updatePointOnTrackToTrack(pointOnTrack: PointOnTrack, position: 
 export function axlesToBogie(bogie: Bogie, bogieFormat: BogieFormat) {
   bogie.axles.forEach((axle, index) => {
     // axles to bogie
-    axle.position.copy(new THREE.Vector3(0, 0, bogieFormat.axles[index].z)
-      .applyEuler(bogie.rotation)
-      .add(bogie.position));
-    axle.rotation.copy(bogie.rotation);
+    const calculatedPos = new THREE.Vector3(0, 0, bogieFormat.axles[index].z)
+      .applyEuler(cE(bogie.rotation))
+      .add(cV(bogie.position));
+
+    if (axle.position && typeof axle.position.copy === "function") {
+      axle.position.copy(calculatedPos);
+    } else {
+      axle.position = calculatedPos;
+    }
+
+    const calculatedRot = cE(bogie.rotation);
+    if (axle.rotation && typeof axle.rotation.copy === "function") {
+      axle.rotation.copy(calculatedRot);
+    } else {
+      axle.rotation = calculatedRot;
+    }
 
     // axle.pointOnTrack to track
     updatePointOnTrackToTrack(
@@ -600,8 +633,14 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
       }
     });
 
-    if (jointCount)
-      fromBody.position.copy(position.divideScalar(jointCount));
+    if (jointCount) {
+      const calculatedPos = position.divideScalar(jointCount);
+      if (fromBody.position && typeof fromBody.position.copy === "function") {
+        fromBody.position.copy(calculatedPos);
+      } else {
+        fromBody.position = calculatedPos;
+      }
+    }
   });
 
   // 回転を設定する
@@ -658,17 +697,32 @@ export function syncOtherBodies(train: Train, trainFormat: TrainFormat) {
     });
 
     if (fromJointEuler) {
-      if (cV(fromJointPosition!).equals(cV(toJointPosition!)))
-        fromBody.rotation.copy(fromJointEuler!);
-      else {
+      if (cV(fromJointPosition!).equals(cV(toJointPosition!))) {
+        const calculatedRot = cE(fromJointEuler!);
+        if (fromBody.rotation && typeof fromBody.rotation.copy === "function") {
+          fromBody.rotation.copy(calculatedRot);
+        } else {
+          fromBody.rotation = calculatedRot;
+        }
+      } else {
         const fromE = cE(fromJointEuler);
         const toE = cE(toJointEuler!);
-        fromBody.rotation.set(
+        const calculatedRot = new THREE.Euler(
           (fromE.x + toE.x) / 2,
           (fromE.y + toE.y) / 2,
           (fromE.z + toE.z) / 2,
           'YXZ'
         );
+        if (fromBody.rotation && typeof fromBody.rotation.set === "function") {
+          fromBody.rotation.set(
+            calculatedRot.x,
+            calculatedRot.y,
+            calculatedRot.z,
+            'YXZ'
+          );
+        } else {
+          fromBody.rotation = calculatedRot;
+        }
       }
     }
   });
@@ -853,16 +907,31 @@ export function rollAxles(train: Train, trainFormat: TrainFormat, distance: numb
 
   // otherBodiesをボギーに合わせる
   train.otherBodies.forEach(fromBody => {
-    if (fromBody.position)
-      fromBody.position.sub(center).applyQuaternion(oldBogiesInvertedQuaternion)
+    if (fromBody.position) {
+      const pos = cV(fromBody.position)
+        .sub(center)
+        .applyQuaternion(oldBogiesInvertedQuaternion)
         .applyQuaternion(newBogiesQuaternion)
         .add(newCenter);
 
-    fromBody.rotation.copy(new THREE.Euler().setFromQuaternion(
-      new THREE.Quaternion().setFromEuler(fromBody.rotation)
+      if (typeof fromBody.position.copy === "function") {
+        fromBody.position.copy(pos);
+      } else {
+        fromBody.position = pos;
+      }
+    }
+
+    const rot = new THREE.Euler().setFromQuaternion(
+      new THREE.Quaternion().setFromEuler(cE(fromBody.rotation))
         .multiply(oldBogiesInvertedQuaternion)
         .multiply(newBogiesQuaternion)
-    ));
+    );
+
+    if (fromBody.rotation && typeof fromBody.rotation.copy === "function") {
+      fromBody.rotation.copy(rot);
+    } else {
+      fromBody.rotation = rot;
+    }
   });
 
   // ボギーを含むCarBodyの位置と向きをジョイントに合わせる

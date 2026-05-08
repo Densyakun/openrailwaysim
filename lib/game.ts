@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
-import { BodySupporterJoint, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
+import { Axle, Bogie, BodySupporterJoint, CarBody, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
 import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
@@ -108,6 +108,14 @@ export const bodySupporterJointArrayTypeId = "bodySupporterJointArray";
 export const bodySupporterJointTypeId = "bodySupporterJoint";
 export const jointArrayTypeId = "jointArray";
 export const jointTypeId = "joint";
+export const trainsObjectTypeId = "trainsObject";
+export const trainTypeId = "train";
+export const bogieArrayTypeId = "bogieArray";
+export const bogieTypeId = "bogie";
+export const axleArrayTypeId = "axleArray";
+export const axleTypeId = "axle";
+export const carBodyArrayTypeId = "carBodyArray";
+export const carBodyTypeId = "carBody";
 export const threeVector3TypeId = "THREE.Vector3";
 export const threeEulerTypeId = "THREE.Euler";
 
@@ -143,6 +151,36 @@ export function getTypeIdByPath(path: Path<SerializableORSAppDataType>) {
         path[4] === "positionA"
         || path[4] === "positionB"
       ) return threeVector3TypeId;
+    }
+  }
+  if (path[0] === "trains") {
+    if (path.length === 1) return trainsObjectTypeId;
+    if (path.length === 2) return trainTypeId;
+    if (path.length >= 3) {
+      if (path[2] === "bogies") {
+        if (path.length === 3) return bogieArrayTypeId;
+        if (path.length === 4) return bogieTypeId;
+        if (path.length >= 5) {
+          if (path[4] === "axles") {
+            if (path.length === 5) return axleArrayTypeId;
+            if (path.length === 6) return axleTypeId;
+            if (path.length >= 7) {
+              if (path[6] === "position") return threeVector3TypeId;
+              if (path[6] === "rotation") return threeEulerTypeId;
+            }
+          } else {
+            if (path[4] === "position") return threeVector3TypeId;
+            if (path[4] === "rotation") return threeEulerTypeId;
+          }
+        }
+      } else if (path[2] === "otherBodies") {
+        if (path.length === 3) return carBodyArrayTypeId;
+        if (path.length === 4) return carBodyTypeId;
+        if (path.length >= 5) {
+          if (path[4] === "position") return threeVector3TypeId;
+          if (path[4] === "rotation") return threeEulerTypeId;
+        }
+      }
     }
   }
   return "";
@@ -306,6 +344,84 @@ export function serialize(type: string, value: any): any {
     };
 
     return serializableJoint;
+  } else if (type === trainsObjectTypeId) {
+    const trains: { [key: string]: Train } = value;
+    const serializableTrains: { [key: string]: any } = {};
+
+    Object.keys(trains).forEach(id =>
+      serializableTrains[id] = serialize(trainTypeId, trains[id])
+    );
+
+    return serializableTrains;
+  } else if (type === trainTypeId) {
+    const {
+      bogies,
+      otherBodies,
+      ...rest
+    } = value;
+
+    const serializableTrain = {
+      ...rest,
+      bogies: serialize(bogieArrayTypeId, bogies),
+      otherBodies: serialize(carBodyArrayTypeId, otherBodies),
+    };
+
+    return serializableTrain;
+  } else if (type === bogieArrayTypeId) {
+    const bogies: Bogie[] = value;
+    return bogies.map(bogie => serialize(bogieTypeId, bogie));
+  } else if (type === bogieTypeId) {
+    const {
+      axles,
+      position,
+      rotation,
+      ...rest
+    } = value;
+
+    const serializableBogie = {
+      ...rest,
+      axles: serialize(axleArrayTypeId, axles),
+      position: serialize(threeVector3TypeId, position),
+      rotation: serialize(threeEulerTypeId, rotation),
+    };
+
+    return serializableBogie;
+  } else if (type === axleArrayTypeId) {
+    const axles: Axle[] = value;
+    return axles.map(axle => serialize(axleTypeId, axle));
+  } else if (type === axleTypeId) {
+    const {
+      position,
+      rotation,
+      pointOnTrack,
+      ...rest
+    } = value;
+
+    const serializableAxle = {
+      ...rest,
+      position: serialize(threeVector3TypeId, position),
+      rotation: serialize(threeEulerTypeId, rotation),
+      pointOnTrack,
+    };
+
+    return serializableAxle;
+  } else if (type === carBodyArrayTypeId) {
+    const carBodies: CarBody[] = value;
+    return carBodies.map(carBody => serialize(carBodyTypeId, carBody));
+  } else if (type === carBodyTypeId) {
+    const {
+      position,
+      rotation,
+      ...rest
+    } = value;
+
+    const serializableCarBody = {
+      ...rest,
+      position: serialize(threeVector3TypeId, position),
+      rotation: serialize(threeEulerTypeId, rotation),
+    };
+
+    return serializableCarBody;
   } else if (type === threeVector3TypeId) {
     const position: THREE.Vector3 = value;
 
@@ -328,6 +444,7 @@ export function deserialize(type: string, value: any): any {
       ...value,
       tracks: deserialize(tracksObjectTypeId, serializableORSAppData.tracks) as { [key: string]: Track },
       trainFormats: deserialize(trainFormatsObjectTypeId, serializableORSAppData.trainFormats) as { [key: string]: TrainFormat },
+      trains: deserialize(trainsObjectTypeId, serializableORSAppData.trains) as { [key: string]: Train },
     };
 
     return orsAppData;
@@ -498,14 +615,104 @@ export function deserialize(type: string, value: any): any {
     };
 
     return joint;
+  } else if (type === trainsObjectTypeId) {
+    const serializableTrains: { [key: string]: any } = value;
+    const trains: { [key: string]: Train } = {};
+
+    Object.keys(serializableTrains).forEach(id =>
+      trains[id] = deserialize(trainTypeId, serializableTrains[id]) as Train
+    );
+
+    return trains;
+  } else if (type === trainTypeId) {
+    const {
+      bogies,
+      otherBodies,
+      ...rest
+    } = value;
+
+    const train: Train = {
+      ...rest,
+      bogies: deserialize(bogieArrayTypeId, bogies),
+      otherBodies: deserialize(carBodyArrayTypeId, otherBodies),
+    };
+
+    return train;
+  } else if (type === bogieArrayTypeId) {
+    const serializableBogies: any[] = value;
+    return serializableBogies.map(bogie => deserialize(bogieTypeId, bogie));
+  } else if (type === bogieTypeId) {
+    const {
+      axles,
+      position,
+      rotation,
+      ...rest
+    } = value;
+
+    const bogie: Bogie = {
+      ...rest,
+      axles: deserialize(axleArrayTypeId, axles),
+      position: deserialize(threeVector3TypeId, position),
+      rotation: deserialize(threeEulerTypeId, rotation),
+    };
+
+    return bogie;
+  } else if (type === axleArrayTypeId) {
+    const serializableAxles: any[] = value;
+    return serializableAxles.map(axle => deserialize(axleTypeId, axle));
+  } else if (type === axleTypeId) {
+    const {
+      position,
+      rotation,
+      pointOnTrack,
+      ...rest
+    } = value;
+
+    const axle: Axle = {
+      ...rest,
+      position: deserialize(threeVector3TypeId, position),
+      rotation: deserialize(threeEulerTypeId, rotation),
+      pointOnTrack: {
+        ...pointOnTrack,
+      },
+    };
+
+    return axle;
+  } else if (type === carBodyArrayTypeId) {
+    const serializableCarBodies: any[] = value;
+    return serializableCarBodies.map(carBody => deserialize(carBodyTypeId, carBody));
+  } else if (type === carBodyTypeId) {
+    const {
+      position,
+      rotation,
+      ...rest
+    } = value;
+
+    const carBody: CarBody = {
+      ...rest,
+      position: deserialize(threeVector3TypeId, position),
+      rotation: deserialize(threeEulerTypeId, rotation),
+    };
+
+    return carBody;
   } else if (type === threeVector3TypeId) {
-    const position: THREE.Vector3Tuple = value;
-
-    return new THREE.Vector3(...position);
+    if (value instanceof THREE.Vector3) return value;
+    if (Array.isArray(value)) {
+      return new THREE.Vector3(...value);
+    }
+    if (value && typeof value === "object") {
+      return new THREE.Vector3(value.x ?? 0, value.y ?? 0, value.z ?? 0);
+    }
+    return new THREE.Vector3();
   } else if (type === threeEulerTypeId) {
-    const rotation: SerializableEuler = value;
-
-    return new THREE.Euler(...rotation);
+    if (value instanceof THREE.Euler) return value;
+    if (Array.isArray(value)) {
+      return new THREE.Euler(value[0], value[1], value[2], value[3]);
+    }
+    if (value && typeof value === "object") {
+      return new THREE.Euler(value.x ?? 0, value.y ?? 0, value.z ?? 0, value.order ?? value._order ?? 'YXZ');
+    }
+    return new THREE.Euler();
   }
 
   return value;

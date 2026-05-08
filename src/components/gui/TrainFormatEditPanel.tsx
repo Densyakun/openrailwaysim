@@ -635,9 +635,11 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 
   if (!editingTrainFormat) return null;
 
-  const invalidCabIndex = editingTrainFormat.cabFormats.findIndex(cab =>
-    cab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(cab.oneHandleMasterControllerUIConfigId)
-  );
+  const invalidCabIndex = editingTrainFormat.cabFormats.findIndex((cab, index) => {
+    if (index >= editingTrainFormat.otherBodyOffsets.length) return false;
+    if (!cab) return false;
+    return !Object.keys(uiOneHandleMasterControllerConfigs).includes(cab.oneHandleMasterControllerUIConfigId);
+  });
 
   const isDuplicateId = isAddingTrainFormat && Object.keys(trainFormats).includes(newTrainFormatId);
   const hasNoBogies = !editingTrainFormat.bogies.length;
@@ -1048,14 +1050,34 @@ function OtherBodiesEditor() {
 
   useEffect(() => {
     if (selectedCarBodyIndex === -1 || !editingTrainFormat) return;
-    formState.carBodyOffset = formatFloat(editingTrainFormat.otherBodyOffsets[selectedCarBodyIndex - editingTrainFormat.bogies.length]);
-    formState.carBodyWeight = formatFloat(editingTrainFormat.otherBodyWeights[selectedCarBodyIndex - editingTrainFormat.bogies.length]);
+    const indexInOtherBodies = selectedCarBodyIndex - editingTrainFormat.bogies.length;
+    if (indexInOtherBodies < 0 || indexInOtherBodies >= editingTrainFormat.otherBodyOffsets.length) return;
+
+    formState.carBodyOffset = formatFloat(editingTrainFormat.otherBodyOffsets[indexInOtherBodies]);
+    formState.carBodyWeight = formatFloat(editingTrainFormat.otherBodyWeights[indexInOtherBodies]);
+    
+    // Sync cab data to formState when otherbody changes
+    const cab = editingTrainFormat.cabFormats[indexInOtherBodies];
+    if (cab) {
+      formState.hasCab = true;
+      formState.directionIsReversed = cab.directionIsReversed;
+      formState.oneHandleMasterControllerUIConfigId = cab.oneHandleMasterControllerUIConfigId;
+    } else {
+      formState.hasCab = false;
+      formState.directionIsReversed = false;
+      const configs = Object.keys(store.data.uiOneHandleMasterControllerConfigs);
+      formState.oneHandleMasterControllerUIConfigId = configs.length > 0 ? configs[0] : '';
+    }
+
     focusCamera();
   }, [selectedCarBodyIndex]);
 
   useEffect(() => {
-    if (!trainsTabPanelState.editingTrainFormat || !editingTrainFormat) return;
-    trainsTabPanelState.editingTrainFormat.cabFormats[selectedCarBodyIndex - editingTrainFormat.bogies.length] =
+    if (!trainsTabPanelState.editingTrainFormat || !editingTrainFormat || selectedCarBodyIndex === -1) return;
+    const indexInOtherBodies = selectedCarBodyIndex - editingTrainFormat.bogies.length;
+    if (indexInOtherBodies < 0 || indexInOtherBodies >= editingTrainFormat.otherBodyOffsets.length) return;
+
+    trainsTabPanelState.editingTrainFormat.cabFormats[indexInOtherBodies] =
       hasCab && oneHandleMasterControllerUIConfigId
         ? {
           directionIsReversed,
@@ -1063,7 +1085,7 @@ function OtherBodiesEditor() {
         }
         : null;
     triggerPreviewUpdate();
-  }, [hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId, selectedCarBodyIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!editingTrainFormat) return null;
 
@@ -1146,7 +1168,7 @@ function OtherBodiesEditor() {
         triggerPreviewUpdate();
       }}
     />
-    <Typography variant="h6">Control stand</Typography>
+    <Typography variant="h6">Cab</Typography>
     {hasCab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(oneHandleMasterControllerUIConfigId) && <Alert
       severity="error"
     >
@@ -1155,7 +1177,7 @@ function OtherBodiesEditor() {
     }
     <FormControlLabel control={<Checkbox size="small" checked={hasCab} onChange={event => {
       formState.hasCab = event.target.checked;
-    }} />} label="has control stand" />
+    }} />} label="has cab" />
     <FormControlLabel control={<Checkbox size="small" disabled={!hasCab} checked={directionIsReversed} onChange={event => {
       formState.directionIsReversed = event.target.checked;
     }} />} label="Direction is reversed" />

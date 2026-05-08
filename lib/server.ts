@@ -130,57 +130,84 @@ export function setupServer(wss: WebSocketServer) {
         )
       }
 
-      if (path[0] === "originCoordinate") {
+      const p = path_ as any[];
+
+      if (p[0] === "originCoordinate") {
         push()
-      } else if (path[0] === "terrains") {
+      } else if (p[0] === "terrains") {
         push()
-      } else if (path[0] === "nowDate") {
+      } else if (p[0] === "nowDate") {
         push()
-      } else if (path[0] === "trainFormats") {
+      } else if (p[0] === "trainFormats") {
         push()
-      } else if (path[0] === "trains") {
-        if (3 <= path.length) {
-          // TODO 同期するシリアライズでなければいけないが、シリアライズTrainにはボギーのデータがない（ボギーは保存しないのでシリアライズTrainに含まない）
-          // ->
-          // セーブするためのシリアル化と、同期するためのシリアル化を分ける
-          // また、セーブデータではなくステート/ストアに名前変更
-          /*if (path[2] === "bogies") {
-            if (6 <= path.length) {
-              if (path[4] === "axles") {
-                if (7 <= path.length)
-                  if (path[6] === "pointOnTrack")
-                    push()
-                  else if (path[6] === "rotationIsReversed")
-                    push()
+      } else if (p[0] === "trains") {
+        if (3 <= p.length) {
+          if (p[2] === "bogies") {
+            if (6 <= p.length) {
+              if (p[4] === "axles") {
+                if (7 <= p.length) {
+                  if (
+                    p[6] === "pointOnTrack"
+                    || p[6] === "rotationIsReversed"
+                    || p[6] === "position"
+                    || p[6] === "rotation"
+                  ) {
+                    push();
+                  }
+                }
+              }
+            } else if (5 <= p.length) {
+              if (
+                p[4] === "position"
+                || p[4] === "rotation"
+              ) {
+                push();
               }
             }
-          } else if (path[2] === "otherBodies") {
-            if (6 <= path.length) {
-              if (path[4] === "controlStand")
-                push()
+          } else if (p[2] === "otherBodies") {
+            if (6 <= p.length) {
+              if (p[4] === "controlStand") {
+                push();
+              }
+            } else if (5 <= p.length) {
+              if (
+                p[4] === "position"
+                || p[4] === "rotation"
+              ) {
+                push();
+              }
             }
-          } else */if (path[2] === "speed") {
+          } else if (p[2] === "cabStates") {
+            if (5 <= p.length) {
+              if (
+                p[4] === "reverser"
+                || p[4] === "masterControllerValue"
+              ) {
+                push();
+              }
+            }
+          } else if (p[2] === "speed") {
             push()
-          } else if (path[2] === "currentDiagramId") {
+          } else if (p[2] === "currentDiagramId") {
             push()
-          } else if (path[2] === "currentDiagramCurveIndex") {
+          } else if (p[2] === "currentDiagramCurveIndex") {
             push()
-          } else if (path[2] === "currentDiagramSectionIndex") {
+          } else if (p[2] === "currentDiagramSectionIndex") {
             push()
-          } else if (path[2] === "currentRouteIndex") {
+          } else if (p[2] === "currentRouteIndex") {
             push()
-          } else if (path[2] === "isStopping") {
+          } else if (p[2] === "isStopping") {
             push()
           }
-        } else if (path.length === 2) {
+        } else if (p.length === 2) {
           push()
           // 追加または削除された列車にダイヤを割り当てる
           assignSchedulesToTrains(store.data)
         }
-      } else if (path[0] === "trainGroups") {
+      } else if (p[0] === "trainGroups") {
         push()
-      } else if (path[0] === "featureCollections") {
-        if (path.length === 2) {
+      } else if (p[0] === "featureCollections") {
+        if (p.length === 2) {
           push()
         }
       } else if (path[0] === "tracks") {
@@ -252,8 +279,8 @@ export function setupServer(wss: WebSocketServer) {
     time = newTime;
   };
 
-  // 1秒毎に時間を進行する。列車の走行中は加速度が変化する。列車の位置の誤差を少なくするために必要
-  const timer = setInterval(onUpdateTime, 1000);
+  // 一定の間隔で時間を進行する。列車の走行中は加速度が変化する。列車の位置の誤差を少なくするために必要
+  const timer = setInterval(onUpdateTime, 250);
 
   const onMessage: OnMessageInServer = (code, value, ws) => {
     onUpdateTime();

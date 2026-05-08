@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { Fab, Paper, Stack, Tooltip } from '@mui/material';
+import { Paper, Stack, Tooltip, Fab } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
 import ControlStand from '../hud/ControlStand';
 import TrainGroupTable from './TrainGroupTable';
@@ -9,6 +9,7 @@ import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
 import TrainFormatTable from './TrainFormatTable';
+import TrainAddPanel from './TrainAddPanel';
 
 function TrainsMenu() {
   return <Paper sx={{
@@ -44,8 +45,8 @@ export default function TrainsTabPanel() {
   const { activeTrainId } = useSnapshot(trainsState);
 
   useEffect(() => {
-    guiState.alignItems = (isAddingTrainFormat || editingTrainFormatId) ? "end" : "center";
-  }, [isAddingTrainFormat, editingTrainFormatId]);
+    guiState.alignItems = (isAddingTrainFormat || editingTrainFormatId || isAddingTrain) ? "end" : "center";
+  }, [isAddingTrainFormat, editingTrainFormatId, isAddingTrain]);
 
   return isShowTrainFormatTable
     ? isAddingTrainFormat || editingTrainFormatId
@@ -53,8 +54,8 @@ export default function TrainsTabPanel() {
       : <TrainFormatTable />
     : isShowTrainTable
       ? selectedTrainGroup
-        ? isAddingTrain//
-          ? <></>
+        ? isAddingTrain
+          ? <TrainAddPanel />
           : <TrainTable trainGroupId={selectedTrainGroup} />
         : <TrainGroupTable />
       : activeTrainId

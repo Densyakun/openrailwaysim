@@ -47,7 +47,15 @@ export default function Reverser({
   return (
     <ReverserSlider
       value={cabState.reverser}
-      setValue={newValue =>
+      setValue={newValue => {
+        const activeTrain = store.data.trains[trainsState.activeTrainId];
+        if (activeTrain) {
+          const cabIndex = trainsState.activeBodyIndex - activeTrain.bogies.length;
+          if (activeTrain.cabStates[cabIndex]) {
+            activeTrain.cabStates[cabIndex].reverser = newValue;
+          }
+        }
+
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
           [
             "trains",
@@ -57,8 +65,8 @@ export default function Reverser({
             "reverser"
           ],
           newValue
-        ] as any)
-      }
+        ] as any);
+      }}
     />
   );
 }

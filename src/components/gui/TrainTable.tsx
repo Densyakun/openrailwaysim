@@ -17,9 +17,12 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
   const { trainGroups, trains } = useSnapshot(store.data);
 
   let trains_: { [key: string]: Train } = {};
-  trainGroups[trainGroupId].forEach(trainId =>
-    trains_[trainId] = trains[trainId] as Train
-  );
+  const groupTrainIds = trainGroups[trainGroupId] ?? [];
+  groupTrainIds.forEach(trainId => {
+    if (trains[trainId]) {
+      trains_[trainId] = trains[trainId] as Train;
+    }
+  });
 
   return <Paper square sx={{
     width: "100%",
@@ -43,19 +46,24 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
           <TrainIcon />
           <Typography variant="h5" gutterBottom>{trainGroupId}</Typography>
           {/** TODO */}
-          {/*<Button variant="contained" startIcon={<AddIcon />} onClick={() => {
-            trainsTabPanelState.isAddingTrain = true;
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
             resetEditingTrainState();
-            trainsTabPanelState.bogieOffsets = [0];
-            trainsTabPanelState.bogieWeights = [0];
-            trainsTabPanelState.axleTable = [[{
-              z: 0,
-              diameter: 0.86,
-              hasMotor: true,
-            }]];
+            trainsTabPanelState.isAddingTrain = true;
+            trainsTabPanelState.selectedTrainGroup = trainGroupId;
+            
+            let index = 1;
+            while (store.data.trains[`train_${index}`]) {
+              index++;
+            }
+            trainsTabPanelState.newTrainId = `train_${index}`;
+            
+            const formatKeys = Object.keys(store.data.trainFormats);
+            if (formatKeys.length > 0) {
+              trainsTabPanelState.trainFormatId = formatKeys[0];
+            }
           }}>
             Add
-          </Button>*/}
+          </Button>
         </Stack>
       )}
       objects={trains_}

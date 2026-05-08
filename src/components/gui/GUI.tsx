@@ -20,6 +20,7 @@ import { trainsState } from '@/lib/client/trains';
 import DiagramsTabPanel from './DiagramsTabPanel';
 import CameraPositionChip from '../CameraPositionChip';
 import TerrainsTabPanel from './TerrainsTabPanel';
+import { store } from '@/lib/game';
 
 function TopInfo() {
   return <Box sx={{
@@ -85,10 +86,18 @@ const menuComponents: {
 export default function GUI() {
   const { selectedTab, alignItems } = useSnapshot(guiState);
   const { activeTrainId } = useSnapshot(trainsState);
+  const { trains } = useSnapshot(store.data);
 
   useEffect(() => {
     guiState.alignItems = "center";
   }, [selectedTab]);
+
+  useEffect(() => {
+    if (activeTrainId && !trains[activeTrainId]) {
+      trainsState.activeTrainId = "";
+      trainsState.activeBodyIndex = -1;
+    }
+  }, [activeTrainId, trains]);
 
   return <Stack
     justifyContent="space-between"

@@ -421,12 +421,12 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
     trainFormat.cabFormats.push(
       index === 0
         ? {
-          directionIsReversed: true,
+          directionIsReversed: false,
           oneHandleMasterControllerUIConfigId: masterControllerUIOptionId,
         }
         : index === carFormatIndexes.length - 1
           ? {
-            directionIsReversed: false,
+            directionIsReversed: true,
             oneHandleMasterControllerUIConfigId: masterControllerUIOptionId,
           }
           : null
@@ -593,7 +593,6 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
 
 export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[], carFormatIndexes: number[] } {
   const carLength = 20;
-  const couplerLengthHalf = 0.92;
   const distanceBetweenBogiesHalf = 13.8 / 2;
   const wheelbaseHalfM = 2.3 / 2;
   const wheelbaseHalfT = 2.1 / 2;
@@ -617,7 +616,7 @@ export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[]
 
 export function createJNR103SeriesTrainFormat(masterControllerUIOptionId: string): TrainFormat {
   const { carFormats, carFormatIndexes } = getJNR103SeriesStandardData();
-  return createStandardTrainFormat(carFormats, carFormatIndexes, masterControllerUIOptionId, 0.92);
+  return createStandardTrainFormat(carFormats, carFormatIndexes, masterControllerUIOptionId, 0.8);
 }
 
 export const twoTestCarsWithJacobsBogies: TrainFormat = {

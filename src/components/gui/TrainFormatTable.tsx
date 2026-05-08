@@ -57,6 +57,27 @@ export default function TrainFormatTable() {
       objects={trainFormats}
       // TODO 編集機能をオーバーライド
       listItemButtons={id => <>
+        <Tooltip title="Place a train of this format" disableInteractive>
+          <IconButton edge="end" onClick={() => {
+            resetEditingTrainState();
+            trainsTabPanelState.isAddingTrain = true;
+            trainsTabPanelState.trainFormatId = id;
+            
+            const groupKeys = Object.keys(store.data.trainGroups);
+            trainsTabPanelState.selectedTrainGroup = groupKeys.length > 0 ? groupKeys[0] : "default";
+            
+            let index = 1;
+            while (store.data.trains[`train_${index}`]) {
+              index++;
+            }
+            trainsTabPanelState.newTrainId = `train_${index}`;
+            
+            trainsTabPanelState.isShowTrainFormatTable = false;
+            trainsTabPanelState.isShowTrainTable = true;
+          }}>
+            <TrainIcon />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Edit" disableInteractive>
           <IconButton edge="end" onClick={() => {
             resetEditingTrainState();

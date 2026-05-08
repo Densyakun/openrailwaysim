@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { proxy, useSnapshot } from "valtio";
-import { Alert, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, Menu, MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, List, ListItem, ListItemSecondaryAction } from "@mui/material";
+import { Alert, Box, Button, ButtonGroup, Checkbox, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Drawer, FormControl, FormControlLabel, IconButton, InputLabel, Menu, MenuItem, Paper, Select, Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, List, ListItem, ListItemSecondaryAction } from "@mui/material";
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -650,6 +650,10 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 
   const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab;
 
+  const motorCount = editingTrainFormat.bogies.reduce((sum, bogie) => 
+    sum + bogie.axles.filter(a => a.hasMotor).length, 0
+  );
+
   const handleModeChange = (
     _event: React.MouseEvent<HTMLElement>,
     newMode: "advanced" | "standard",
@@ -760,6 +764,11 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       }
     />
     <PresetMenu />
+    <Box sx={{ p: 1, bgcolor: "rgba(0, 0, 0, 0.05)", borderRadius: 1, border: "1px solid rgba(0, 0, 0, 0.1)", mt: 0.5, mb: 0.5 }}>
+      <Typography variant="body2" fontWeight="bold">
+        モーター搭載軸数: {motorCount} 軸
+      </Typography>
+    </Box>
     <ToggleButtonGroup
       color="primary"
       value={editingTrainFormatMode}

@@ -8,12 +8,20 @@ export const trainsState = proxy<{
   hoveredAxleIndex: number;
   activeTrainId: string;
   activeBodyIndex: number;
+  selectedTrainId: string;
+  selectedBodyIndex: number;
+  isCameraFollowing: boolean;
+  cameraOffset: { x: number; y: number; z: number };
 }>({
   hoveredTrainId: "",
   hoveredBodyIndex: -1,
   hoveredAxleIndex: -1,
   activeTrainId: "",
   activeBodyIndex: -1,
+  selectedTrainId: "",
+  selectedBodyIndex: -1,
+  isCameraFollowing: false,
+  cameraOffset: { x: 0, y: 5, z: 12 }, // デフォルトオフセット (やや高め、後方から見下ろす視角)
 });
 
 export const trainsTabPanelState = proxy<{
@@ -95,4 +103,11 @@ export function triggerPreviewUpdate() {
   if (trainsTabPanelState.editingTrainFormat) {
     trainsTabPanelState.editingTrainFormat = JSON.parse(JSON.stringify(trainsTabPanelState.editingTrainFormat));
   }
+}
+ 
+export function resetSelectedTrainState() {
+  trainsState.selectedTrainId = "";
+  trainsState.selectedBodyIndex = -1;
+  trainsState.isCameraFollowing = false;
+  trainsState.cameraOffset = { x: 0, y: 5, z: 12 };
 }

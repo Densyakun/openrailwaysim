@@ -539,11 +539,27 @@ export function setupTrainMetrics(train: Train, trainFormat: TrainFormat, custom
 
   // 4. 運転台状態（cabStates）の数も自動リサイズ・補正する
   while (train.cabStates.length < trainFormat.cabFormats.length) {
-    train.cabStates.push(null);
+    const cabFormat = trainFormat.cabFormats[train.cabStates.length];
+    const mcConfig = cabFormat && store.data.uiOneHandleMasterControllerConfigs && store.data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+    train.cabStates.push(cabFormat ? {
+      reverser: 0,
+      masterControllerValue: mcConfig ? mcConfig.maxValue : 0,
+    } : null);
   }
   if (train.cabStates.length > trainFormat.cabFormats.length) {
     train.cabStates.splice(trainFormat.cabFormats.length);
   }
+  // 既存のnull要素でも運転台が定義されているなら初期化する
+  train.cabStates.forEach((cabState, index) => {
+    const cabFormat = trainFormat.cabFormats[index];
+    if (cabFormat && !cabState) {
+      const mcConfig = store.data.uiOneHandleMasterControllerConfigs && store.data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+      train.cabStates[index] = {
+        reverser: 0,
+        masterControllerValue: mcConfig ? mcConfig.maxValue : 0,
+      };
+    }
+  });
 
   let trainWeight = trainFormat.otherBodyWeights.reduce((previous, weight) => previous + weight,
     trainFormat.bogies.reduce((previous, bogie) => previous + bogie.weight, 0)

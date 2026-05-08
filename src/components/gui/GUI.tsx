@@ -99,6 +99,15 @@ export default function GUI() {
     }
   }, [activeTrainId, trains]);
 
+  useEffect(() => {
+    const { selectedTrainId } = trainsState;
+    if (selectedTrainId && !trains[selectedTrainId]) {
+      trainsState.selectedTrainId = "";
+      trainsState.selectedBodyIndex = -1;
+      trainsState.isCameraFollowing = false;
+    }
+  }, [trains]);
+
   return <Stack
     justifyContent="space-between"
     alignItems="center"

@@ -23,6 +23,9 @@ export default function DataMenu<FormValues extends { id: string }>({
   handleDelete: handleDelete_,
   showDefaultAddButton = true,
   showDefaultEditButton = true,
+  selectedId,
+  onItemClick,
+  getSecondaryText,
 }: {
   defaultValues?: DefaultValues<FormValues>;
   getValueOnEdit?: (newEditingId: string) => FormValues;
@@ -36,6 +39,9 @@ export default function DataMenu<FormValues extends { id: string }>({
   handleDelete?: (id: string) => void;
   showDefaultAddButton?: boolean;
   showDefaultEditButton?: boolean;
+  selectedId?: string;
+  onItemClick?: (id: string) => void;
+  getSecondaryText?: (id: string, obj: any) => string;
 }) {
   const form = useForm<FormValues>({
     defaultValues,
@@ -119,23 +125,39 @@ export default function DataMenu<FormValues extends { id: string }>({
               sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}
             >
               {Object.keys(objects).map(id => {
+                const isSelected = selectedId === id;
                 return (
                   <ListItem
                     key={id}
+                    onClick={onItemClick ? () => onItemClick(id) : undefined}
+                    sx={{
+                      cursor: onItemClick ? 'pointer' : 'default',
+                      bgcolor: isSelected ? 'rgba(25, 118, 210, 0.16)' : 'transparent',
+                      '&:hover': {
+                        bgcolor: onItemClick
+                          ? (isSelected ? 'rgba(25, 118, 210, 0.24)' : 'rgba(0, 0, 0, 0.04)')
+                          : 'transparent',
+                      }
+                    }}
                     secondaryAction={
                       <>
                         {listItemButtons && listItemButtons(id)}
                         {showDefaultEditButton &&
                           <Tooltip title="Edit" disableInteractive>
-                            <IconButton edge="end" onClick={() =>
-                              setEditingId(id)
-                            }>
+                            <IconButton edge="end" onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingId(id);
+                            }}>
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
                         }
                         <Tooltip title="Delete" disableInteractive>
-                          <IconButton edge="end" onClick={handleDelete_ ? (() => handleDelete_(id)) : (() => {
+                          <IconButton edge="end" onClick={handleDelete_ ? ((e) => {
+                            e.stopPropagation();
+                            handleDelete_(id);
+                          }) : ((e) => {
+                            e.stopPropagation();
                             if (typeof objectKey !== "undefined")
                               send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, [objectKey, id] as Path<SerializableORSAppDataType>);
                           })}>
@@ -145,7 +167,7 @@ export default function DataMenu<FormValues extends { id: string }>({
                       </>
                     }
                   >
-                    <ListItemText primary={id} />
+                    <ListItemText primary={id} secondary={getSecondaryText ? getSecondaryText(id, (objects as any)[id]) : undefined} />
                   </ListItem>
                 )
               })}

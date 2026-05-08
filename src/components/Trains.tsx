@@ -10,6 +10,9 @@ import { setCameraTargetPosition } from '@/lib/client/camera'
 import { store } from '@/lib/game'
 import { formState } from './gui/TrainFormatEditPanel'
 import { tracksState } from '@/lib/client/tracks/store'
+import { camerasState } from './cameras-and-controls/Cameras'
+import { cameraControlsState } from './cameras-and-controls/CameraControls'
+
 
 function BogieModel({
   trainId,
@@ -20,6 +23,7 @@ function BogieModel({
   isActive,
   isEditing = false,
   isPreview = false,
+  isSelected = false,
   ...props
 }: {
   trainId: string;
@@ -30,6 +34,7 @@ function BogieModel({
   isActive: boolean;
   isEditing?: boolean;
   isPreview?: boolean;
+  isSelected?: boolean;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
   const panelState = useSnapshot(trainsTabPanelState)
@@ -49,7 +54,7 @@ function BogieModel({
   let highlightColor: string | null = null;
   if (isEditing && panelState.editingTrainFormat) {
     const format = panelState.editingTrainFormat;
-    
+
     // 1. Body Supporter Joint の Bogie 接続
     if (panelState.selectedBodySupporterJointIndex !== -1) {
       const joint = format.bodySupporterJoints[panelState.selectedBodySupporterJointIndex];
@@ -57,7 +62,7 @@ function BogieModel({
         highlightColor = "magenta";
       }
     }
-    
+
     // 2. Other Joint の接続 (A or B)
     if (panelState.selectedOtherJointIndex !== -1) {
       const joint = format.otherJoints[panelState.selectedOtherJointIndex];
@@ -130,6 +135,23 @@ function BogieModel({
                   triggerPreviewUpdate();
                 }
               }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+
+                if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bogieIndex) {
+                  // すでに選択されている場合は選択解除
+                  trainsState.selectedTrainId = "";
+                  trainsState.selectedBodyIndex = -1;
+                  trainsState.isCameraFollowing = false;
+                } else {
+                  // 新しく選択（フォーカス追従）する
+                  trainsState.selectedTrainId = trainId;
+                  trainsState.selectedBodyIndex = bogieIndex;
+                  trainsState.isCameraFollowing = true;
+                }
+              }
             }
           }}
           onPointerMove={(event) => {
@@ -139,7 +161,7 @@ function BogieModel({
             if (isEditing) {
               const panelState = trainsTabPanelState;
               if (formState.editingTrainFormatMode === "standard") return;
-              const isSelectable = 
+              const isSelectable =
                 (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
                 panelState.isSelectingCarBodyB ||
                 (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
@@ -169,11 +191,13 @@ function BogieModel({
             ? <meshBasicMaterial color="#10b981" transparent opacity={0.6} depthWrite={false} />
             : isHovered
               ? <meshBasicMaterial color="yellow" />
-              : highlightColor
-                ? <meshBasicMaterial color={highlightColor} />
-                : isActive && !trainsState.activeTrainId
-                  ? <meshBasicMaterial color="red" />
-                  : <meshStandardMaterial />
+              : isSelected && !trainsState.activeTrainId
+                ? <meshBasicMaterial color="#3b82f6" />
+                : highlightColor
+                  ? <meshBasicMaterial color={highlightColor} />
+                  : isActive && !trainsState.activeTrainId
+                    ? <meshBasicMaterial color="red" />
+                    : <meshStandardMaterial />
           }
         </mesh>
       </group>
@@ -225,13 +249,13 @@ function WheelAndAxleModel({
       groupRef.current!.position.copy(mutableAxle.position)
       groupRef.current!.rotation.copy(mutableAxle.rotation)
       if (meshRef.current) {
-        meshRef.current.rotation.set(mutableAxle.rotationX, 0, Math.PI / 2)
+        meshRef.current.rotation.set(-mutableAxle.rotationX, 0, Math.PI / 2)
       }
     } else {
       groupRef.current!.position.copy(axle.position)
       groupRef.current!.rotation.copy(axle.rotation)
       if (meshRef.current) {
-        meshRef.current.rotation.set(axle.rotationX, 0, Math.PI / 2)
+        meshRef.current.rotation.set(-axle.rotationX, 0, Math.PI / 2)
       }
     }
   })
@@ -313,6 +337,7 @@ function OtherBodyModel({
   isActive,
   isEditing = false,
   isPreview = false,
+  isSelected = false,
   ...props
 }: {
   trainId: string;
@@ -323,6 +348,7 @@ function OtherBodyModel({
   isActive: boolean;
   isEditing?: boolean;
   isPreview?: boolean;
+  isSelected?: boolean;
 }) {
   const meshRef = React.useRef<THREE.Mesh>(null)
   const panelState = useSnapshot(trainsTabPanelState)
@@ -342,7 +368,7 @@ function OtherBodyModel({
   let highlightColor: string | null = null;
   if (isEditing && panelState.editingTrainFormat) {
     const format = panelState.editingTrainFormat;
-    
+
     // 1. Body Supporter Joint の OtherBody 接続
     if (panelState.selectedBodySupporterJointIndex !== -1) {
       const joint = format.bodySupporterJoints[panelState.selectedBodySupporterJointIndex];
@@ -350,7 +376,7 @@ function OtherBodyModel({
         highlightColor = "cyan";
       }
     }
-    
+
     // 2. Other Joint の接続 (A or B)
     if (panelState.selectedOtherJointIndex !== -1) {
       const joint = format.otherJoints[panelState.selectedOtherJointIndex];
@@ -423,12 +449,16 @@ function OtherBodyModel({
             trainsState.hoveredBodyIndex = -1;
             trainsState.hoveredTrainId = "";
 
-            if (isActive) {
-              trainsState.activeBodyIndex = -1;
-              trainsState.activeTrainId = "";
+            if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bodyIndex) {
+              // すでに選択されている場合は選択解除
+              trainsState.selectedTrainId = "";
+              trainsState.selectedBodyIndex = -1;
+              trainsState.isCameraFollowing = false;
             } else {
-              trainsState.activeBodyIndex = bodyIndex;
-              trainsState.activeTrainId = trainId;
+              // 新しく選択（フォーカス追従）する
+              trainsState.selectedTrainId = trainId;
+              trainsState.selectedBodyIndex = bodyIndex;
+              trainsState.isCameraFollowing = true;
             }
           }
         }
@@ -440,7 +470,7 @@ function OtherBodyModel({
         if (isEditing) {
           const panelState = trainsTabPanelState;
           if (formState.editingTrainFormatMode === "standard") return;
-          const isSelectable = 
+          const isSelectable =
             (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
             panelState.isSelectingCarBodyA ||
             (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint);
@@ -469,30 +499,102 @@ function OtherBodyModel({
         ? <meshBasicMaterial color="#34d399" transparent opacity={0.5} depthWrite={false} />
         : isHovered
           ? <meshBasicMaterial color="yellow" />
-          : highlightColor
-            ? <meshBasicMaterial color={highlightColor} />
-            : isActive && !trainsState.activeTrainId
-              ? <meshBasicMaterial color="red" />
-              : <meshStandardMaterial />
+          : isSelected && !trainsState.activeTrainId
+            ? <meshBasicMaterial color="#3b82f6" />
+            : highlightColor
+              ? <meshBasicMaterial color={highlightColor} />
+              : isActive && !trainsState.activeTrainId
+                ? <meshBasicMaterial color="red" />
+                : <meshStandardMaterial />
       }
     </mesh>
   )
 }
 
+// 追従制御用の一時キャッシュ
+let lastTargetBodyIndex = -2;
+let lastSelectedTrainId = "";
+let isFollowingActive = false;
+const lastTargetPosition = new THREE.Vector3();
+
 export function onFrame() {
-  // Track the camera to the selected car body
-  if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
-    const selectedTrain = store.data.trains[trainsState.activeTrainId]
-    if (!selectedTrain) return;
+  const camera = camerasState.cameraRefs[camerasState.mainCameraKey];
+  const mainControls = cameraControlsState.controlsRefs[cameraControlsState.mainControlsKey];
 
-    const bogiesLength = selectedTrain.bogies?.length ?? 0;
-    const selectedBody = trainsState.activeBodyIndex < bogiesLength
-      ? selectedTrain.bogies?.[trainsState.activeBodyIndex]
-      : selectedTrain.otherBodies?.[trainsState.activeBodyIndex - bogiesLength];
+  // 1. 選択された列車へのカメラ追従 (カメラの角度を変えないフォーカス & OrbitControls 競合なしの完全並走)
+  // 運転中であっても、自動追従が有効ならカメラの不連続な切り替えを避けるためにこちらを最優先します！
+  if (trainsState.isCameraFollowing && trainsState.selectedTrainId) {
+    const selectedTrain = store.data.trains[trainsState.selectedTrainId]
+    if (selectedTrain) {
+      const bogiesLength = selectedTrain.bogies?.length ?? 0;
+      // 選択されている特定の車体・台車、もしくは全体（-1の場合は先頭ボギー）
+      const targetBodyIndex = trainsState.selectedBodyIndex !== -1 ? trainsState.selectedBodyIndex : 0;
+      const selectedBody = targetBodyIndex < bogiesLength
+        ? selectedTrain.bogies?.[targetBodyIndex]
+        : selectedTrain.otherBodies?.[targetBodyIndex - bogiesLength];
 
-    if (selectedBody && selectedBody.position) {
-      setCameraTargetPosition(selectedBody.position)
+      if (selectedBody && selectedBody.position) {
+        if (camera && mainControls) {
+          const currTargetPosition = selectedBody.position;
+
+          // 追従が始まった瞬間、またはターゲットが変わった瞬間（フォーカス時）
+          if (!isFollowingActive || lastSelectedTrainId !== trainsState.selectedTrainId || lastTargetBodyIndex !== targetBodyIndex) {
+            isFollowingActive = true;
+            lastSelectedTrainId = trainsState.selectedTrainId;
+            lastTargetBodyIndex = targetBodyIndex;
+
+            // カメラの角度を変えずに平行移動だけでフォーカス
+            const focusDelta = new THREE.Vector3().subVectors(currTargetPosition, mainControls.target);
+            camera.position.add(focusDelta);
+            mainControls.target.copy(currTargetPosition);
+
+            // イージング（慣性ダンピング）を一時的に無効化してupdateを呼ぶことで、滑る動きをリセット・中断
+            const originalDamping = mainControls.enableDamping;
+            mainControls.enableDamping = false;
+            mainControls.update();
+            mainControls.enableDamping = originalDamping;
+
+            lastTargetPosition.copy(currTargetPosition);
+          } else {
+            // 毎フレームの自動並走追従：列車が前フレームから動いた差分（delta）を求め、
+            // カメラ位置とコントロールの target の両方に加算（平行移動）する
+            const delta = new THREE.Vector3().subVectors(currTargetPosition, lastTargetPosition);
+
+            if (delta.lengthSq() > 0.000001) {
+              camera.position.add(delta);
+              mainControls.target.add(delta);
+
+              if (typeof mainControls.update === 'function') {
+                mainControls.update();
+              }
+            }
+
+            lastTargetPosition.copy(currTargetPosition);
+          }
+        } else {
+          setCameraTargetPosition(selectedBody.position);
+        }
+      }
     }
+  }
+  // 2. 運転台のカメラ追従 (自動追従がOFFのときの、運転モード移行時のフォールバック追従)
+  else if (trainsState.activeBodyIndex !== -1 && trainsState.activeTrainId) {
+    const selectedTrain = store.data.trains[trainsState.activeTrainId]
+    if (selectedTrain) {
+      const bogiesLength = selectedTrain.bogies?.length ?? 0;
+      const selectedBody = trainsState.activeBodyIndex < bogiesLength
+        ? selectedTrain.bogies?.[trainsState.activeBodyIndex]
+        : selectedTrain.otherBodies?.[trainsState.activeBodyIndex - bogiesLength];
+
+      if (selectedBody && selectedBody.position) {
+        setCameraTargetPosition(selectedBody.position)
+      }
+    }
+  } else {
+    // 追従していないときはフラグをクリア
+    isFollowingActive = false;
+    lastSelectedTrainId = "";
+    lastTargetBodyIndex = -2;
   }
 }
 
@@ -541,11 +643,13 @@ export default function Trains() {
 }
 
 export function TrainComponent({ trainId = "", train, format, isEditing = false, isPreview = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean, isPreview?: boolean }) {
-  const { activeTrainId, activeBodyIndex, hoveredTrainId, hoveredBodyIndex, hoveredAxleIndex } = useSnapshot(trainsState);
+  const { activeTrainId, activeBodyIndex, hoveredTrainId, hoveredBodyIndex, hoveredAxleIndex, selectedTrainId, selectedBodyIndex } = useSnapshot(trainsState);
+  const { selectedTab } = useSnapshot(guiState);
 
   return <>
     {train.bogies.map((bogie, bogieIndex) => {
       const isActive = activeTrainId === trainId && activeBodyIndex === bogieIndex
+      const isSelected = selectedTab === 'trains' && selectedTrainId === trainId && (selectedBodyIndex === -1 || selectedBodyIndex === bogieIndex)
       // 輪軸がホバーされているときは親ボギーをハイライトしない
       const isHovered = hoveredTrainId === trainId && hoveredBodyIndex === bogieIndex && hoveredAxleIndex === -1
 
@@ -560,12 +664,14 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false,
           isHovered={isHovered}
           isEditing={isEditing}
           isPreview={isPreview}
+          isSelected={isSelected}
         />
       )
     })}
     {train.otherBodies.map((otherBody, otherBodieIndex) => {
       const bodyIndex = otherBodieIndex + train.bogies.length
       const isActive = activeTrainId === trainId && activeBodyIndex === bodyIndex
+      const isSelected = selectedTab === 'trains' && selectedTrainId === trainId && (selectedBodyIndex === -1 || selectedBodyIndex === bodyIndex)
       const isHovered = hoveredTrainId === trainId && hoveredBodyIndex === bodyIndex
 
       return (
@@ -579,6 +685,7 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false,
           isHovered={isHovered}
           isEditing={isEditing}
           isPreview={isPreview}
+          isSelected={isSelected}
         />
       )
     })}

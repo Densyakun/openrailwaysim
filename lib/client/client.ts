@@ -18,9 +18,6 @@ export const clientState = proxy<{
 export const messageEmitter = new MessageEmitter();
 
 export function updateClientOnTime(delta: number) {
-  if (!trainsTabPanelState.editingTrain) return;
-
-  updateTrainOnTime(trainsTabPanelState.editingTrain, delta);
 }
 
 export function getDate(timeZoneOffset: number) {

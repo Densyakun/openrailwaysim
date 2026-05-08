@@ -495,8 +495,9 @@ export function applyTransitionCurveToSerializableTrack(serializableTrack: Seria
   } as SerializableTransitionCurve;
 }
 
-export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number) {
+export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed: boolean, distance: number, customTracks?: { [trackId: string]: Track }) {
   const data = store.data;
+  const tracks = customTracks || data.tracks;
   let newPointOnTrack: PointOnTrack = { ...pointOnTrack };
   let newDirectionIsReversed = directionIsReversed;
   let isDeadEnd = false;
@@ -509,10 +510,10 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
 
   if (newPointOnTrack.length < 0) {
     // 輪軸が軌道の始点より外に進入した場合
-    const track = data.tracks[newPointOnTrack.trackId];
+    const track = tracks[newPointOnTrack.trackId];
     if (track.idOfTrackOrSwitchConnectedFromStart) {
       if (track.connectedFromStartIsTrack) {
-        const connectedTo = data.tracks[track.idOfTrackOrSwitchConnectedFromStart];
+        const connectedTo = tracks[track.idOfTrackOrSwitchConnectedFromStart];
         if (track.connectedFromStartIsToEnd) {
           newPointOnTrack = {
             trackId: track.idOfTrackOrSwitchConnectedFromStart,
@@ -535,7 +536,7 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
           isDeadEnd = true;
           newPointOnTrack.length = 0;
         } else {
-          const connectedTo = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+          const connectedTo = tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
           if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
             newPointOnTrack = {
               trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],
@@ -556,12 +557,12 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
       newPointOnTrack.length = 0;
     }
   } else {
-    const track = data.tracks[newPointOnTrack.trackId];
+    const track = tracks[newPointOnTrack.trackId];
     if (track.length < newPointOnTrack.length) {
       // 輪軸が軌道の終点より外に進入した場合
       if (track.idOfTrackOrSwitchConnectedFromEnd) {
         if (track.connectedFromEndIsTrack) {
-          const connectedTo = data.tracks[track.idOfTrackOrSwitchConnectedFromEnd];
+          const connectedTo = tracks[track.idOfTrackOrSwitchConnectedFromEnd];
           if (track.connectedFromEndIsToEnd) {
             newPointOnTrack = {
               trackId: track.idOfTrackOrSwitchConnectedFromEnd,
@@ -581,7 +582,7 @@ export function runPointOnTrack(pointOnTrack: PointOnTrack, directionIsReversed:
             isDeadEnd = true;
             newPointOnTrack.length = track.length;
           } else {
-            const connectedTo = data.tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
+            const connectedTo = tracks[railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected]];
             if (railroadSwitch.isConnectedToEnd[railroadSwitch.currentConnected]) {
               newPointOnTrack = {
                 trackId: railroadSwitch.connectedTrackIds[railroadSwitch.currentConnected],

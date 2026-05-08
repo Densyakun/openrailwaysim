@@ -526,6 +526,8 @@ export function updateTime(delta: number) {
   Object.keys(orsAppData.trains).forEach(trainId => {
     const train = orsAppData.trains[trainId]
 
+    if (trainId === "preview" && !(train as any).isSyncPreview) return;
+
     updateTrainOnTime(train, delta)
   })
 }

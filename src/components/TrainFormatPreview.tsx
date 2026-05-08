@@ -1,63 +1,181 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { TrainFormat, Train, Bogie, CarBody, calcJointsToRotateBody, syncOtherBodies } from '@/lib/trains'
+import { TrainFormat, Train, Bogie, CarBody, calcJointsToRotateBody, syncOtherBodies, placeTrain, bogieToAxles, getAxlePosition, getAxleRotation } from '@/lib/trains'
 import { TrainComponent } from './Trains'
-import { Line, Grid } from '@react-three/drei'
+import { Line, Grid, Html } from '@react-three/drei'
+import { useSnapshot } from 'valtio'
+import { formState } from './gui/TrainFormatEditPanel'
+import { trainsTabPanelState } from '@/lib/client/trains'
+import { useThree } from '@react-three/fiber'
+import { store } from '@/lib/game'
 
 export default function TrainFormatPreview({ format }: { format: TrainFormat }) {
-  const train = React.useMemo(() => {
-    const bogies: Bogie[] = format.bogies.map(b => {
-      return {
-        position: new THREE.Vector3(b.offset, 0, 0),
-        rotation: new THREE.Euler(0, -Math.PI / 2, 0),
-        weight: b.weight,
-        axles: b.axles.map(a => ({
-          pointOnTrack: { trackId: "preview", length: b.offset + a.z },
-          position: new THREE.Vector3(b.offset + a.z, 0, 0),
-          rotation: new THREE.Euler(0, -Math.PI / 2, 0),
-          rotationX: 0,
-          rotationIsReversed: false,
-        })),
-      };
-    });
+  const { invalidate } = useThree();
+  const { editingTrainFormatMode, standardCarFormats, standardCarFormatIndexes } = useSnapshot(formState);
+  const { isSyncPreview } = useSnapshot(trainsTabPanelState);
 
-    const otherBodies: CarBody[] = format.otherBodyOffsets.map((offset, i) => ({
-      position: new THREE.Vector3(offset, 0, 0),
-      rotation: new THREE.Euler(0, -Math.PI / 2, 0),
-      weight: format.otherBodyWeights[i],
-    }));
+  // 1. プレビュー用の線路とフォーマットの登録
+  React.useEffect(() => {
+    const previewTrack = {
+      position: new THREE.Vector3(0, 0, 2500),
+      rotationY: Math.PI / 2,
+      length: 5000,
+      radius: 0,
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+      connectedFromStartIsToEnd: false,
+      connectedFromEndIsToEnd: false,
+      beginCant: 0,
+      endCant: 0,
+      trackModels: [],
+      gradients: { 0: 0 },
+    } as any;
 
-    const t: Train = {
-      trainFormatId: "preview",
-      bogies,
-      otherBodies,
-      cabStates: format.cabFormats.map(() => null),
-      fromJointIndexes: [],
-      toJointIndexes: [],
-      speed: 0,
-      weight: 100,
-      motors: 0,
-      currentDiagramId: "",
-      currentDiagramCurveIndex: -1,
-      currentDiagramSectionIndex: 0,
-      currentRouteIndex: 0,
-      isStopping: true,
+    store.data.tracks["preview"] = previewTrack;
+    store.data.trainFormats["preview"] = format;
+
+    return () => {
+      delete store.data.tracks["preview"];
+      delete store.data.trainFormats["preview"];
+      delete store.data.trains["preview"];
     };
-
-    calcJointsToRotateBody(t, format);
-    syncOtherBodies(t, format);
-    
-    return t;
   }, [format]);
+
+  // 2. プレビュー用列車の配置・初期化
+  React.useEffect(() => {
+    // 同期がONの場合で、すでに列車が存在しているなら再初期化しない（時間経過での走行状態を維持）
+    if (isSyncPreview && store.data.trains["preview"]) {
+      const existing = store.data.trains["preview"];
+      (existing as any).isSyncPreview = true;
+      if (existing.speed === 0) existing.speed = 15;
+      return;
+    }
+
+    const previewTracks = { preview: store.data.tracks["preview"] };
+    if (!previewTracks.preview) return;
+
+    const { train: placedTrain } = placeTrain(
+      format,
+      { trackId: "preview", length: 2500 },
+      false,
+      previewTracks
+    );
+
+    if (placedTrain) {
+      placedTrain.trainFormatId = "preview";
+      (placedTrain as any).isSyncPreview = isSyncPreview;
+      if (isSyncPreview) {
+        placedTrain.speed = 15;
+      }
+      if (placedTrain.weight <= 0) placedTrain.weight = 30000;
+
+      placedTrain.bogies.forEach(bogie => {
+        bogie.axles.forEach(axle => {
+          axle.position.copy(getAxlePosition(axle, previewTracks));
+          axle.rotation.copy(getAxleRotation(axle.pointOnTrack, axle.rotationIsReversed, previewTracks));
+        });
+        bogieToAxles(bogie, previewTracks);
+      });
+
+      calcJointsToRotateBody(placedTrain, format);
+      syncOtherBodies(placedTrain, format);
+
+      store.data.trains["preview"] = placedTrain;
+    } else {
+      store.data.trains["preview"] = {
+        trainFormatId: "preview",
+        bogies: [],
+        otherBodies: [],
+        cabStates: [],
+        fromJointIndexes: [],
+        toJointIndexes: [],
+        speed: 0,
+        weight: 1,
+        motors: 0,
+        currentDiagramId: "",
+        currentDiagramCurveIndex: -1,
+        currentDiagramSectionIndex: 0,
+        currentRouteIndex: 0,
+        isStopping: true,
+      } as any;
+    }
+  }, [format, isSyncPreview]);
+
+  // 3. レンダリング用列車は store.data.trains.preview からSnapshotで取得
+  const trainsSnapshot = useSnapshot(store.data.trains);
+  const train = (trainsSnapshot["preview"] || {
+    trainFormatId: "preview",
+    bogies: [],
+    otherBodies: [],
+    speed: 0,
+    weight: 1,
+  }) as unknown as Train;
+
+  React.useEffect(() => {
+    invalidate();
+  }, [train, invalidate]);
+
+  const previewGuides = React.useMemo(() => {
+    if (editingTrainFormatMode !== "standard" || !standardCarFormatIndexes || !standardCarFormats || !train) return null;
+
+    return standardCarFormatIndexes.map((carFormatIndex, index) => {
+      const carFormat = standardCarFormats[carFormatIndex];
+      const otherBody = train.otherBodies[index];
+
+      if (!carFormat || !otherBody) return null;
+
+      const carLength = parseFloat(carFormat.carLength) || 20;
+      const carNumber = index + 1;
+
+      return (
+        <group key={`preview-car-${index}`} position={[0, 2.0875, otherBody.position.z]} rotation={otherBody.rotation}>
+          {/* 号車番号テキストラベル（HTMLビルボード） */}
+          <Html position={[0, -4.0, 0]} center>
+            <div style={{
+              background: "rgba(15, 23, 42, 0.9)",
+              color: "#fff",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              fontFamily: "sans-serif",
+              fontSize: "12px",
+              fontWeight: "bold",
+              whiteSpace: "nowrap",
+              boxShadow: "0 4px 6px -1px rgba(0,0,0,0.3)",
+              border: `1px solid rgba(255,255,255,0.2)`,
+              pointerEvents: "none",
+              userSelect: "none"
+            }}>
+              Car {carNumber}
+            </div>
+          </Html>
+
+          {/* carLengthを視覚化するワイヤーフレームの車体ガイド */}
+          <mesh renderOrder={90}>
+            <boxGeometry args={[3.0, 4.025, carLength - 1]} />
+            <meshBasicMaterial
+              color="#06b6d4"
+              wireframe
+              transparent
+              opacity={0.35}
+              depthTest={false}
+            />
+          </mesh>
+        </group>
+      );
+    });
+  }, [editingTrainFormatMode, standardCarFormatIndexes, standardCarFormats, train]);
 
   return (
     <group>
-      <Grid infiniteGrid fadeDistance={50} cellColor="#444" sectionColor="#666" />
+      <Grid args={[10, 10]} infiniteGrid fadeDistance={30} fadeStrength={1.5} cellColor="#444" sectionColor="#666" />
       {/* Virtual Track */}
-      <Line points={[[-100, 0, 0.7175], [100, 0, 0.7175]]} color="silver" lineWidth={2} />
-      <Line points={[[-100, 0, -0.7175], [100, 0, -0.7175]]} color="silver" lineWidth={2} />
-      
+      <Line points={[[0.7175, 0, -2500], [0.7175, 0, 2500]]} color="silver" lineWidth={2} />
+      <Line points={[[-0.7175, 0, -2500], [-0.7175, 0, 2500]]} color="silver" lineWidth={2} />
+
       <TrainComponent train={train} format={format} isEditing />
+      {previewGuides}
     </group>
   )
 }

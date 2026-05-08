@@ -8,7 +8,6 @@ import TrainFormatEditPanel from './TrainFormatEditPanel';
 import { trainsState, trainsTabPanelState } from '@/lib/client/trains';
 import { useEffect } from 'react';
 import { guiState } from '@/lib/client/gui';
-import TrainEditPanel from './TrainEditPanel';
 import TrainFormatTable from './TrainFormatTable';
 
 function TrainsMenu() {
@@ -41,7 +40,7 @@ function TrainsMenu() {
 }
 
 export default function TrainsTabPanel() {
-  const { isShowTrainTable, isShowTrainFormatTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId, isAddingTrain, editingTrainId } = useSnapshot(trainsTabPanelState);
+  const { isShowTrainTable, isShowTrainFormatTable, selectedTrainGroup, isAddingTrainFormat, editingTrainFormatId, isAddingTrain } = useSnapshot(trainsTabPanelState);
   const { activeTrainId } = useSnapshot(trainsState);
 
   useEffect(() => {
@@ -54,8 +53,8 @@ export default function TrainsTabPanel() {
       : <TrainFormatTable />
     : isShowTrainTable
       ? selectedTrainGroup
-        ? isAddingTrain || editingTrainId
-          ? <TrainEditPanel />
+        ? isAddingTrain//
+          ? <></>
           : <TrainTable trainGroupId={selectedTrainGroup} />
         : <TrainGroupTable />
       : activeTrainId

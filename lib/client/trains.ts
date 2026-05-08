@@ -1,15 +1,17 @@
 import { proxy } from "valtio";
 import { PointOnTrack } from "../tracks";
-import { Train, TrainFormat } from "../trains";
+import { TrainFormat } from "../trains";
 
 export const trainsState = proxy<{
   hoveredTrainId: string;
   hoveredBodyIndex: number;
+  hoveredAxleIndex: number;
   activeTrainId: string;
   activeBodyIndex: number;
 }>({
   hoveredTrainId: "",
   hoveredBodyIndex: -1,
+  hoveredAxleIndex: -1,
   activeTrainId: "",
   activeBodyIndex: -1,
 });
@@ -29,14 +31,13 @@ export const trainsTabPanelState = proxy<{
   isSelectingCarBodyA: boolean;
   isSelectingCarBodyB: boolean;
   isSelectingCarBodyToBodySupporterJoint: boolean;
+  isSyncPreview: boolean;
 
   // Train
   isShowTrainTable: boolean;
   selectedTrainGroup: string;
   isAddingTrain: boolean;
   newTrainId: string;
-  editingTrainId: string;
-  editingTrain?: Train;
   trainFormatId: string;
   directionIsReversed: boolean;
   pointOnTrack?: PointOnTrack;
@@ -55,13 +56,13 @@ export const trainsTabPanelState = proxy<{
   isSelectingCarBodyA: false,
   isSelectingCarBodyB: false,
   isSelectingCarBodyToBodySupporterJoint: false,
+  isSyncPreview: false,
 
   // Train
   isShowTrainTable: false,
   selectedTrainGroup: "",
   isAddingTrain: false,
   newTrainId: "",
-  editingTrainId: "",
   trainFormatId: "",
   directionIsReversed: false,
   trainIsDeadEnd: false,
@@ -80,13 +81,18 @@ export function resetEditingTrainState() {
   trainsTabPanelState.isSelectingCarBodyA = false;
   trainsTabPanelState.isSelectingCarBodyB = false;
   trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint = false;
+  trainsTabPanelState.isSyncPreview = false;
 
   trainsTabPanelState.isAddingTrain = false;
   trainsTabPanelState.newTrainId = "";
-  trainsTabPanelState.editingTrainId = "";
-  trainsTabPanelState.editingTrain = undefined;
   trainsTabPanelState.trainFormatId = "";
   trainsTabPanelState.pointOnTrack = undefined;
   trainsTabPanelState.directionIsReversed = false;
   trainsTabPanelState.trainIsDeadEnd = false;
+}
+
+export function triggerPreviewUpdate() {
+  if (trainsTabPanelState.editingTrainFormat) {
+    trainsTabPanelState.editingTrainFormat = JSON.parse(JSON.stringify(trainsTabPanelState.editingTrainFormat));
+  }
 }

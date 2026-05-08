@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { store } from "./game";
-import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack } from "./tracks";
+import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack, Track } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
 
 // Resistances
@@ -130,12 +130,14 @@ export function placeTrain(
   trainFormat: TrainFormat,
   pointOnTrack: PointOnTrack,
   directionIsReversed: boolean,
+  customTracks?: { [trackId: string]: Track },
 ): {
   train?: Train;
   isDeadEnd: boolean;
 } {
   if (!trainFormat.bogies.length) return { isDeadEnd: false };
   const data = store.data;
+  const tracks = customTracks || data.tracks;
 
   let isDeadEnd_ = false;
 
@@ -148,7 +150,8 @@ export function placeTrain(
       const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
         pointOnTrack,
         directionIsReversed,
-        trainFormat.bogies[bogieIndex].offset + axleFormat.z,
+        -trainFormat.bogies[bogieIndex].offset - axleFormat.z,
+        customTracks,
       );
 
       if (isDeadEnd) isDeadEnd_ = isDeadEnd;
@@ -172,28 +175,102 @@ export function placeTrain(
 
   const otherBodies: CarBody[] = [];
   const cabStates: (CabStateType | null)[] = [];
+  const otherBodyHeights: number[] = new Array(trainFormat.otherBodyOffsets.length).fill(0);
+  const isSettled: boolean[] = new Array(trainFormat.otherBodyOffsets.length).fill(false);
+
+  // 1. まず各車体の平面的な位置情報（軌道、進行長、回転角）を準備する
+  const otherBodyTracks: Track[] = [];
+  const otherBodyLengths: number[] = [];
+  const otherBodyRotations: THREE.Euler[] = [];
+
   for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
     const cabFormat = trainFormat.cabFormats[otherBodyIndex];
-    if (cabFormat && !data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId])
-      return { isDeadEnd: false };
+    const mcConfig = cabFormat && data.uiOneHandleMasterControllerConfigs && data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
 
     cabStates.push(cabFormat && {
       reverser: 0,
-      masterControllerValue: data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId].maxValue,
+      masterControllerValue: mcConfig ? mcConfig.maxValue : 0,
     });
 
     const { newPointOnTrack, isDeadEnd, newDirectionIsReversed } = runPointOnTrack(
       pointOnTrack,
       directionIsReversed,
-      trainFormat.otherBodyOffsets[otherBodyIndex],
+      -trainFormat.otherBodyOffsets[otherBodyIndex],
+      customTracks,
     );
 
     if (isDeadEnd) isDeadEnd_ = isDeadEnd;
 
-    const track = data.tracks[newPointOnTrack.trackId];
+    otherBodyTracks.push(tracks[newPointOnTrack.trackId]);
+    otherBodyLengths.push(newPointOnTrack.length);
+    otherBodyRotations.push(getAxleRotation(newPointOnTrack, newDirectionIsReversed, customTracks));
+  }
+
+  // 2. 先にOtherBodyをボギーに合わせて、位置（高さ）を確定させる
+  for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
+    const supporterJoint = trainFormat.bodySupporterJoints.find(joint => joint.otherBodyIndex === otherBodyIndex);
+    if (supporterJoint) {
+      otherBodyHeights[otherBodyIndex] = supporterJoint.bogiePosition.y - supporterJoint.otherBodyPosition.y;
+      isSettled[otherBodyIndex] = true;
+    }
+  }
+
+  // 3. 位置が確定したOtherBodyの数が変化しなくなるまで、位置が確定した車体に合わせるのを繰り返す
+  let settledCount = isSettled.filter(Boolean).length;
+  let prevSettledCount = -1;
+
+  while (settledCount > prevSettledCount && settledCount < trainFormat.otherBodyOffsets.length) {
+    prevSettledCount = settledCount;
+
+    for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
+      if (isSettled[otherBodyIndex]) continue;
+
+      // 接続されているotherJointsの中で、既に位置が確定している車体と結ぶものを探す
+      const otherJoint = trainFormat.otherJoints.find(joint => {
+        const myBodyIndex = trainFormat.bogies.length + otherBodyIndex;
+        let targetBodyIndex = -1;
+
+        if (joint.bodyIndexA === myBodyIndex) {
+          targetBodyIndex = joint.bodyIndexB;
+        } else if (joint.bodyIndexB === myBodyIndex) {
+          targetBodyIndex = joint.bodyIndexA;
+        }
+
+        if (targetBodyIndex !== -1) {
+          const targetOtherBodyIndex = targetBodyIndex - trainFormat.bogies.length;
+          return targetOtherBodyIndex >= 0 && isSettled[targetOtherBodyIndex];
+        }
+        return false;
+      });
+
+      if (otherJoint) {
+        const myBodyIndex = trainFormat.bogies.length + otherBodyIndex;
+        const isA = otherJoint.bodyIndexA === myBodyIndex;
+        const connectedOtherBodyIndex = (isA ? otherJoint.bodyIndexB : otherJoint.bodyIndexA) - trainFormat.bogies.length;
+
+        const connectedHeightOffset = otherBodyHeights[connectedOtherBodyIndex];
+
+        const myJointPos = isA ? otherJoint.positionA : otherJoint.positionB;
+        const connectedJointPos = isA ? otherJoint.positionB : otherJoint.positionA;
+
+        otherBodyHeights[otherBodyIndex] = connectedHeightOffset + connectedJointPos.y - myJointPos.y;
+        isSettled[otherBodyIndex] = true;
+      }
+    }
+
+    settledCount = isSettled.filter(Boolean).length;
+  }
+
+  // 4. 最後に、確定した高さオフセット（otherBodyHeights）を適用して、otherBodies 配列を完成させる
+  for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
+    const heightOffset = otherBodyHeights[otherBodyIndex];
+    const track = otherBodyTracks[otherBodyIndex];
+    const length = otherBodyLengths[otherBodyIndex];
+    const rotation = otherBodyRotations[otherBodyIndex];
+
     otherBodies.push({
-      position: getPosition(track, newPointOnTrack.length),
-      rotation: getAxleRotation(newPointOnTrack, newDirectionIsReversed),
+      position: getPosition(track, length).add(new THREE.Vector3(0, heightOffset, 0)),
+      rotation,
       weight: trainFormat.otherBodyWeights[otherBodyIndex],
     });
   }
@@ -268,13 +345,6 @@ export function placeTrain(
 
   calcJointsToRotateBody(train, trainFormat);
 
-  // TODO 編集中の列車も同期処理を行うため、ここでの仮置きしたOtherBodiesの同期は不要？
-  /*train.bogies.forEach(bogie => bogieToAxles(data, bogie));
-
-  syncOtherBodies(data, train);
-
-  train.bogies.forEach(fromBogie => axlesToBogie(data, fromBogie));*/
-
   return {
     train,
     isDeadEnd: isDeadEnd_
@@ -302,17 +372,19 @@ export function moveTrain({ bogies, otherBodies }: Train, vector: THREE.Vector3)
   otherBodies.forEach(body => body.position.add(vector));
 }
 
-export function getAxlePosition(axle: Axle) {
+export function getAxlePosition(axle: Axle, customTracks?: { [trackId: string]: Track }) {
   const data = store.data;
+  const tracks = customTracks || data.tracks;
   const { pointOnTrack: { length } } = axle;
 
-  const track = data.tracks[axle.pointOnTrack.trackId];
+  const track = tracks[axle.pointOnTrack.trackId];
   return getPosition(track, length);
 }
 
-export function getAxleRotation(pointOnTrack: PointOnTrack, rotationIsReversed: boolean) {
+export function getAxleRotation(pointOnTrack: PointOnTrack, rotationIsReversed: boolean, customTracks?: { [trackId: string]: Track }) {
   const data = store.data;
-  const track = data.tracks[pointOnTrack.trackId];
+  const tracks = customTracks || data.tracks;
+  const track = tracks[pointOnTrack.trackId];
   const rotation = getRotation(track, pointOnTrack.length);
 
   if (rotationIsReversed) {
@@ -324,7 +396,7 @@ export function getAxleRotation(pointOnTrack: PointOnTrack, rotationIsReversed: 
   return rotation;
 }
 
-export function bogieToAxles(bogie: Bogie) {
+export function bogieToAxles(bogie: Bogie, customTracks?: { [trackId: string]: Track }) {
   const axlesCenterPosition = new THREE.Vector3();
   const firstAxlePosition = new THREE.Vector3();
   const lastAxlePosition = new THREE.Vector3();
@@ -335,11 +407,11 @@ export function bogieToAxles(bogie: Bogie) {
   for (let index = 0; index < bogie.axles.length; index++) {
     axlesCenterPosition.add(
       lastAxlePosition.copy(
-        getAxlePosition(bogie.axles[index])
+        getAxlePosition(bogie.axles[index], customTracks)
       )
     );
 
-    const axleRotation = getAxleRotation(bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed);
+    const axleRotation = getAxleRotation(bogie.axles[index].pointOnTrack, bogie.axles[index].rotationIsReversed, customTracks);
     rotationX += axleRotation.x;
     rotationY.add(new THREE.Vector2(Math.cos(axleRotation.y), -Math.sin(axleRotation.y)));
     rotationZ += axleRotation.z;
@@ -754,6 +826,12 @@ export function rollAxles(train: Train, trainFormat: TrainFormat, distance: numb
 
     // 輪軸を転がす
     bogie.axles.forEach((axle, axleIndex) => {
+      // プレビュー列車の場合は位置を移動させず、車輪の回転のみを更新する
+      if (train.trainFormatId === "preview") {
+        axle.rotationX += distance * trainFormat.bogies[bogieIndex].axles[axleIndex].diameter;
+        return;
+      }
+
       const { newPointOnTrack, newDirectionIsReversed, isDeadEnd } = runPointOnTrack(axle.pointOnTrack, axle.rotationIsReversed, distance);
 
       axle.pointOnTrack = newPointOnTrack;

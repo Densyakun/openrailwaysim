@@ -168,14 +168,7 @@ export const oneAxleTestCar: TrainFormat = {
       oneHandleMasterControllerUIConfigId,
     },
   ],
-  bodySupporterJoints: [
-    {
-      otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, 0, 0),
-      bogieIndex: 0,
-      bogiePosition: new THREE.Vector3(0, 1),
-    },
-  ],
+  bodySupporterJoints: [],
   otherJoints: [],
 };
 
@@ -198,14 +191,7 @@ export const twoAxlesTestCar: TrainFormat = {
       oneHandleMasterControllerUIConfigId,
     },
   ],
-  bodySupporterJoints: [
-    {
-      otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, 0, 0),
-      bogieIndex: 0,
-      bogiePosition: new THREE.Vector3(0, 1),
-    },
-  ],
+  bodySupporterJoints: [],
   otherJoints: [],
 };
 
@@ -408,17 +394,9 @@ export type StandardCarFormat = {
   axleDiameter: number;
   axleHasMotor: boolean;
   carWeight: number;
-  /**
-   * 正の値
-   */
-  couplerJointOffset: number;
-  /**
-   * 正の値
-   */
-  couplerJointOffset1: number;
 };
 
-export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFormatIndexes: number[], masterControllerUIOptionId: string): TrainFormat {
+export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFormatIndexes: number[], masterControllerUIOptionId: string, couplerJointOffset: number = 0.8): TrainFormat {
   const trainFormat: TrainFormat = {
     bogies: [],
     otherBodyOffsets: [],
@@ -470,7 +448,7 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
       trainFormat.bodySupporterJoints.push(
         {
           otherBodyIndex: index,
-          otherBodyPosition: new THREE.Vector3(0, -1, -bogieOffset),
+          otherBodyPosition: new THREE.Vector3(0, -1, bogieOffset),
           bogieIndex: trainFormat.bogies.length - 1,
           bogiePosition: new THREE.Vector3(),
         },
@@ -492,15 +470,15 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
     trainFormat.otherJoints.push(
       {
         bodyIndexA: trainFormat.bogies.length + i,
-        positionA: new THREE.Vector3(0, 0, carFormat.couplerJointOffset - carFormat.carLength / 2),
+        positionA: new THREE.Vector3(0, 0, carFormat.carLength / 2 - couplerJointOffset),
         bodyIndexB: trainFormat.bogies.length + carFormatIndexes.length + i,
-        positionB: new THREE.Vector3(0, 0, carFormat.couplerJointOffset),
+        positionB: new THREE.Vector3(0, 0, -couplerJointOffset),
       },
       {
         bodyIndexA: trainFormat.bogies.length + i + 1,
-        positionA: new THREE.Vector3(0, 0, carFormat1.carLength / 2 - carFormat1.couplerJointOffset1),
+        positionA: new THREE.Vector3(0, 0, couplerJointOffset - carFormat1.carLength / 2),
         bodyIndexB: trainFormat.bogies.length + carFormatIndexes.length + i,
-        positionB: new THREE.Vector3(0, 0, -carFormat1.couplerJointOffset1),
+        positionB: new THREE.Vector3(0, 0, couplerJointOffset),
       },
     );
 
@@ -510,7 +488,7 @@ export function createStandardTrainFormat(carFormats: StandardCarFormat[], carFo
   return trainFormat;
 }
 
-export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFormats: StandardCarFormat[], carFormatIndexes: number[], masterControllerUIOptionId: string } {
+export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFormats: StandardCarFormat[], carFormatIndexes: number[], masterControllerUIOptionId: string, couplerJointOffset: number } {
   const { bogies, otherBodyOffsets, otherBodyWeights, cabFormats, bodySupporterJoints, otherJoints } = trainFormat;
 
   // 車体（bodySupporterJointsで台車と接続されているotherBody）を特定
@@ -518,11 +496,12 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
   const n = carBodyIndices.length;
 
   if (n === 0) {
-    return { carFormats: [], carFormatIndexes: [], masterControllerUIOptionId: "" };
+    return { carFormats: [], carFormatIndexes: [], masterControllerUIOptionId: "", couplerJointOffset: 0.8 };
   }
 
   const tempCarFormats: StandardCarFormat[] = [];
   let masterControllerUIOptionId = "";
+  let estimatedCouplerJointOffset = 0.8;
 
   for (let i = 0; i < n; i++) {
     const carBodyIndex = carBodyIndices[i];
@@ -531,7 +510,7 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
 
     // この車体に属する台車を抽出
     const carBogieIndices = Array.from(new Set(bodySupporterJoints.filter(j => j.otherBodyIndex === carBodyIndex).map(j => j.bogieIndex))).sort((a, b) => a - b);
-    
+
     let bogieDistance = 13.8;
     let wheelbase = 2.1;
     let axleDiameter = 0.86;
@@ -541,7 +520,7 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
       const b1 = bogies[carBogieIndices[0]];
       const b2 = bogies[carBogieIndices[1]];
       bogieDistance = Math.round(Math.abs(b1.offset - b2.offset) * 1000) / 1000;
-      
+
       if (b1.axles.length >= 2) {
         wheelbase = Math.abs(b1.axles[0].z - b1.axles[1].z);
         axleDiameter = b1.axles[0].diameter;
@@ -567,18 +546,19 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
     }
 
     let couplerJointOffset = 0.8;
-    let couplerJointOffset1 = 0.8;
 
     const carJoints = otherJoints.filter(j => j.bodyIndexA === carBodyIndex);
     carJoints.forEach(j => {
       if (j.positionA.z > 0) {
         // 後方連結器
-        couplerJointOffset1 = carLength / 2 - j.positionA.z;
+        couplerJointOffset = carLength / 2 - j.positionA.z;
       } else {
         // 前方連結器
         couplerJointOffset = j.positionA.z + carLength / 2;
       }
     });
+
+    estimatedCouplerJointOffset = couplerJointOffset;
 
     tempCarFormats.push({
       carLength,
@@ -587,8 +567,6 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
       axleDiameter,
       axleHasMotor,
       carWeight,
-      couplerJointOffset,
-      couplerJointOffset1
     });
 
     if (cabFormats[carBodyIndex]) {
@@ -610,7 +588,7 @@ export function convertTrainFormatToStandard(trainFormat: TrainFormat): { carFor
     carFormatIndexes.push(index);
   });
 
-  return { carFormats, carFormatIndexes, masterControllerUIOptionId };
+  return { carFormats, carFormatIndexes, masterControllerUIOptionId, couplerJointOffset: estimatedCouplerJointOffset };
 }
 
 export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[], carFormatIndexes: number[] } {
@@ -628,10 +606,10 @@ export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[]
 
   return {
     carFormats: [
-      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massKuha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha102, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha103, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
-      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfT * 2, axleDiameter: axleDiameterT, axleHasMotor: false, carWeight: massSaha, couplerJointOffset: couplerLengthHalf, couplerJointOffset1: couplerLengthHalf },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massKuha },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha102 },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfM * 2, axleDiameter: axleDiameterM, axleHasMotor: true, carWeight: massMoha103 },
+      { carLength, bogieDistance: distanceBetweenBogiesHalf * 2, wheelbase: wheelbaseHalfT * 2, axleDiameter: axleDiameterT, axleHasMotor: false, carWeight: massSaha },
     ],
     carFormatIndexes: [0, 1, 2, 3, 1, 2, 3, 1, 2, 0]
   };
@@ -639,7 +617,7 @@ export function getJNR103SeriesStandardData(): { carFormats: StandardCarFormat[]
 
 export function createJNR103SeriesTrainFormat(masterControllerUIOptionId: string): TrainFormat {
   const { carFormats, carFormatIndexes } = getJNR103SeriesStandardData();
-  return createStandardTrainFormat(carFormats, carFormatIndexes, masterControllerUIOptionId);
+  return createStandardTrainFormat(carFormats, carFormatIndexes, masterControllerUIOptionId, 0.92);
 }
 
 export const twoTestCarsWithJacobsBogies: TrainFormat = {
@@ -690,25 +668,25 @@ export const twoTestCarsWithJacobsBogies: TrainFormat = {
   bodySupporterJoints: [
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, distanceBetweenBogiesHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
       bogieIndex: 0,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, -(carLengthHalf + couplerLengthHalf)),
+      otherBodyPosition: new THREE.Vector3(0, -1, carLengthHalf - couplerLengthHalf),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(0, 0, -couplerLengthHalf),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, (carLengthHalf + couplerLengthHalf)),
+      otherBodyPosition: new THREE.Vector3(0, -1, couplerLengthHalf - carLengthHalf),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(0, 0, couplerLengthHalf),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, -distanceBetweenBogiesHalf),
+      otherBodyPosition: new THREE.Vector3(0, -1, distanceBetweenBogiesHalf),
       bogieIndex: 2,
       bogiePosition: new THREE.Vector3(),
     },
@@ -767,7 +745,7 @@ export const malletLocomotiveTest: TrainFormat = {
 export const shikiSeries700Test: TrainFormat = {
   bogies: [
     {
-      offset: -12.6 + 1.6 + 4.07 + 2.61,
+      offset: -12.6 - 1.6 - 4.07 - 2.61,
       axles: [
         { z: -0.64 - 1.2, diameter: 0.86, hasMotor: false },
         { z: -0.64, diameter: 0.86, hasMotor: false },
@@ -777,7 +755,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: -12.6 + 1.6 + 4.07 - 2.55,
+      offset: -12.6 - 1.6 - 4.07 + 2.55,
       axles: [
         { z: -0.6 - 1.2, diameter: 0.86, hasMotor: false },
         { z: -0.6, diameter: 0.86, hasMotor: false },
@@ -787,7 +765,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: -12.6 + 1.6 - 5.48 + 0.8 + 1.2,
+      offset: -12.6 - 1.6 + 5.48 - 0.8 - 1.2,
       axles: [
         { z: -1.2, diameter: 0.86, hasMotor: false },
         { z: 0, diameter: 0.86, hasMotor: false },
@@ -796,7 +774,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: -12.6 + 1.6 - 5.48 - 0.8 - 1.2,
+      offset: -12.6 - 1.6 + 5.48 + 0.8 + 1.2,
       axles: [
         { z: -1.2, diameter: 0.86, hasMotor: false },
         { z: 0, diameter: 0.86, hasMotor: false },
@@ -805,7 +783,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: 12.6 - 1.6 + 5.48 + 0.8 + 1.2,
+      offset: 12.6 + 1.6 - 5.48 - 0.8 - 1.2,
       axles: [
         { z: -1.2, diameter: 0.86, hasMotor: false },
         { z: 0, diameter: 0.86, hasMotor: false },
@@ -814,7 +792,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: 12.6 - 1.6 + 5.48 - 0.8 - 1.2,
+      offset: 12.6 + 1.6 - 5.48 + 0.8 + 1.2,
       axles: [
         { z: -1.2, diameter: 0.86, hasMotor: false },
         { z: 0, diameter: 0.86, hasMotor: false },
@@ -823,7 +801,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: 12.6 - 1.6 - 4.07 + 2.55,
+      offset: 12.6 + 1.6 + 4.07 - 2.55,
       axles: [
         { z: -0.6 - 1.2, diameter: 0.86, hasMotor: false },
         { z: -0.6, diameter: 0.86, hasMotor: false },
@@ -833,7 +811,7 @@ export const shikiSeries700Test: TrainFormat = {
       weight: 0,
     },
     {
-      offset: 12.6 - 1.6 - 4.07 - 2.61,
+      offset: 12.6 + 1.6 + 4.07 + 2.61,
       axles: [
         { z: -0.56 - 1.2, diameter: 0.86, hasMotor: false },
         { z: -0.56, diameter: 0.86, hasMotor: false },
@@ -848,8 +826,8 @@ export const shikiSeries700Test: TrainFormat = {
     -12.6 - 1.6 + 5.48,
     12.6 + 1.6 - 5.48,
     12.6 + 1.6 + 4.07,
-    -12.6 - 1.6,
-    12.6 + 1.6,
+    -12.6,
+    12.6,
     0,
   ],
   otherBodyWeights: [
@@ -873,49 +851,49 @@ export const shikiSeries700Test: TrainFormat = {
   bodySupporterJoints: [
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
+      otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
       bogieIndex: 0,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 0,
-      otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
+      otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
       bogieIndex: 1,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
       bogieIndex: 2,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 1,
-      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
       bogieIndex: 3,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 2,
-      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
       bogieIndex: 4,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 2,
-      otherBodyPosition: new THREE.Vector3(0, -1, -0.8 - 1.2),
+      otherBodyPosition: new THREE.Vector3(0, -1, 0.8 + 1.2),
       bogieIndex: 5,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 3,
-      otherBodyPosition: new THREE.Vector3(0, -1, 2.55),
+      otherBodyPosition: new THREE.Vector3(0, -1, -2.55),
       bogieIndex: 6,
       bogiePosition: new THREE.Vector3(),
     },
     {
       otherBodyIndex: 3,
-      otherBodyPosition: new THREE.Vector3(0, -1, -2.61),
+      otherBodyPosition: new THREE.Vector3(0, -1, 2.61),
       bogieIndex: 7,
       bogiePosition: new THREE.Vector3(),
     },
@@ -925,37 +903,37 @@ export const shikiSeries700Test: TrainFormat = {
       bodyIndexA: 8,
       positionA: new THREE.Vector3(),
       bodyIndexB: 12,
-      positionB: new THREE.Vector3(0, 0, 4.07),
+      positionB: new THREE.Vector3(0, 0, -1.6 - 4.07),
     },
     {
       bodyIndexA: 9,
       positionA: new THREE.Vector3(),
       bodyIndexB: 12,
-      positionB: new THREE.Vector3(0, 0, -5.48),
+      positionB: new THREE.Vector3(0, 0, -1.6 + 5.48),
     },
     {
       bodyIndexA: 10,
       positionA: new THREE.Vector3(),
       bodyIndexB: 13,
-      positionB: new THREE.Vector3(0, 0, 5.48),
+      positionB: new THREE.Vector3(0, 0, 1.6 - 5.48),
     },
     {
       bodyIndexA: 11,
       positionA: new THREE.Vector3(),
       bodyIndexB: 13,
-      positionB: new THREE.Vector3(0, 0, -4.07),
+      positionB: new THREE.Vector3(0, 0, 1.6 + 4.07),
     },
     {
       bodyIndexA: 12,
-      positionA: new THREE.Vector3(),
+      positionA: new THREE.Vector3(0, 0, 0),
       bodyIndexB: 14,
-      positionB: new THREE.Vector3(0, 0, 12.6),
+      positionB: new THREE.Vector3(0, 0, -12.6),
     },
     {
       bodyIndexA: 13,
-      positionA: new THREE.Vector3(),
+      positionA: new THREE.Vector3(0, 0, 0),
       bodyIndexB: 14,
-      positionB: new THREE.Vector3(0, 0, -12.6),
+      positionB: new THREE.Vector3(0, 0, 12.6),
     },
   ],
 };

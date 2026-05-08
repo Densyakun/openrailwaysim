@@ -50,7 +50,7 @@ export default function CameraControls() {
 
         // Set preview state
         orbitControls.target.set(0, 0, 0);
-        camera.position.set(20, 20, 20);
+        camera.position.set(-20, 20, -20);
         orbitControls.update();
       }
     } else if (cameraControlsState.savedWorldState) {

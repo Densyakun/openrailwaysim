@@ -2,12 +2,13 @@ import * as React from 'react'
 import * as THREE from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useSnapshot } from 'valtio'
-import { Axle, Bogie, BogieFormat, CarBody, Train, TrainFormat } from '@/lib/trains'
+import { Axle, Bogie, BogieFormat, CarBody, Train, TrainFormat, getBodyFromBodyIndex } from '@/lib/trains'
 import { guiState } from '@/lib/client/gui'
-import { trainsState, trainsTabPanelState } from '@/lib/client/trains'
+import { trainsState, trainsTabPanelState, triggerPreviewUpdate } from '@/lib/client/trains'
 import { Line } from '@react-three/drei'
 import { setCameraTargetPosition } from '@/lib/client/camera'
 import { store } from '@/lib/game'
+import { formState } from './gui/TrainFormatEditPanel'
 
 function BogieModel({
   trainId,
@@ -22,17 +23,53 @@ function BogieModel({
   trainId: string;
   bogieIndex: number;
   bogie: Bogie;
-  format: BogieFormat;
+  format?: BogieFormat;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
+  const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
     groupRef.current!.position.copy(bogie.position)
     groupRef.current!.rotation.copy(bogie.rotation)
   })
+
+  // 編集中のジョイントに設定されている場合の色判定
+  let highlightColor: string | null = null;
+  if (isEditing && panelState.editingTrainFormat) {
+    const format = panelState.editingTrainFormat;
+    
+    // 1. Body Supporter Joint の Bogie 接続
+    if (panelState.selectedBodySupporterJointIndex !== -1) {
+      const joint = format.bodySupporterJoints[panelState.selectedBodySupporterJointIndex];
+      if (joint && joint.bogieIndex === bogieIndex) {
+        highlightColor = "magenta";
+      }
+    }
+    
+    // 2. Other Joint の接続 (A or B)
+    if (panelState.selectedOtherJointIndex !== -1) {
+      const joint = format.otherJoints[panelState.selectedOtherJointIndex];
+      if (joint) {
+        if (joint.bodyIndexA === bogieIndex) {
+          highlightColor = "orange";
+        } else if (joint.bodyIndexB === bogieIndex) {
+          highlightColor = "purple";
+        }
+      }
+    }
+
+    // 3. アドバンスモードで編集対象として選択されているボギーに色を付ける
+    if (formState.editingTrainFormatMode === "advanced" && panelState.selectedCarBodyIndex === bogieIndex) {
+      highlightColor = "#10b981"; // プレミアム・エメラルドグリーン
+    }
+    // 4. アドバンスモードで編集対象のボギーの輪軸も選択されている場合は親ボギーを別色でハイライト
+    if (formState.editingTrainFormatMode === "advanced" && panelState.selectedCarBodyIndex === bogieIndex && panelState.selectedAxleIndex !== -1) {
+      highlightColor = "#059669"; // 輪軸選択中はやや暗いグリーン
+    }
+  }
 
   return (
     <>
@@ -40,90 +77,158 @@ function BogieModel({
         <mesh
           castShadow
           receiveShadow
-          onClick={() => {
+          onClick={(event) => {
+            event.stopPropagation();
             if (trainsState.activeTrainId) return;
 
-            /*if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable) {
-              trainsState.hoveredBodyIndex = -1;
-              trainsState.hoveredTrainId = "";
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
 
-              if (isActive) {
-                trainsState.activeBodyIndex = -1;
-                trainsState.activeTrainId = "";
-              } else {
-                trainsState.activeBodyIndex = bogieIndex;
-                trainsState.activeTrainId = trainId;
-              }
-            }*/
+              // スタンダードモードでは選択不可
+              if (formState.editingTrainFormatMode === "standard") return;
 
-            /*if (isEditing) {
-              if (trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
-                trainsState.hoveredBodyIndex = -1;
-                trainsState.hoveredTrainId = "";
+              // ジョイント選択中かどうかの判定
+              const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
 
-                trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexA = bogieIndex;
+              if (!isSelectingJoint) {
+                // 3Dシーン上でクリックして編集対象（台車）を切り替える
+                panelState.selectedCarBodyIndex = bogieIndex;
+                panelState.selectedAxleIndex = -1;
+                triggerPreviewUpdate();
+                return;
               }
 
-              if (trainsTabPanelState.isSelectingCarBodyB) {
-                trainsState.hoveredBodyIndex = -1;
-                trainsState.hoveredTrainId = "";
-
-                if (trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint)
-                  trainsTabPanelState.bodySupporterJoints[trainsTabPanelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
-                else
-                  trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
+              // 1. Body Supporter Joint の Bogie 選択
+              if (panelState.selectedBodySupporterJointIndex !== -1) {
+                if (panelState.isSelectingCarBodyB && panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
+                  panelState.isSelectingCarBodyB = false;
+                  panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                  triggerPreviewUpdate();
+                }
               }
-            }*/
-          }}
-          onPointerMove={() => {
-            if (trainsState.activeTrainId) return;
 
-            if (
-              /*guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTable
-              || */isEditing && (
-                trainsTabPanelState.isSelectingCarBodyA && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint
-                || trainsTabPanelState.isSelectingCarBodyB
-              )
-            ) {
-              trainsState.hoveredBodyIndex = bogieIndex;
-              trainsState.hoveredTrainId = trainId;
+              // 2. Other Joint の選択 (bodyA / bodyB)
+              if (panelState.selectedOtherJointIndex !== -1) {
+                if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bogieIndex;
+                  panelState.isSelectingCarBodyA = false;
+                  triggerPreviewUpdate();
+                } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
+                  panelState.isSelectingCarBodyB = false;
+                  triggerPreviewUpdate();
+                }
+              }
             }
           }}
-          onPointerOut={() => {
+          onPointerMove={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
+
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
+              if (formState.editingTrainFormatMode === "standard") return;
+              const isSelectable = 
+                (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+                panelState.isSelectingCarBodyB ||
+                (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+              if (isSelectable) {
+                trainsState.hoveredBodyIndex = bogieIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = bogieIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
+            }
+          }}
+          onPointerOut={(event) => {
+            event.stopPropagation();
             if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return;
 
             trainsState.hoveredBodyIndex = -1;
             trainsState.hoveredTrainId = "";
           }}
-          rotation={[Math.PI / -2, 0, 0]}
+          rotation={[Math.PI / 2, 0, 0]}
         >
           <cylinderGeometry args={[0.5, 0, 3, 8]} />
           {isHovered
             ? <meshBasicMaterial color="yellow" />
-            : isActive && !trainsState.activeTrainId
-              ? <meshBasicMaterial color="red" />
-              : <meshStandardMaterial />
+            : highlightColor
+              ? <meshBasicMaterial color={highlightColor} />
+              : isActive && !trainsState.activeTrainId
+                ? <meshBasicMaterial color="red" />
+                : <meshStandardMaterial />
           }
         </mesh>
       </group>
-      {bogie.axles.map((axle, axleIndex) => (
-        <WheelAndAxleModel
-          key={axleIndex}
-          axle={axle}
-          format={format.axles[axleIndex]}
-        />
-      ))}
+      {format?.axles && bogie.axles.map((axle, axleIndex) => {
+        const axleFormat = format.axles[axleIndex];
+        if (!axleFormat) return null;
+        return (
+          <WheelAndAxleModel
+            key={axleIndex}
+            trainId={trainId}
+            bogieIndex={bogieIndex}
+            axleIndex={axleIndex}
+            axle={axle}
+            format={axleFormat}
+            isEditing={isEditing}
+          />
+        );
+      })}
     </>
   )
 }
 
-function WheelAndAxleModel({ axle, format, ...props }: { axle: Axle, format: BogieFormat["axles"][0] }) {
+function WheelAndAxleModel({
+  trainId,
+  bogieIndex,
+  axleIndex,
+  axle,
+  format,
+  isEditing = false,
+  ...props
+}: {
+  trainId?: string;
+  bogieIndex?: number;
+  axleIndex?: number;
+  axle: Axle;
+  format: BogieFormat["axles"][0];
+  isEditing?: boolean;
+}) {
   const groupRef = React.useRef<THREE.Group>(null)
+  const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
     groupRef.current!.position.copy(axle.position)
     groupRef.current!.rotation.copy(axle.rotation)
   })
+
+  // 選択・ホバー状態
+  const isParentBogieEditing = isEditing
+    && formState.editingTrainFormatMode === "advanced"
+    && panelState.selectedCarBodyIndex === bogieIndex
+    && panelState.selectedAxleIndex === -1;
+  const isSelected = isEditing
+    && formState.editingTrainFormatMode === "advanced"
+    && panelState.selectedCarBodyIndex === bogieIndex
+    && panelState.selectedAxleIndex === axleIndex;
+  const isHovered = isEditing
+    && trainsState.hoveredTrainId === trainId
+    && trainsState.hoveredBodyIndex === bogieIndex
+    && trainsState.hoveredAxleIndex === axleIndex;
+
+  const axleMeshColor = isHovered
+    ? "yellow"
+    : isSelected
+      ? "#f59e0b" // アンバー（輪軸選択中）
+      : isParentBogieEditing
+        ? "#6ee7b7" // 薄いエメラルド（親ボギー編集中）
+        : null;
 
   return (
     <group ref={groupRef} {...props}>
@@ -132,9 +237,36 @@ function WheelAndAxleModel({ axle, format, ...props }: { axle: Axle, format: Bog
         receiveShadow
         position={[0, format.diameter / 2, 0]}
         rotation={[axle.rotationX, 0, Math.PI / 2]}
+        onClick={isEditing ? (event) => {
+          event.stopPropagation();
+          const ps = trainsTabPanelState;
+          if (formState.editingTrainFormatMode !== "advanced") return;
+          if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+          ps.selectedCarBodyIndex = bogieIndex ?? -1;
+          ps.selectedAxleIndex = axleIndex ?? -1;
+          triggerPreviewUpdate();
+        } : undefined}
+        onPointerMove={isEditing ? (event) => {
+          event.stopPropagation();
+          const ps = trainsTabPanelState;
+          if (formState.editingTrainFormatMode !== "advanced") return;
+          if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+          trainsState.hoveredBodyIndex = bogieIndex ?? -1;
+          trainsState.hoveredAxleIndex = axleIndex ?? -1;
+          trainsState.hoveredTrainId = trainId ?? "";
+        } : undefined}
+        onPointerOut={isEditing ? (event) => {
+          event.stopPropagation();
+          trainsState.hoveredBodyIndex = -1;
+          trainsState.hoveredAxleIndex = -1;
+          trainsState.hoveredTrainId = "";
+        } : undefined}
       >
         <cylinderGeometry args={[format.diameter / 2, format.diameter / 2, 1.267, 8]} />
-        <meshStandardMaterial />
+        {axleMeshColor
+          ? <meshBasicMaterial color={axleMeshColor} />
+          : <meshStandardMaterial />
+        }
       </mesh>
     </group>
   )
@@ -143,6 +275,7 @@ function WheelAndAxleModel({ axle, format, ...props }: { axle: Axle, format: Bog
 function OtherBodyModel({
   trainId,
   bodyIndex,
+  otherBodyIndex,
   otherBody,
   isHovered,
   isActive,
@@ -151,86 +284,153 @@ function OtherBodyModel({
 }: {
   trainId: string;
   bodyIndex: number;
+  otherBodyIndex: number;
   otherBody: CarBody;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
 }) {
   const meshRef = React.useRef<THREE.Mesh>(null)
+  const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
     meshRef.current!.position.copy(otherBody.position)
     meshRef.current!.rotation.copy(otherBody.rotation)
   })
 
+  // 編集中のジョイントに設定されている場合の色判定
+  let highlightColor: string | null = null;
+  if (isEditing && panelState.editingTrainFormat) {
+    const format = panelState.editingTrainFormat;
+    
+    // 1. Body Supporter Joint の OtherBody 接続
+    if (panelState.selectedBodySupporterJointIndex !== -1) {
+      const joint = format.bodySupporterJoints[panelState.selectedBodySupporterJointIndex];
+      if (joint && joint.otherBodyIndex === otherBodyIndex) {
+        highlightColor = "cyan";
+      }
+    }
+    
+    // 2. Other Joint の接続 (A or B)
+    if (panelState.selectedOtherJointIndex !== -1) {
+      const joint = format.otherJoints[panelState.selectedOtherJointIndex];
+      if (joint) {
+        if (joint.bodyIndexA === bodyIndex) {
+          highlightColor = "orange";
+        } else if (joint.bodyIndexB === bodyIndex) {
+          highlightColor = "purple";
+        }
+      }
+    }
+
+    // 3. アドバンスモードで編集対象として選択されているOtherBodyに色を付ける
+    if (formState.editingTrainFormatMode === "advanced" && panelState.selectedCarBodyIndex === bodyIndex) {
+      highlightColor = "#10b981"; // プレミアム・エメラルドグリーン
+    }
+  }
+
   return (
     <mesh
       ref={meshRef}
       castShadow
       receiveShadow
-      onClick={() => {
+      onClick={(event) => {
+        event.stopPropagation();
         if (trainsState.activeTrainId) return;
 
-        if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
-          trainsState.hoveredBodyIndex = -1;
-          trainsState.hoveredTrainId = "";
+        if (isEditing) {
+          const panelState = trainsTabPanelState;
 
-          if (isActive) {
-            trainsState.activeBodyIndex = -1;
-            trainsState.activeTrainId = "";
-          } else {
-            trainsState.activeBodyIndex = bodyIndex;
-            trainsState.activeTrainId = trainId;
+          // スタンダードモードでは選択不可
+          if (formState.editingTrainFormatMode === "standard") return;
+
+          // ジョイント選択中かどうかの判定
+          const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
+
+          if (!isSelectingJoint) {
+            // 3Dシーン上でクリックして編集対象（OtherBody）を切り替える
+            panelState.selectedCarBodyIndex = bodyIndex;
+            panelState.selectedAxleIndex = -1;
+            triggerPreviewUpdate();
+            return;
           }
-        }
 
-        /*if (isEditing) {
-          if (trainsTabPanelState.isSelectingCarBodyA) {
+          // 1. Body Supporter Joint の OtherBody 選択
+          if (panelState.selectedBodySupporterJointIndex !== -1) {
+            if (panelState.isSelectingCarBodyA && panelState.isSelectingCarBodyToBodySupporterJoint) {
+              panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].otherBodyIndex = otherBodyIndex;
+              panelState.isSelectingCarBodyA = false;
+              panelState.isSelectingCarBodyToBodySupporterJoint = false;
+              triggerPreviewUpdate();
+            }
+          }
+
+          // 2. Other Joint の選択 (bodyA / bodyB)
+          if (panelState.selectedOtherJointIndex !== -1) {
+            if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+              panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
+              panelState.isSelectingCarBodyA = false;
+              triggerPreviewUpdate();
+            } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+              panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
+              panelState.isSelectingCarBodyB = false;
+              triggerPreviewUpdate();
+            }
+          }
+        } else {
+          if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
             trainsState.hoveredBodyIndex = -1;
             trainsState.hoveredTrainId = "";
 
-            if (trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint)
-              trainsTabPanelState.bodySupporterJoints[trainsTabPanelState.selectedBodySupporterJointIndex].otherBodyIndex = bodyIndex - trainsTabPanelState.axleTable.length;
-            else
-              trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
+            if (isActive) {
+              trainsState.activeBodyIndex = -1;
+              trainsState.activeTrainId = "";
+            } else {
+              trainsState.activeBodyIndex = bodyIndex;
+              trainsState.activeTrainId = trainId;
+            }
           }
-
-          if (trainsTabPanelState.isSelectingCarBodyB && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint) {
-            trainsState.hoveredBodyIndex = -1;
-            trainsState.hoveredTrainId = "";
-
-            trainsTabPanelState.otherJoints[trainsTabPanelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
-          }
-        }*/
-      }}
-      onPointerMove={() => {
-        if (trainsState.activeTrainId) return;
-
-        if (
-          guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable
-          || isEditing && (
-            trainsTabPanelState.isSelectingCarBodyA
-            || trainsTabPanelState.isSelectingCarBodyB && !trainsTabPanelState.isSelectingCarBodyToBodySupporterJoint
-          )
-        ) {
-          trainsState.hoveredBodyIndex = bodyIndex;
-          trainsState.hoveredTrainId = trainId;
         }
       }}
-      onPointerOut={() => {
+      onPointerMove={(event) => {
+        event.stopPropagation();
+        if (trainsState.activeTrainId) return;
+
+        if (isEditing) {
+          const panelState = trainsTabPanelState;
+          if (formState.editingTrainFormatMode === "standard") return;
+          const isSelectable = 
+            (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+            panelState.isSelectingCarBodyA ||
+            (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+          if (isSelectable) {
+            trainsState.hoveredBodyIndex = bodyIndex;
+            trainsState.hoveredTrainId = trainId;
+          }
+        } else {
+          if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+            trainsState.hoveredBodyIndex = bodyIndex;
+            trainsState.hoveredTrainId = trainId;
+          }
+        }
+      }}
+      onPointerOut={(event) => {
+        event.stopPropagation();
         if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bodyIndex) return;
 
         trainsState.hoveredBodyIndex = -1;
         trainsState.hoveredTrainId = "";
       }}
-      {...props}
     >
       <boxGeometry args={[1, 0.3, 3]} />
       {isHovered
         ? <meshBasicMaterial color="yellow" />
-        : isActive && !trainsState.activeTrainId
-          ? <meshBasicMaterial color="red" />
-          : <meshStandardMaterial />
+        : highlightColor
+          ? <meshBasicMaterial color={highlightColor} />
+          : isActive && !trainsState.activeTrainId
+            ? <meshBasicMaterial color="red" />
+            : <meshStandardMaterial />
       }
     </mesh>
   )
@@ -248,8 +448,6 @@ export function onFrame() {
 export default function Trains() {
   const { trains, trainFormats } = useSnapshot(store.data);
   useSnapshot(trainsState);
-  const { selectedTab } = useSnapshot(guiState);
-  const { editingTrain } = useSnapshot(trainsTabPanelState);
 
   return <>
     {Object.keys(trains).map(trainId => {
@@ -257,15 +455,17 @@ export default function Trains() {
 
       return <TrainComponent key={trainId} trainId={trainId} train={train as Train} format={trainFormats[train.trainFormatId] as TrainFormat} />;
     })}
-    {selectedTab === "trains" && editingTrain && <TrainComponent train={editingTrain as Train} format={trainFormats[editingTrain.trainFormatId] as TrainFormat} isEditing />}
   </>;
 }
 
 export function TrainComponent({ trainId = "", train, format, isEditing = false }: { trainId?: string, train: Train, format: TrainFormat, isEditing?: boolean }) {
+  const { activeTrainId, activeBodyIndex, hoveredTrainId, hoveredBodyIndex, hoveredAxleIndex } = useSnapshot(trainsState);
+
   return <>
     {train.bogies.map((bogie, bogieIndex) => {
-      const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bogieIndex
-      const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bogieIndex
+      const isActive = activeTrainId === trainId && activeBodyIndex === bogieIndex
+      // 輪軸がホバーされているときは親ボギーをハイライトしない
+      const isHovered = hoveredTrainId === trainId && hoveredBodyIndex === bogieIndex && hoveredAxleIndex === -1
 
       return (
         <BogieModel
@@ -273,7 +473,7 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false 
           trainId={trainId}
           bogieIndex={bogieIndex}
           bogie={bogie}
-          format={format.bogies[bogieIndex]}
+          format={format?.bogies?.[bogieIndex]}
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}
@@ -282,14 +482,15 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false 
     })}
     {train.otherBodies.map((otherBody, otherBodieIndex) => {
       const bodyIndex = otherBodieIndex + train.bogies.length
-      const isActive = trainsState.activeTrainId === trainId && trainsState.activeBodyIndex === bodyIndex
-      const isHovered = trainsState.hoveredTrainId === trainId && trainsState.hoveredBodyIndex === bodyIndex
+      const isActive = activeTrainId === trainId && activeBodyIndex === bodyIndex
+      const isHovered = hoveredTrainId === trainId && hoveredBodyIndex === bodyIndex
 
       return (
         <OtherBodyModel
           key={otherBodieIndex}
           trainId={trainId}
           bodyIndex={bodyIndex}
+          otherBodyIndex={otherBodieIndex}
           otherBody={otherBody}
           isActive={isActive}
           isHovered={isHovered}
@@ -297,97 +498,212 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false 
         />
       )
     })}
-    {isEditing && <EditingJoints />}
+    {isEditing && (
+      <>
+        <EditingJoints train={train} format={format} />
+        <arrowHelper
+          args={[
+            new THREE.Vector3(0, 0, -1),
+            new THREE.Vector3(0, -2, 0),
+            10,
+            0x10b981,
+            10,
+            3
+          ]}
+        />
+      </>
+    )}
   </>;
 }
 
-function EditingJoints() {
-  //const { editingTrain, selectedBodySupporterJointIndex, selectedOtherJointIndex, axleTable } = useSnapshot(trainsTabPanelState);
+function toVector3(v: any): THREE.Vector3 {
+  if (!v) return new THREE.Vector3();
+  if (Array.isArray(v)) {
+    return new THREE.Vector3(v[0], v[1], v[2]);
+  }
+  return new THREE.Vector3(v.x ?? 0, v.y ?? 0, v.z ?? 0);
+}
 
-  //if (!editingTrain) return null;
+function EditingJoints({ train, format }: { train: Train, format: TrainFormat }) {
+  const { selectedBodySupporterJointIndex, selectedOtherJointIndex, editingTrainFormat } = useSnapshot(trainsTabPanelState);
+  const currentFormat = (editingTrainFormat as TrainFormat) || format;
 
-  return <>
+  const supporterJointElements = currentFormat.bodySupporterJoints.map((joint, index) => {
+    if (joint.otherBodyIndex === -1 || joint.bogieIndex === -1) return null;
+
+    const otherBody = train.otherBodies[joint.otherBodyIndex];
+    const bogie = train.bogies[joint.bogieIndex];
+
+    if (!bogie) return null;
+
+    const baseBody = otherBody || bogie;
+
+    const posA = baseBody.position.clone().add(
+      toVector3(joint.otherBodyPosition).applyEuler(baseBody.rotation)
+    );
+
+    const posB = bogie.position.clone().add(
+      toVector3(joint.bogiePosition).applyEuler(bogie.rotation)
+    );
+
+    const isSelected = selectedBodySupporterJointIndex === index;
+    const colorA = isSelected ? "yellow" : "cyan";
+    const colorB = isSelected ? "yellow" : "magenta";
+    const lineColor = isSelected ? "yellow" : "white";
+
+    // Offset lines colors and width
+    const offsetColorA = isSelected ? "cyan" : "rgba(0, 255, 255, 0.25)";
+    const offsetColorB = isSelected ? "magenta" : "rgba(255, 0, 255, 0.25)";
+    const offsetWidth = isSelected ? 2 : 0.8;
+
+    return (
+      <group key={`supporter-${index}`}>
+        <mesh position={posA} renderOrder={100}>
+          <sphereGeometry args={[0.12, 8, 8]} />
+          <meshBasicMaterial color={colorA} depthTest={false} />
+        </mesh>
+        <mesh position={posB} renderOrder={100}>
+          <sphereGeometry args={[0.12, 8, 8]} />
+          <meshBasicMaterial color={colorB} depthTest={false} />
+        </mesh>
+        <Line points={[posA, posB]} color={lineColor} lineWidth={isSelected ? 3 : 1.5} depthTest={false} renderOrder={100} />
+
+        {/* Origin connection and helper for otherbody (posA) */}
+        {otherBody && (
+          <>
+            <Line
+              points={[otherBody.position, posA]}
+              color={offsetColorA}
+              lineWidth={offsetWidth}
+              dashed={!isSelected}
+              dashSize={0.1}
+              gapSize={0.05}
+              depthTest={false}
+              renderOrder={99}
+            />
+            {isSelected && (
+              <mesh position={otherBody.position} renderOrder={99}>
+                <boxGeometry args={[0.15, 0.15, 0.15]} />
+                <meshBasicMaterial color="cyan" wireframe depthTest={false} />
+              </mesh>
+            )}
+          </>
+        )}
+
+        {/* Origin connection and helper for bogie (posB) */}
+        {bogie && (
+          <>
+            <Line
+              points={[bogie.position, posB]}
+              color={offsetColorB}
+              lineWidth={offsetWidth}
+              dashed={!isSelected}
+              dashSize={0.1}
+              gapSize={0.05}
+              depthTest={false}
+              renderOrder={99}
+            />
+            {isSelected && (
+              <mesh position={bogie.position} renderOrder={99}>
+                <boxGeometry args={[0.15, 0.15, 0.15]} />
+                <meshBasicMaterial color="magenta" wireframe depthTest={false} />
+              </mesh>
+            )}
+          </>
+        )}
+      </group>
+    );
+  });
+
+  const otherJointElements = currentFormat.otherJoints.map((joint, index) => {
+    if (joint.bodyIndexA === -1 || joint.bodyIndexB === -1) return null;
+
+    const bodyA = getBodyFromBodyIndex(train, joint.bodyIndexA);
+    const bodyB = getBodyFromBodyIndex(train, joint.bodyIndexB);
+
+    if (!bodyA || !bodyB) return null;
+
+    const posA = bodyA.position.clone().add(
+      toVector3(joint.positionA).applyEuler(bodyA.rotation)
+    );
+
+    const posB = bodyB.position.clone().add(
+      toVector3(joint.positionB).applyEuler(bodyB.rotation)
+    );
+
+    const isSelected = selectedOtherJointIndex === index;
+    const colorA = isSelected ? "yellow" : "orange";
+    const colorB = isSelected ? "yellow" : "purple";
+    const lineColor = isSelected ? "yellow" : "lightgray";
+
+    // Offset lines colors and width
+    const offsetColorA = isSelected ? "orange" : "rgba(255, 165, 0, 0.25)";
+    const offsetColorB = isSelected ? "purple" : "rgba(128, 0, 128, 0.25)";
+    const offsetWidth = isSelected ? 2 : 0.8;
+
+    return (
+      <group key={`other-${index}`}>
+        <mesh position={posA} renderOrder={100}>
+          <sphereGeometry args={[0.12, 8, 8]} />
+          <meshBasicMaterial color={colorA} depthTest={false} />
+        </mesh>
+        <mesh position={posB} renderOrder={100}>
+          <sphereGeometry args={[0.12, 8, 8]} />
+          <meshBasicMaterial color={colorB} depthTest={false} />
+        </mesh>
+        <Line points={[posA, posB]} color={lineColor} lineWidth={isSelected ? 3 : 1.5} depthTest={false} renderOrder={100} />
+
+        {/* Origin connection and helper for Body A (posA) */}
+        {bodyA && (
+          <>
+            <Line
+              points={[bodyA.position, posA]}
+              color={offsetColorA}
+              lineWidth={offsetWidth}
+              dashed={!isSelected}
+              dashSize={0.1}
+              gapSize={0.05}
+              depthTest={false}
+              renderOrder={99}
+            />
+            {isSelected && (
+              <mesh position={bodyA.position} renderOrder={99}>
+                <boxGeometry args={[0.15, 0.15, 0.15]} />
+                <meshBasicMaterial color="orange" wireframe depthTest={false} />
+              </mesh>
+            )}
+          </>
+        )}
+
+        {/* Origin connection and helper for Body B (posB) */}
+        {bodyB && (
+          <>
+            <Line
+              points={[bodyB.position, posB]}
+              color={offsetColorB}
+              lineWidth={offsetWidth}
+              dashed={!isSelected}
+              dashSize={0.1}
+              gapSize={0.05}
+              depthTest={false}
+              renderOrder={99}
+            />
+            {isSelected && (
+              <mesh position={bodyB.position} renderOrder={99}>
+                <boxGeometry args={[0.15, 0.15, 0.15]} />
+                <meshBasicMaterial color="purple" wireframe depthTest={false} />
+              </mesh>
+            )}
+          </>
+        )}
+      </group>
+    );
+  });
+
+  return (
     <>
-      {/*editingTrain.bodySupporterJoints.map((bodySupporterJoint, index) => <React.Fragment key={index}>
-        {bodySupporterJoint.otherBodyIndex !== -1 && bodySupporterJoint.bogieIndex !== -1 &&
-          selectedBodySupporterJointIndex === index && <>
-            <Line
-              points={[
-                editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].position,
-                editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].position.clone()
-                  .add(
-                    bodySupporterJoint.otherBodyPosition.clone()
-                      .applyEuler(editingTrain.otherBodies[bodySupporterJoint.otherBodyIndex].rotation)
-                  ),
-              ]}
-              color={"#f00"}
-              depthTest={false}
-            />
-            <Line
-              points={[
-                editingTrain.bogies[bodySupporterJoint.bogieIndex].position,
-                editingTrain.bogies[bodySupporterJoint.bogieIndex].position.clone()
-                  .add(
-                    bodySupporterJoint.bogiePosition.clone()
-                      .applyEuler(editingTrain.bogies[bodySupporterJoint.bogieIndex].rotation)
-                  ),
-              ]}
-              color={"#0f0"}
-              depthTest={false}
-            />
-          </>}
-      </React.Fragment>)*/}
+      {supporterJointElements}
+      {otherJointElements}
     </>
-    <>
-      {/*editingTrain.otherJoints.map((otherJoint, index) => <React.Fragment key={index}>
-        {otherJoint.bodyIndexA !== -1 && otherJoint.bodyIndexB !== -1 &&
-          selectedOtherJointIndex === index && <>
-            <Line
-              points={otherJoint.bodyIndexA < axleTable.length
-                ? [
-                  editingTrain.bogies[otherJoint.bodyIndexA].position,
-                  editingTrain.bogies[otherJoint.bodyIndexA].position.clone()
-                    .add(
-                      otherJoint.positionA.clone()
-                        .applyEuler(editingTrain.bogies[otherJoint.bodyIndexA].rotation)
-                    ),
-                ]
-                : [
-                  editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].position,
-                  editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].position.clone()
-                    .add(
-                      otherJoint.positionA.clone()
-                        .applyEuler(editingTrain.otherBodies[otherJoint.bodyIndexA - axleTable.length].rotation)
-                    ),
-                ]
-              }
-              color={"#f00"}
-              depthTest={false}
-            />
-            <Line
-              points={otherJoint.bodyIndexB < axleTable.length
-                ? [
-                  editingTrain.bogies[otherJoint.bodyIndexB].position,
-                  editingTrain.bogies[otherJoint.bodyIndexB].position.clone()
-                    .add(
-                      otherJoint.positionB.clone()
-                        .applyEuler(editingTrain.bogies[otherJoint.bodyIndexB].rotation)
-                    ),
-                ]
-                : [
-                  editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].position,
-                  editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].position.clone()
-                    .add(
-                      otherJoint.positionB.clone()
-                        .applyEuler(editingTrain.otherBodies[otherJoint.bodyIndexB - axleTable.length].rotation)
-                    ),
-                ]
-              }
-              color={"#0f0"}
-              depthTest={false}
-            />
-          </>}
-      </React.Fragment>)*/}
-    </>
-  </>;
+  );
 }

@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { Fab, Paper, Stack, Tooltip } from '@mui/material';
+import { IconButton, Paper, Stack, Tooltip } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
 import DiagramTable from './DiagramTable';
 import { diagramsTabPanelState } from '@/lib/client/diagrams';
@@ -13,13 +13,10 @@ function DiagramsMenu() {
     userSelect: 'none',
   }}>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Tooltip title="Toggle table" disableInteractive>
-        <Fab size="small" color="primary" onClick={() => diagramsTabPanelState.isShowTable = true} sx={{
-          pointerEvents: 'auto',
-          userSelect: 'none'
-        }}>
+      <Tooltip title="Show diagram table" disableInteractive>
+        <IconButton size="small" color="primary" onClick={() => diagramsTabPanelState.isShowTable = true}>
           <TableViewIcon />
-        </Fab>
+        </IconButton>
       </Tooltip>
     </Stack>
   </Paper>;

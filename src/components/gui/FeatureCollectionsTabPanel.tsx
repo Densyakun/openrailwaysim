@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
-import { Button, ButtonGroup, Fab, Paper, Stack, TextField, Tooltip } from '@mui/material';
+import { Button, ButtonGroup, IconButton, Paper, Stack, TextField, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
 import DeselectIcon from '@mui/icons-material/Deselect';
@@ -340,13 +340,10 @@ function MainMenu() {
   }}>
     <Stack direction={'column'} spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Tooltip title="Toggle table" disableInteractive>
-          <Fab size="small" color="primary" onClick={() => featureCollectionsTabPanelState.isShowTable = true} sx={{
-            pointerEvents: 'auto',
-            userSelect: 'none'
-          }}>
+        <Tooltip title="Show table" disableInteractive>
+          <IconButton size="small" color="primary" onClick={() => featureCollectionsTabPanelState.isShowTable = true}>
             <TableViewIcon />
-          </Fab>
+          </IconButton>
         </Tooltip>
         <div>Selected: {gisState.selectedFeatures.length}</div>
         {Object.keys(count).map(key => <div key={key}> {key}: {count[key]}</div>)}

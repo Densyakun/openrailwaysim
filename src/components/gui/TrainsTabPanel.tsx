@@ -1,5 +1,5 @@
 import { useSnapshot } from 'valtio';
-import { Paper, Stack, Tooltip, Fab } from '@mui/material';
+import { Paper, Stack, Tooltip, Button } from '@mui/material';
 import TableViewIcon from '@mui/icons-material/TableView';
 import ControlStand from '../hud/ControlStand';
 import TrainGroupTable from './TrainGroupTable';
@@ -18,23 +18,15 @@ function TrainsMenu() {
     userSelect: 'none',
   }}>
     <Stack direction="row" spacing={1} alignItems="center">
-      <Tooltip title="Toggle train format table" disableInteractive>
-        <Fab variant="extended" size="small" color="primary" onClick={() => trainsTabPanelState.isShowTrainFormatTable = true} sx={{
-          pointerEvents: 'auto',
-          userSelect: 'none'
-        }}>
-          <TableViewIcon sx={{ mr: 1 }} />
+      <Tooltip title="Show train format table" disableInteractive>
+        <Button variant="contained" size="small" startIcon={<TableViewIcon />} onClick={() => trainsTabPanelState.isShowTrainFormatTable = true}>
           Formats
-        </Fab>
+        </Button>
       </Tooltip>
-      <Tooltip title="Toggle train table" disableInteractive>
-        <Fab variant="extended" size="small" color="primary" onClick={() => trainsTabPanelState.isShowTrainTable = true} sx={{
-          pointerEvents: 'auto',
-          userSelect: 'none'
-        }}>
-          <TableViewIcon sx={{ mr: 1 }} />
+      <Tooltip title="Show train table" disableInteractive>
+        <Button variant="contained" size="small" startIcon={<TableViewIcon />} onClick={() => trainsTabPanelState.isShowTrainTable = true}>
           Train groups
-        </Fab>
+        </Button>
       </Tooltip>
     </Stack>
   </Paper>;

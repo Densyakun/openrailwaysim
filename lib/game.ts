@@ -2,7 +2,7 @@
 import * as THREE from 'three'
 import EventEmitter from "events"
 import { WebSocket as WebSocketInNode } from "ws"
-import { Axle, Bogie, BodySupporterJoint, CarBody, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, updateTrainOnTime } from "./trains";
+import { Axle, Bogie, BodySupporterJoint, CarBody, Joint, SerializableBodySupporterJoint, SerializableJoint, SerializableTrainFormat, Train, TrainFormat, UIOneHandleMasterControllerConfig, getPointOnTrackByTrain, placeTrain, setupTrainMetrics, updateTrainOnTime } from "./trains";
 import { FeatureCollection, Position } from "geojson";
 import { SerializableTrack, SerializableTransitionCurve, SerializableTransitionCurveSegment, Switch, Track, TransitionCurve, TransitionCurveSegment } from './tracks';
 import { HeightmapType } from './terrain';
@@ -357,6 +357,10 @@ export function serialize(type: string, value: any): any {
     const {
       bogies,
       otherBodies,
+      fromJointIndexes,
+      toJointIndexes,
+      weight,
+      motors,
       ...rest
     } = value;
 
@@ -635,7 +639,17 @@ export function deserialize(type: string, value: any): any {
       ...rest,
       bogies: deserialize(bogieArrayTypeId, bogies),
       otherBodies: deserialize(carBodyArrayTypeId, otherBodies),
+      fromJointIndexes: [],
+      toJointIndexes: [],
+      weight: 30,
+      motors: 0,
     };
+
+    const data = store.data;
+    const trainFormat = data.trainFormats[train.trainFormatId];
+    if (trainFormat) {
+      setupTrainMetrics(train, trainFormat);
+    }
 
     return train;
   } else if (type === bogieArrayTypeId) {
@@ -734,6 +748,19 @@ export function updateTime(delta: number) {
     const train = orsAppData.trains[trainId]
 
     if (trainId === "preview" && !(train as any).isSyncPreview) return;
+
+    // 列車形式が存在し、かつ列車が未セットアップ、または列車形式が編集されてサイズ不一致になった場合、
+    // 自動的に setupTrainMetrics を呼び出して構成数を再適合・線路吸着・重量・ジョイントを再同期させる
+    const trainFormat = orsAppData.trainFormats[train.trainFormatId];
+    if (trainFormat) {
+      const isUninitialized = !train.fromJointIndexes || train.fromJointIndexes.length === 0;
+      const isMismatch = train.bogies.length !== trainFormat.bogies.length ||
+                         train.otherBodies.length !== trainFormat.otherBodyOffsets.length;
+
+      if (isUninitialized || isMismatch) {
+        setupTrainMetrics(train, trainFormat);
+      }
+    }
 
     updateTrainOnTime(train, delta)
   })

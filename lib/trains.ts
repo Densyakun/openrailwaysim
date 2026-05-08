@@ -315,11 +315,6 @@ export function placeTrain(
       });
   });
 
-  let trainWeight = trainFormat.otherBodyWeights.reduce((previous, weight) => previous + weight,
-    trainFormat.bogies.reduce((previous, bogie) => previous + bogie.weight, 0)
-  );
-  if (trainWeight <= 0) trainWeight = 30;
-
   const train: Train = {
     trainFormatId: "",
     bogies,
@@ -328,7 +323,7 @@ export function placeTrain(
     fromJointIndexes: [],
     toJointIndexes: [],
     speed: 0,
-    weight: trainWeight,
+    weight: 30,
     motors: 0,
     currentDiagramId: "",
     currentDiagramCurveIndex: -1,
@@ -337,25 +332,7 @@ export function placeTrain(
     isStopping: true,
   };
 
-  train.motors = trainFormat.bogies.reduce((prev, bogie) => prev +
-    bogie.axles.reduce((prev, axle) => prev +
-      (axle.hasMotor ? 1 : 0),
-      0),
-    0);
-
-  // ボギーと車輪（輪軸）の初期位置と回転を計算して設定する
-  train.bogies.forEach(bogie => {
-    bogie.axles.forEach(axle => {
-      axle.position.copy(getAxlePosition(axle, customTracks));
-      axle.rotation.copy(getAxleRotation(axle.pointOnTrack, axle.rotationIsReversed, customTracks));
-    });
-    bogieToAxles(bogie, customTracks);
-  });
-
-  // ジョイントを考慮して各車体の相対位置関係を同期
-  syncOtherBodies(train, trainFormat);
-
-  calcJointsToRotateBody(train, trainFormat);
+  setupTrainMetrics(train, trainFormat, customTracks);
 
   return {
     train,
@@ -513,6 +490,86 @@ export function getBodyFromBodyIndex(train: Train, bodyIndex: number) {
   return bodyIndexIsBogie(train, bodyIndex)
     ? train.bogies[bodyIndex]
     : train.otherBodies[bodyIndex - train.bogies.length];
+}
+
+export function setupTrainMetrics(train: Train, trainFormat: TrainFormat, customTracks?: { [trackId: string]: Track }) {
+  // 1. 列車形式の変更に追従して、台車（bogies）の数を自動でリサイズ・補正する
+  while (train.bogies.length < trainFormat.bogies.length) {
+    const bogieIndex = train.bogies.length;
+    train.bogies.push({
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
+      weight: trainFormat.bogies[bogieIndex]?.weight ?? 5,
+      axles: [],
+    });
+  }
+  if (train.bogies.length > trainFormat.bogies.length) {
+    train.bogies.splice(trainFormat.bogies.length);
+  }
+
+  // 2. ボギー内の車軸（axles）数も自動リサイズ・補正する
+  train.bogies.forEach((bogie, bogieIndex) => {
+    const axleFormats = trainFormat.bogies[bogieIndex]?.axles ?? [];
+    while (bogie.axles.length < axleFormats.length) {
+      const basePoint = train.bogies[0]?.axles[0]?.pointOnTrack ?? { trackId: Object.keys(store.data.tracks)[0] ?? "", length: 0 };
+      bogie.axles.push({
+        pointOnTrack: { ...basePoint },
+        rotationIsReversed: false,
+        position: new THREE.Vector3(),
+        rotation: new THREE.Euler(),
+        rotationX: 0,
+      });
+    }
+    if (bogie.axles.length > axleFormats.length) {
+      bogie.axles.splice(axleFormats.length);
+    }
+  });
+
+  // 3. 車体（otherBodies）の数も自動リサイズ・補正する
+  while (train.otherBodies.length < trainFormat.otherBodyOffsets.length) {
+    train.otherBodies.push({
+      position: new THREE.Vector3(),
+      rotation: new THREE.Euler(),
+      weight: 30,
+    });
+  }
+  if (train.otherBodies.length > trainFormat.otherBodyOffsets.length) {
+    train.otherBodies.splice(trainFormat.otherBodyOffsets.length);
+  }
+
+  // 4. 運転台状態（cabStates）の数も自動リサイズ・補正する
+  while (train.cabStates.length < trainFormat.cabFormats.length) {
+    train.cabStates.push(null);
+  }
+  if (train.cabStates.length > trainFormat.cabFormats.length) {
+    train.cabStates.splice(trainFormat.cabFormats.length);
+  }
+
+  let trainWeight = trainFormat.otherBodyWeights.reduce((previous, weight) => previous + weight,
+    trainFormat.bogies.reduce((previous, bogie) => previous + bogie.weight, 0)
+  );
+  if (trainWeight <= 0) trainWeight = 30;
+  train.weight = trainWeight;
+
+  train.motors = trainFormat.bogies.reduce((prev, bogie) => prev +
+    bogie.axles.reduce((prev, axle) => prev +
+      (axle.hasMotor ? 1 : 0),
+      0),
+    0);
+
+  // ボギーと車輪（輪軸）の初期位置と回転を計算して設定する
+  train.bogies.forEach(bogie => {
+    bogie.axles.forEach(axle => {
+      axle.position.copy(getAxlePosition(axle, customTracks));
+      axle.rotation.copy(getAxleRotation(axle.pointOnTrack, axle.rotationIsReversed, customTracks));
+    });
+    bogieToAxles(bogie, customTracks);
+  });
+
+  // ジョイントを考慮して各車体の相対位置関係を同期
+  syncOtherBodies(train, trainFormat);
+
+  calcJointsToRotateBody(train, trainFormat);
 }
 
 export function calcJointsToRotateBody(train: Train, trainFormat: TrainFormat) {
@@ -880,9 +937,13 @@ export function rollAxles(train: Train, trainFormat: TrainFormat, distance: numb
 
     // 輪軸を転がす
     bogie.axles.forEach((axle, axleIndex) => {
+      const bogieF = trainFormat.bogies[bogieIndex];
+      const axleF = bogieF?.axles[axleIndex];
+      const diameter = axleF?.diameter ?? 0.86;
+
       // プレビュー列車の場合は位置を移動させず、車輪の回転のみを更新する
       if (train.trainFormatId === "preview") {
-        axle.rotationX += distance * trainFormat.bogies[bogieIndex].axles[axleIndex].diameter;
+        axle.rotationX += distance * diameter;
         return;
       }
 
@@ -892,7 +953,7 @@ export function rollAxles(train: Train, trainFormat: TrainFormat, distance: numb
       axle.rotationIsReversed = newDirectionIsReversed;
       if (isDeadEnd) train.speed = 0;
 
-      axle.rotationX += distance * trainFormat.bogies[bogieIndex].axles[axleIndex].diameter;
+      axle.rotationX += distance * diameter;
     });
 
     // ボギーを輪軸に合わせる

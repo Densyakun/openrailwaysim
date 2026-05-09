@@ -712,24 +712,9 @@ export const malletLocomotiveTest: TrainFormat = {
       weight: 0,
     },
   ],
-  otherBodyOffsets: [
-    -distanceBetweenBogiesHalf,
-    distanceBetweenBogiesHalf,
-  ],
-  otherBodyWeights: [
-    0,
-    0,
-  ],
-  cabFormats: [
-    {
-      directionIsReversed: true,
-      oneHandleMasterControllerUIConfigId,
-    },
-    {
-      directionIsReversed: false,
-      oneHandleMasterControllerUIConfigId,
-    },
-  ],
+  otherBodyOffsets: [],
+  otherBodyWeights: [],
+  cabFormats: [],
   bodySupporterJoints: [],
   otherJoints: [
     {

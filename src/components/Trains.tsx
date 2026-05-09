@@ -197,7 +197,7 @@ function BogieModel({
                   ? <meshBasicMaterial color={highlightColor} />
                   : isActive && !trainsState.activeTrainId
                     ? <meshBasicMaterial color="red" />
-                    : <meshStandardMaterial />
+                    : <meshStandardMaterial color="#4b5563" metalness={0.5} roughness={0.4} />
           }
         </mesh>
       </group>
@@ -494,7 +494,7 @@ function OtherBodyModel({
         trainsState.hoveredTrainId = "";
       }}
     >
-      <boxGeometry args={[1, 0.3, 3]} />
+      <boxGeometry args={[0.11, 0.11, 1.6]} />
       {isPreview
         ? <meshBasicMaterial color="#34d399" transparent opacity={0.5} depthWrite={false} />
         : isHovered
@@ -505,7 +505,7 @@ function OtherBodyModel({
               ? <meshBasicMaterial color={highlightColor} />
               : isActive && !trainsState.activeTrainId
                 ? <meshBasicMaterial color="red" />
-                : <meshStandardMaterial />
+                : <meshStandardMaterial color="#0284c7" metalness={0.1} roughness={0.5} />
       }
     </mesh>
   )

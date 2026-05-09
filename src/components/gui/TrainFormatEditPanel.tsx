@@ -648,7 +648,70 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 
   const hasInvalidStandardCab = editingTrainFormatMode === "standard" && (!formState.standardMasterControllerUIOptionId || !Object.keys(uiOneHandleMasterControllerConfigs).includes(formState.standardMasterControllerUIOptionId));
 
-  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab;
+  let hasDisconnectedBodies = false;
+  let disconnectedNames: string[] = [];
+  if (editingTrainFormat) {
+    const numBogies = editingTrainFormat.bogies.length;
+    const numOtherBodies = editingTrainFormat.otherBodyOffsets.length;
+    const totalNodes = numBogies + numOtherBodies;
+    if (totalNodes > 0) {
+      const adj: number[][] = Array.from({ length: totalNodes }, () => []);
+      editingTrainFormat.bodySupporterJoints.forEach(joint => {
+        const { bogieIndex, otherBodyIndex } = joint;
+        if (
+          bogieIndex >= 0 &&
+          bogieIndex < numBogies &&
+          otherBodyIndex >= 0 &&
+          otherBodyIndex < numOtherBodies
+        ) {
+          const u = bogieIndex;
+          const v = numBogies + otherBodyIndex;
+          adj[u].push(v);
+          adj[v].push(u);
+        }
+      });
+      editingTrainFormat.otherJoints.forEach(joint => {
+        const { bodyIndexA, bodyIndexB } = joint;
+        if (
+          bodyIndexA >= 0 &&
+          bodyIndexA < totalNodes &&
+          bodyIndexB >= 0 &&
+          bodyIndexB < totalNodes &&
+          bodyIndexA !== bodyIndexB
+        ) {
+          adj[bodyIndexA].push(bodyIndexB);
+          adj[bodyIndexB].push(bodyIndexA);
+        }
+      });
+
+      const visited = new Set<number>();
+      const queue: number[] = [0];
+      visited.add(0);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        for (const neighbor of adj[curr]) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+      if (visited.size < totalNodes) {
+        hasDisconnectedBodies = true;
+        for (let i = 0; i < totalNodes; i++) {
+          if (!visited.has(i)) {
+            if (i < numBogies) {
+              disconnectedNames.push(`Bogie ${i + 1}`);
+            } else {
+              disconnectedNames.push(`Otherbody ${i + 1 - numBogies}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab || hasDisconnectedBodies;
 
   const motorCount = editingTrainFormat.bogies.reduce((sum, bogie) => 
     sum + bogie.axles.filter(a => a.hasMotor).length, 0
@@ -747,6 +810,12 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
           severity="error"
         >
           {`Otherbody ${invalidCabIndex + 1} のマスコンの形式IDが間違っています`}
+        </Alert>
+        }
+        {hasDisconnectedBodies && <Alert
+          severity="error"
+        >
+          {`ジョイントされていない分離されたボギーまたはOtherBodyがあります: ${disconnectedNames.join(", ")}`}
         </Alert>
         }
       </>

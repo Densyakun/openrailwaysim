@@ -8,11 +8,13 @@ export const clientState = proxy<{
   isSynced: boolean;
   cameraFar: number;
   visibleFeatureCollections: string[];
+  showSaveSuccess: boolean;
 }>({
   readyState: WebSocket.CONNECTING,
   isSynced: false,
   cameraFar: 200000,
   visibleFeatureCollections: [],
+  showSaveSuccess: false,
 });
 
 export const messageEmitter = new MessageEmitter();

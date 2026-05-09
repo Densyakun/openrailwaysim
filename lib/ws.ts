@@ -14,6 +14,7 @@ export enum MessageCode {
   FROM_CLIENT_SAVE,
   FROM_CLIENT_SWITCH_TRACK,
   FROM_CLIENT_GET_HEIGHTMAP,
+  FROM_SERVER_SAVE_COMPLETED,
 }
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
@@ -26,6 +27,7 @@ export type MessageValueMap = {
   [MessageCode.FROM_CLIENT_SAVE]: undefined;
   [MessageCode.FROM_CLIENT_SWITCH_TRACK]: [string, number];
   [MessageCode.FROM_CLIENT_GET_HEIGHTMAP]: [number, number];
+  [MessageCode.FROM_SERVER_SAVE_COMPLETED]: undefined;
 };
 
 // valueの子の型パラメータを使って型推論を行う場合のメッセージコードのオーバーロード

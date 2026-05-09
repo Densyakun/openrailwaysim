@@ -289,6 +289,7 @@ export function setupServer(wss: WebSocketServer) {
       switch (code) {
         case MessageCode.FROM_CLIENT_SAVE: {
           saveData();
+          send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
 
           messageEmitter.isInvalidMessage = false;
           break;

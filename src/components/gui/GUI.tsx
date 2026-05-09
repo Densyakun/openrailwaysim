@@ -8,8 +8,9 @@ import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
-import { Paper, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import { Alert, Paper, Snackbar, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
 import ConnectionChip from '../ConnectionChip';
+import { clientState } from '@/lib/client/client';
 import Settings from './Settings';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
@@ -87,6 +88,7 @@ export default function GUI() {
   const { selectedTab, alignItems } = useSnapshot(guiState);
   const { activeTrainId } = useSnapshot(trainsState);
   const { trains } = useSnapshot(store.data);
+  const { showSaveSuccess } = useSnapshot(clientState);
 
   useEffect(() => {
     guiState.alignItems = "center";
@@ -161,5 +163,21 @@ export default function GUI() {
         </ToggleButtonGroup>
       </Paper>
     }
+    <Snackbar
+      open={showSaveSuccess}
+      autoHideDuration={3000}
+      onClose={() => { clientState.showSaveSuccess = false; }}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      sx={{ pointerEvents: 'auto' }}
+    >
+      <Alert
+        onClose={() => { clientState.showSaveSuccess = false; }}
+        severity="success"
+        variant="filled"
+        sx={{ width: '100%' }}
+      >
+        セーブデータを保存しました。
+      </Alert>
+    </Snackbar>
   </Stack>;
 }

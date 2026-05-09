@@ -197,7 +197,7 @@ function Controllers({
 }
 
 export default function UIOneHandleMasterControllerConfigTable() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
 
   return <DataMenu
     defaultValues={{
@@ -210,11 +210,11 @@ export default function UIOneHandleMasterControllerConfigTable() {
     }}
     getValueOnEdit={(newId: string) => ({
       id: newId,
-      steps: store.data.uiOneHandleMasterControllerConfigs[newId].steps,
-      marks: store.data.uiOneHandleMasterControllerConfigs[newId].marks,
-      maxValue: store.data.uiOneHandleMasterControllerConfigs[newId].maxValue,
-      nValue: store.data.uiOneHandleMasterControllerConfigs[newId].nValue,
-      stepRangeList: JSON.stringify(store.data.uiOneHandleMasterControllerConfigs[newId].stepRangeList),
+      steps: store.data.oneHandleMasterControllerUIConfigs[newId].steps,
+      marks: store.data.oneHandleMasterControllerUIConfigs[newId].marks,
+      maxValue: store.data.oneHandleMasterControllerUIConfigs[newId].maxValue,
+      nValue: store.data.oneHandleMasterControllerUIConfigs[newId].nValue,
+      stepRangeList: JSON.stringify(store.data.oneHandleMasterControllerUIConfigs[newId].stepRangeList),
     })}
     titleElement={(adding: boolean, editingId: string) => (
       <Stack spacing={1} direction={'row'} alignItems={'center'}>
@@ -227,11 +227,11 @@ export default function UIOneHandleMasterControllerConfigTable() {
       </Stack>
     )}
     getSaveValueOnEdit={getSaveValueOnEdit}
-    objects={uiOneHandleMasterControllerConfigs}
+    objects={oneHandleMasterControllerUIConfigs}
     valueControllers={(control, errors, form) => <Controllers control={control} errors={errors} form={form} />}
     handleSubmit={((inputs, editingId) =>
       send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
-        ["uiOneHandleMasterControllerConfigs", inputs.id],
+        ["oneHandleMasterControllerUIConfigs", inputs.id],
         {
           steps: inputs.steps,
           marks: inputs.marks,
@@ -239,9 +239,9 @@ export default function UIOneHandleMasterControllerConfigTable() {
           nValue: inputs.nValue,
           stepRangeList: JSON.parse(inputs.stepRangeList),
         } as UIOneHandleMasterControllerConfig,
-        ["uiOneHandleMasterControllerConfigs", editingId],
+        ["oneHandleMasterControllerUIConfigs", editingId],
       ] : [
-        ["uiOneHandleMasterControllerConfigs", inputs.id],
+        ["oneHandleMasterControllerUIConfigs", inputs.id],
         {
           steps: inputs.steps,
           marks: inputs.marks,
@@ -252,7 +252,7 @@ export default function UIOneHandleMasterControllerConfigTable() {
       ])
     )}
     handleDelete={(id =>
-      send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["uiOneHandleMasterControllerConfigs", id])
+      send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["oneHandleMasterControllerUIConfigs", id])
     )}
   />
 }

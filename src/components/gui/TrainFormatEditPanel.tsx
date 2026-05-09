@@ -454,7 +454,7 @@ function StandardCarFormatEditor({ index }: { index: number }) {
 
 function StandardModeEditor() {
   const { standardCarFormats, standardCarFormatIndexes, standardMasterControllerUIOptionId, standardBulkCouplerOffset } = useSnapshot(formState);
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
   const { isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
   return <Stack spacing={2}>
@@ -532,7 +532,7 @@ function StandardModeEditor() {
             updateEditingTrainFormatFromStandard();
           }}
         >
-          {Object.keys(uiOneHandleMasterControllerConfigs).map(id =>
+          {Object.keys(oneHandleMasterControllerUIConfigs).map(id =>
             <MenuItem key={id} value={id}>{id}</MenuItem>
           )}
         </Select>
@@ -626,7 +626,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   } = useSnapshot(trainsTabPanelState);
 
   const { newTrainFormatId: newTrainFormatIdValue, editingTrainFormatMode } = useSnapshot(formState, { sync: true });
-  const { trainFormats, uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { trainFormats, oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
   const [openConfirmStandard, setOpenConfirmStandard] = useState(false);
 
   useEffect(() => {
@@ -638,7 +638,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const invalidCabIndex = editingTrainFormat.cabFormats.findIndex((cab, index) => {
     if (index >= editingTrainFormat.otherBodyOffsets.length) return false;
     if (!cab) return false;
-    return !Object.keys(uiOneHandleMasterControllerConfigs).includes(cab.oneHandleMasterControllerUIConfigId);
+    return !Object.keys(oneHandleMasterControllerUIConfigs).includes(cab.oneHandleMasterControllerUIConfigId);
   });
 
   const isDuplicateId = isAddingTrainFormat && Object.keys(trainFormats).includes(newTrainFormatId);
@@ -646,7 +646,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   const hasNoAxles = editingTrainFormat.bogies.some(bogie => !bogie.axles.length);
   const hasInvalidCab = 0 <= invalidCabIndex;
 
-  const hasInvalidStandardCab = editingTrainFormatMode === "standard" && (!formState.standardMasterControllerUIOptionId || !Object.keys(uiOneHandleMasterControllerConfigs).includes(formState.standardMasterControllerUIOptionId));
+  const hasInvalidStandardCab = editingTrainFormatMode === "standard" && (!formState.standardMasterControllerUIOptionId || !Object.keys(oneHandleMasterControllerUIConfigs).includes(formState.standardMasterControllerUIOptionId));
 
   let hasDisconnectedBodies = false;
   let disconnectedNames: string[] = [];
@@ -766,8 +766,8 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
       formState.standardBulkCouplerOffset = "0.8";
     }
 
-    if (!formState.standardMasterControllerUIOptionId && Object.keys(uiOneHandleMasterControllerConfigs).length > 0) {
-      formState.standardMasterControllerUIOptionId = Object.keys(uiOneHandleMasterControllerConfigs)[0];
+    if (!formState.standardMasterControllerUIOptionId && Object.keys(oneHandleMasterControllerUIConfigs).length > 0) {
+      formState.standardMasterControllerUIOptionId = Object.keys(oneHandleMasterControllerUIConfigs)[0];
     }
 
     updateEditingTrainFormatFromStandard();
@@ -1120,7 +1120,7 @@ function AxlesEditor() {
 }
 
 function OtherBodiesEditor() {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
   const { carBodyOffset, carBodyWeight, hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, editingTrainFormat, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
@@ -1143,7 +1143,7 @@ function OtherBodiesEditor() {
     } else {
       formState.hasCab = false;
       formState.directionIsReversed = false;
-      const configs = Object.keys(store.data.uiOneHandleMasterControllerConfigs);
+      const configs = Object.keys(store.data.oneHandleMasterControllerUIConfigs);
       formState.oneHandleMasterControllerUIConfigId = configs.length > 0 ? configs[0] : '';
     }
 
@@ -1247,7 +1247,7 @@ function OtherBodiesEditor() {
       }}
     />
     <Typography variant="h6">Cab</Typography>
-    {hasCab && !Object.keys(uiOneHandleMasterControllerConfigs).includes(oneHandleMasterControllerUIConfigId) && <Alert
+    {hasCab && !Object.keys(oneHandleMasterControllerUIConfigs).includes(oneHandleMasterControllerUIConfigId) && <Alert
       severity="error"
     >
       マスコンの形式IDが間違っています
@@ -1268,9 +1268,9 @@ function OtherBodiesEditor() {
           value={oneHandleMasterControllerUIConfigId}
           label="Master controller type ID"
           onChange={event => formState.oneHandleMasterControllerUIConfigId = event.target.value}
-          error={!Object.keys(uiOneHandleMasterControllerConfigs).includes(oneHandleMasterControllerUIConfigId)}
+          error={!Object.keys(oneHandleMasterControllerUIConfigs).includes(oneHandleMasterControllerUIConfigId)}
         >
-          {Object.keys(uiOneHandleMasterControllerConfigs).map(id =>
+          {Object.keys(oneHandleMasterControllerUIConfigs).map(id =>
             <MenuItem key={id} value={id}>{id}</MenuItem>
           )}
         </Select>

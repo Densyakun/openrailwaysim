@@ -111,7 +111,7 @@ export function setupServer(wss: WebSocketServer) {
               if (index !== -1)
                 store.data["diagrams"][diagramId].trainGroups.splice(index, 1);
             }
-          } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
+          } else if (path[0] === "oneHandleMasterControllerUIConfigs") {
             const uiOptionId = path[1] as string;
             for (const trainFormatId of Object.keys(store.data["trainFormats"])) {
               for (const cabFormat of store.data["trainFormats"][trainFormatId].cabFormats) {
@@ -232,7 +232,7 @@ export function setupServer(wss: WebSocketServer) {
         } else if (path.length === 3 && path[2] === "currentConnected") {
           push()
         }
-      } else if (path[0] === "uiOneHandleMasterControllerConfigs") {
+      } else if (path[0] === "oneHandleMasterControllerUIConfigs") {
         if (path.length === 2) {
           push()
         }
@@ -341,7 +341,7 @@ export function setupServer(wss: WebSocketServer) {
                 if (index !== -1)
                   store.data["diagrams"][diagramId].trainGroups.splice(index, 1, propPath[1] as string);
               }
-            } else if (oldPath[0] === "uiOneHandleMasterControllerConfigs") {
+            } else if (oldPath[0] === "oneHandleMasterControllerUIConfigs") {
               const uiOptionId = oldPath[1] as string;
               for (const trainFormatId of Object.keys(store.data["trainFormats"])) {
                 for (const cabFormat of store.data["trainFormats"][trainFormatId].cabFormats) {

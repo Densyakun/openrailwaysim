@@ -130,17 +130,17 @@ export default function MasterController({
   cabFormat: CabFormatType;
   cabState: CabStateType;
 }) {
-  const { uiOneHandleMasterControllerConfigs } = useSnapshot(store.data);
+  const { oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
 
   const uiOptionId = cabFormat.oneHandleMasterControllerUIConfigId;
   const value = cabState.masterControllerValue;
 
-  if (!uiOneHandleMasterControllerConfigs[uiOptionId]) return null;
+  if (!oneHandleMasterControllerUIConfigs[uiOptionId]) return null;
 
   return (
     <MasterControllerSlider
       value={value}
-      uiOneHandleMasterControllerConfig={uiOneHandleMasterControllerConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
+      uiOneHandleMasterControllerConfig={oneHandleMasterControllerUIConfigs[uiOptionId] as UIOneHandleMasterControllerConfig}
       setValue={newValue => {
         const activeTrain = store.data.trains[trainsState.activeTrainId];
         if (activeTrain) {

@@ -185,7 +185,7 @@ export function placeTrain(
 
   for (let otherBodyIndex = 0; otherBodyIndex < trainFormat.otherBodyOffsets.length; otherBodyIndex++) {
     const cabFormat = trainFormat.cabFormats[otherBodyIndex];
-    const mcConfig = cabFormat && data.uiOneHandleMasterControllerConfigs && data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+    const mcConfig = cabFormat && data.oneHandleMasterControllerUIConfigs && data.oneHandleMasterControllerUIConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
 
     cabStates.push(cabFormat && {
       reverser: 0,
@@ -540,7 +540,7 @@ export function setupTrainMetrics(train: Train, trainFormat: TrainFormat, custom
   // 4. 運転台状態（cabStates）の数も自動リサイズ・補正する
   while (train.cabStates.length < trainFormat.cabFormats.length) {
     const cabFormat = trainFormat.cabFormats[train.cabStates.length];
-    const mcConfig = cabFormat && store.data.uiOneHandleMasterControllerConfigs && store.data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+    const mcConfig = cabFormat && store.data.oneHandleMasterControllerUIConfigs && store.data.oneHandleMasterControllerUIConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
     train.cabStates.push(cabFormat ? {
       reverser: 0,
       masterControllerValue: mcConfig ? mcConfig.maxValue : 0,
@@ -553,7 +553,7 @@ export function setupTrainMetrics(train: Train, trainFormat: TrainFormat, custom
   train.cabStates.forEach((cabState, index) => {
     const cabFormat = trainFormat.cabFormats[index];
     if (cabFormat && !cabState) {
-      const mcConfig = store.data.uiOneHandleMasterControllerConfigs && store.data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+      const mcConfig = store.data.oneHandleMasterControllerUIConfigs && store.data.oneHandleMasterControllerUIConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
       train.cabStates[index] = {
         reverser: 0,
         masterControllerValue: mcConfig ? mcConfig.maxValue : 0,
@@ -1094,7 +1094,7 @@ export function getOneHandleMasterControllerOutput(cabFormat: CabFormatType, cab
 
 export function getOneHandleMasterControllerSimpleOutput(cabFormat: CabFormatType, cabState: CabStateType) {
   const data = store.data;
-  const config = data.uiOneHandleMasterControllerConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
+  const config = data.oneHandleMasterControllerUIConfigs[cabFormat.oneHandleMasterControllerUIConfigId];
   if (!config) return [0, 0];
 
   return [

@@ -15,7 +15,7 @@ export type ORSAppSaveDataType = {
   trainFormats: { [key: string]: SerializableTrainFormat };
   trains: { [key: string]: SavedTrain };
   trainGroups: { [key: string]: string[] };
-  uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
+  oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };

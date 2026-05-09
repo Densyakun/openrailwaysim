@@ -60,7 +60,7 @@ export type ORSAppDataType = {
    * 列車にダイヤを自動で割り当てるために必要。
    */
   trainGroups: { [key: string]: string[] };
-  uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
+  oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };
@@ -74,7 +74,7 @@ export type SerializableORSAppDataType = {
   trainFormats: { [key: string]: SerializableTrainFormat };
   trains: { [key: string]: Train };
   trainGroups: { [key: string]: string[] };
-  uiOneHandleMasterControllerConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
+  oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
 };
@@ -89,7 +89,7 @@ export function createAppData(): ORSAppDataType {
     trainFormats: {},
     trains: {},
     trainGroups: {},
-    uiOneHandleMasterControllerConfigs: {},
+    oneHandleMasterControllerUIConfigs: {},
     nowDate: Date.now(),
     diagrams: {},
   };

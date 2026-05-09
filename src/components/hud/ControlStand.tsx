@@ -114,28 +114,25 @@ export default function ControlStand() {
           Back
         </Button>
         <Button variant='contained' onClick={() => {
-          store.data.trains[trainsState.activeTrainId].speed = -16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
-            ["trains", trainsState.activeTrainId],
-            store.data.trains[trainsState.activeTrainId]
+            ["trains", trainsState.activeTrainId, "speed"],
+            -16
           ])
         }}>
           {`<`}
         </Button>
         <Button variant='contained' onClick={() => {
-          store.data.trains[trainsState.activeTrainId].speed = 0
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
-            ["trains", trainsState.activeTrainId],
-            store.data.trains[trainsState.activeTrainId]
+            ["trains", trainsState.activeTrainId, "speed"],
+            0
           ])
         }}>
           {`o`}
         </Button>
         <Button variant='contained' onClick={() => {
-          store.data.trains[trainsState.activeTrainId].speed = 16
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
-            ["trains", trainsState.activeTrainId],
-            store.data.trains[trainsState.activeTrainId]
+            ["trains", trainsState.activeTrainId, "speed"],
+            16
           ])
         }}>
           {`>`}

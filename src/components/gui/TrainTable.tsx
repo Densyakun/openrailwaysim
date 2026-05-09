@@ -86,7 +86,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
               e.stopPropagation();
               const train = store.data.trains[id];
               if (train && train.bogies[0]) {
-                setCameraTargetPosition(train.bogies[0].position);
+                setCameraTargetPosition(train.bogies[0].position, true);
                 trainsState.selectedTrainId = id;
                 trainsState.selectedBodyIndex = -1;
               }

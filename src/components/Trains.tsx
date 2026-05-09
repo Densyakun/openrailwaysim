@@ -543,14 +543,17 @@ export function onFrame() {
             lastSelectedTrainId = trainsState.selectedTrainId;
             lastTargetBodyIndex = targetBodyIndex;
 
-            // カメラの角度を変えずに平行移動だけでフォーカス
+            // 1. まず現在の位置で慣性を無効化・中断（進行中の滑る動きをリセット）
+            const originalDamping = mainControls.enableDamping;
+            mainControls.enableDamping = false;
+            mainControls.update();
+
+            // 2. 慣性が完全に止まった状態で、カメラの角度を変えずに平行移動だけでフォーカス
             const focusDelta = new THREE.Vector3().subVectors(currTargetPosition, mainControls.target);
             camera.position.add(focusDelta);
             mainControls.target.copy(currTargetPosition);
 
-            // イージング（慣性ダンピング）を一時的に無効化してupdateを呼ぶことで、滑る動きをリセット・中断
-            const originalDamping = mainControls.enableDamping;
-            mainControls.enableDamping = false;
+            // 3. 新しいフォーカス位置をコントロールに適用
             mainControls.update();
             mainControls.enableDamping = originalDamping;
 

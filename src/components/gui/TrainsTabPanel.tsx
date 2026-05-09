@@ -137,7 +137,7 @@ function TrainsMenu() {
                   ? selectedTrain.bogies?.[targetBodyIndex]
                   : selectedTrain.otherBodies?.[targetBodyIndex - bogiesLength];
                 if (selectedBody && selectedBody.position) {
-                  setCameraTargetPosition(selectedBody.position);
+                  setCameraTargetPosition(selectedBody.position, true);
                 }
               }}
             >

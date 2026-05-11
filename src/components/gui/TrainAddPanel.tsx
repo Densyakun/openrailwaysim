@@ -73,7 +73,7 @@ export default function TrainAddPanel() {
 
   // ID重複チェック
   const isDuplicateId = React.useMemo(() => {
-    return !!trains[trainIdInput] || trainIdInput === 'preview';
+    return !!trains[trainIdInput] || trainIdInput.startsWith('__') || trainIdInput === 'preview';
   }, [trains, trainIdInput]);
 
   const isValidId = React.useMemo(() => {
@@ -234,7 +234,7 @@ export default function TrainAddPanel() {
             label="Train Format"
             onChange={(e) => setFormatId(e.target.value)}
           >
-            {Object.keys(trainFormats).map((id) => (
+            {Object.keys(trainFormats).filter(id => !id.startsWith('__')).map((id) => (
               <MenuItem key={id} value={id}>
                 {id}
               </MenuItem>

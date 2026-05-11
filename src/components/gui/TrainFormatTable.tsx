@@ -14,6 +14,10 @@ import { serialize, store, trainFormatTypeId } from "@/lib/game";
 export default function TrainFormatTable() {
   const { trainFormats } = useSnapshot(store.data);
 
+  const filteredTrainFormats = Object.fromEntries(
+    Object.entries(trainFormats).filter(([key]) => !key.startsWith('__'))
+  );
+
   return <Paper square sx={{
     width: "100%",
     height: "100%",
@@ -54,7 +58,7 @@ export default function TrainFormatTable() {
           </Button>
         </Stack>
       )}
-      objects={trainFormats}
+      objects={filteredTrainFormats}
       // TODO 編集機能をオーバーライド
       listItemButtons={id => <>
         <Tooltip title="Place a train of this format" disableInteractive>

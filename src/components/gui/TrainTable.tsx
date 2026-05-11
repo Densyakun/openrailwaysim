@@ -64,7 +64,7 @@ export default function TrainTable({ trainGroupId }: { trainGroupId: string }) {
               }
               trainsTabPanelState.newTrainId = `train_${index}`;
               
-              const formatKeys = Object.keys(store.data.trainFormats);
+              const formatKeys = Object.keys(store.data.trainFormats).filter(k => !k.startsWith('__'));
               if (formatKeys.length > 0) {
                 trainsTabPanelState.trainFormatId = formatKeys[0];
               }

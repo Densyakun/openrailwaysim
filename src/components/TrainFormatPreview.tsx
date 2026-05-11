@@ -33,38 +33,38 @@ export default function TrainFormatPreview({ format }: { format: TrainFormat }) 
       gradients: { 0: 0 },
     } as any;
 
-    store.data.tracks["preview"] = previewTrack;
-    store.data.trainFormats["preview"] = format;
+    store.data.tracks["__preview_track__"] = previewTrack;
+    store.data.trainFormats["__preview_format__"] = format;
 
     return () => {
-      delete store.data.tracks["preview"];
-      delete store.data.trainFormats["preview"];
-      delete store.data.trains["preview"];
+      delete store.data.tracks["__preview_track__"];
+      delete store.data.trainFormats["__preview_format__"];
+      delete store.data.trains["__preview_train__"];
     };
   }, [format]);
 
   // 2. プレビュー用列車の配置・初期化
   React.useEffect(() => {
     // 同期がONの場合で、すでに列車が存在しているなら再初期化しない（時間経過での走行状態を維持）
-    if (isSyncPreview && store.data.trains["preview"]) {
-      const existing = store.data.trains["preview"];
+    if (isSyncPreview && store.data.trains["__preview_train__"]) {
+      const existing = store.data.trains["__preview_train__"];
       (existing as any).isSyncPreview = true;
       if (existing.speed === 0) existing.speed = 15;
       return;
     }
 
-    const previewTracks = { preview: store.data.tracks["preview"] };
-    if (!previewTracks.preview) return;
+    const previewTracks = { __preview_track__: store.data.tracks["__preview_track__"] };
+    if (!previewTracks.__preview_track__) return;
 
     const { train: placedTrain } = placeTrain(
       format,
-      { trackId: "preview", length: 2500 },
+      { trackId: "__preview_track__", length: 2500 },
       false,
       previewTracks
     );
 
     if (placedTrain) {
-      placedTrain.trainFormatId = "preview";
+      placedTrain.trainFormatId = "__preview_format__";
       (placedTrain as any).isSyncPreview = isSyncPreview;
       if (isSyncPreview) {
         placedTrain.speed = 15;
@@ -82,10 +82,10 @@ export default function TrainFormatPreview({ format }: { format: TrainFormat }) 
       calcJointsToRotateBody(placedTrain, format);
       syncOtherBodies(placedTrain, format);
 
-      store.data.trains["preview"] = placedTrain;
+      store.data.trains["__preview_train__"] = placedTrain;
     } else {
-      store.data.trains["preview"] = {
-        trainFormatId: "preview",
+      store.data.trains["__preview_train__"] = {
+        trainFormatId: "__preview_format__",
         bogies: [],
         otherBodies: [],
         cabStates: [],
@@ -103,10 +103,10 @@ export default function TrainFormatPreview({ format }: { format: TrainFormat }) 
     }
   }, [format, isSyncPreview]);
 
-  // 3. レンダリング用列車は store.data.trains.preview からSnapshotで取得
+  // 3. レンダリング用列車は store.data.trains.__preview_train__ からSnapshotで取得
   const trainsSnapshot = useSnapshot(store.data.trains);
-  const train = (trainsSnapshot["preview"] || {
-    trainFormatId: "preview",
+  const train = (trainsSnapshot["__preview_train__"] || {
+    trainFormatId: "__preview_format__",
     bogies: [],
     otherBodies: [],
     speed: 0,

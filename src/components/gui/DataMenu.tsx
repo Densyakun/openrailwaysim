@@ -95,11 +95,11 @@ export default function DataMenu<FormValues extends { id: string }>({
                   control={control}
                   rules={{
                     required: true, validate: value =>
-                      value === editingId || !Object.keys(objects).includes(value)
+                      value === editingId || (!value.startsWith('__') && !Object.keys(objects).includes(value))
                   }}
                   render={({ field }) => <TextField label="ID" variant="outlined" error={errors.id !== undefined} helperText={errors.id && (
                     errors.id.type === 'required' ? "This field is required." :
-                      errors.id.type === 'validate' ? "このIDは既に存在します" :
+                      errors.id.type === 'validate' ? (field.value.startsWith('__') ? "__から始まるIDはシステム予約のため使用できません" : "このIDは既に存在します") :
                         ""
                   )
                   } {...field} />}

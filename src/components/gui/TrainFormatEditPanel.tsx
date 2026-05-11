@@ -642,6 +642,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
   });
 
   const isDuplicateId = isAddingTrainFormat && Object.keys(trainFormats).includes(newTrainFormatId);
+  const isInvalidId = newTrainFormatIdValue.startsWith('__');
   const hasNoBogies = !editingTrainFormat.bogies.length;
   const hasNoAxles = editingTrainFormat.bogies.some(bogie => !bogie.axles.length);
   const hasInvalidCab = 0 <= invalidCabIndex;
@@ -711,7 +712,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     }
   }
 
-  const hasError = isDuplicateId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab || hasDisconnectedBodies;
+  const hasError = isDuplicateId || isInvalidId || hasNoBogies || hasNoAxles || hasInvalidCab || hasInvalidStandardCab || hasDisconnectedBodies;
 
   const motorCount = editingTrainFormat.bogies.reduce((sum, bogie) => 
     sum + bogie.axles.filter(a => a.hasMotor).length, 0
@@ -787,6 +788,10 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
     </Stack>
     {isDuplicateId && <Alert severity="error">
       IDが重複しています
+    </Alert>
+    }
+    {isInvalidId && <Alert severity="error">
+      "__" から始まるIDは指定できません（システム予約語）
     </Alert>
     }
     {editingTrainFormatMode === "advanced" && (

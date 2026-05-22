@@ -844,13 +844,46 @@ export function updateTrainOnTime(train: Train, delta: number) {
     g * (runningResistanceA + runningResistanceB * speedKMH + runningResistanceC * speedKMH * speedKMH)
   )
 
-  // TODO 勾配抵抗を輪軸にかかる重量から計算する
-  // TODO grade
-  // TODO train.bogies[0].axles[0].rotationIsReversed
-  /*const track = data.tracks[train.bogies[0].axles[0].pointOnTrack.trackId]
-  const { point, nextPoint } = getSegment(projectedLine.points, train.bogies[0].axles[0].pointOnTrack.length + train.centroidZ)
-  const distance = point.distanceTo(nextPoint)
-  acceleration += train.weight * g * Math.sin(Math.atan2(point.y - nextPoint.y, distance)) / train.weight*/
+  // 勾配抵抗を輪軸にかかる重量から計算する
+  let gradientResistance = 0;
+  train.bogies.forEach((bogie, bogieIndex) => {
+    // ボギーの重量を輪軸数で均等に分配
+    const bogieWeightPerAxle = bogie.weight / bogie.axles.length;
+    
+    // このボギーが支持するotherBodyの重量を計算
+    let supportedOtherBodyWeight = 0;
+    trainFormat.bodySupporterJoints.forEach(joint => {
+      if (joint.bogieIndex === bogieIndex && joint.otherBodyIndex >= 0) {
+        supportedOtherBodyWeight += trainFormat.otherBodyWeights[joint.otherBodyIndex];
+      }
+    });
+    
+    // otherBodyの重量も輪軸数で均等に分配
+    const otherBodyWeightPerAxle = supportedOtherBodyWeight / bogie.axles.length;
+    
+    bogie.axles.forEach(axle => {
+      const track = data.tracks[axle.pointOnTrack.trackId];
+      if (!track) return;
+      
+      // 輪軸位置での勾配を取得 (‰単位)
+      const gradient = getGradient(axle.pointOnTrack.length, track.gradients);
+      
+      // 勾配角度を計算 (ラジアン)
+      const gradientAngle = Math.atan(gradient / 1000);
+      
+      // 輪軸にかかる重量 (トン)
+      const axleWeight = bogieWeightPerAxle + otherBodyWeightPerAxle;
+      
+      // 勾配抵抗を計算
+      // 正の勾配（上り坂）では進行方向と逆向きに力がかかる
+      // rotationIsReversedがtrueの場合、進行方向が逆転する
+      const directionMultiplier = axle.rotationIsReversed ? -1 : 1;
+      gradientResistance += axleWeight * g * Math.sin(gradientAngle) * directionMultiplier;
+    });
+  });
+
+  // 勾配抵抗を加速度に適用（正の値は加速、負の値は減速）
+  acceleration += gradientResistance / train.weight;
 
   deceleration += resistances / train.weight
 

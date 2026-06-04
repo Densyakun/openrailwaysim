@@ -52,6 +52,9 @@ export const formState = proxy<{
   standardCarFormatIndexes: number[];
   standardMasterControllerUIOptionId: string;
   standardBulkCouplerOffset: string;
+  axleModelPath: string;
+  bogieModelPath: string;
+  otherBodyModelPath: string;
 }>({
   newTrainFormatId: "",
   carBodyOffset: "",
@@ -73,6 +76,9 @@ export const formState = proxy<{
   standardCarFormatIndexes: [],
   standardMasterControllerUIOptionId: "",
   standardBulkCouplerOffset: "0.8",
+  axleModelPath: "",
+  bogieModelPath: "",
+  otherBodyModelPath: "",
 });
 
 function getPreviewTrainAndTracks(format: TrainFormat): Train | undefined {
@@ -349,6 +355,10 @@ function AddOtherBodyButton() {
     trainsTabPanelState.editingTrainFormat.otherBodyOffsets.push(0);
     trainsTabPanelState.editingTrainFormat.otherBodyWeights.push(0);
     trainsTabPanelState.editingTrainFormat.cabFormats.push(null);
+    if (!trainsTabPanelState.editingTrainFormat.otherBodyModelPaths) {
+      trainsTabPanelState.editingTrainFormat.otherBodyModelPaths = [];
+    }
+    trainsTabPanelState.editingTrainFormat.otherBodyModelPaths.push("");
   }}>
     Add otherbody
   </Button>;
@@ -934,7 +944,7 @@ function TrainFormatEditor({ trainIsDeadEnd }: { trainIsDeadEnd: boolean }) {
 }
 
 function BogiesEditor() {
-  const { carBodyOffset, carBodyWeight } = useSnapshot(formState, { sync: true });
+  const { carBodyOffset, carBodyWeight, bogieModelPath } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, editingTrainFormat, selectedAxleIndex } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => focusCamera(), []);
@@ -943,6 +953,7 @@ function BogiesEditor() {
     if (selectedCarBodyIndex === -1 || !editingTrainFormat) return;
     formState.carBodyOffset = formatFloat(editingTrainFormat.bogies[selectedCarBodyIndex].offset);
     formState.carBodyWeight = formatFloat(editingTrainFormat.bogies[selectedCarBodyIndex].weight);
+    formState.bogieModelPath = editingTrainFormat.bogies[selectedCarBodyIndex].modelPath || "";
     focusCamera();
   }, [selectedCarBodyIndex, selectedAxleIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1030,6 +1041,17 @@ function BogiesEditor() {
           triggerPreviewUpdate();
         }}
       />
+      <TextField
+        label="Model path"
+        value={bogieModelPath}
+        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+          formState.bogieModelPath = event.target.value;
+          if (!trainsTabPanelState.editingTrainFormat) return;
+
+          trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].modelPath = event.target.value;
+          triggerPreviewUpdate();
+        }}
+      />
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography>Axles: {editingTrainFormat.bogies[selectedCarBodyIndex].axles.length}</Typography>
         <AddAxleButton />
@@ -1044,7 +1066,7 @@ function BogiesEditor() {
 }
 
 function AxlesEditor() {
-  const { axleZ, diameter, hasMotor } = useSnapshot(formState, { sync: true });
+  const { axleZ, diameter, hasMotor, axleModelPath } = useSnapshot(formState, { sync: true });
   const {
     selectedCarBodyIndex,
     selectedAxleIndex,
@@ -1056,6 +1078,7 @@ function AxlesEditor() {
     formState.axleZ = formatFloat(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].z);
     formState.diameter = formatFloat(editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].diameter);
     formState.hasMotor = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].hasMotor;
+    formState.axleModelPath = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].modelPath || "";
     focusCamera();
   }, [selectedAxleIndex]);
 
@@ -1121,12 +1144,23 @@ function AxlesEditor() {
         formState.hasMotor = event.target.checked;
       triggerPreviewUpdate();
     }} />} label="has motor" />
+    <TextField
+      label="Model path"
+      value={axleModelPath}
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        formState.axleModelPath = event.target.value;
+        if (!trainsTabPanelState.editingTrainFormat) return;
+
+        trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].modelPath = event.target.value;
+        triggerPreviewUpdate();
+      }}
+    />
   </Stack>;
 }
 
 function OtherBodiesEditor() {
   const { oneHandleMasterControllerUIConfigs } = useSnapshot(store.data);
-  const { carBodyOffset, carBodyWeight, hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId } = useSnapshot(formState, { sync: true });
+  const { carBodyOffset, carBodyWeight, hasCab, directionIsReversed, oneHandleMasterControllerUIConfigId, otherBodyModelPath } = useSnapshot(formState, { sync: true });
   const { selectedCarBodyIndex, editingTrainFormat, isShowOneHandleMasterControllerConfig } = useSnapshot(trainsTabPanelState);
 
   useEffect(() => focusCamera(), []);
@@ -1138,7 +1172,8 @@ function OtherBodiesEditor() {
 
     formState.carBodyOffset = formatFloat(editingTrainFormat.otherBodyOffsets[indexInOtherBodies]);
     formState.carBodyWeight = formatFloat(editingTrainFormat.otherBodyWeights[indexInOtherBodies]);
-    
+    formState.otherBodyModelPath = (editingTrainFormat.otherBodyModelPaths && editingTrainFormat.otherBodyModelPaths[indexInOtherBodies]) || "";
+
     // Sync cab data to formState when otherbody changes
     const cab = editingTrainFormat.cabFormats[indexInOtherBodies];
     if (cab) {
@@ -1220,6 +1255,9 @@ function OtherBodiesEditor() {
       format.otherBodyOffsets.splice(indexInOtherBodies, 1);
       format.otherBodyWeights.splice(indexInOtherBodies, 1);
       format.cabFormats.splice(indexInOtherBodies, 1);
+      if (format.otherBodyModelPaths) {
+        format.otherBodyModelPaths.splice(indexInOtherBodies, 1);
+      }
 
       if (format.otherBodyOffsets.length > 0) {
         trainsTabPanelState.selectedCarBodyIndex = format.bogies.length + Math.min(indexInOtherBodies, format.otherBodyOffsets.length - 1);
@@ -1248,6 +1286,21 @@ function OtherBodiesEditor() {
         if (Number.isNaN(weight) || !trainsTabPanelState.editingTrainFormat) return;
 
         trainsTabPanelState.editingTrainFormat.otherBodyWeights[selectedCarBodyIndex - editingTrainFormat.bogies.length] = Math.max(0, weight);
+        triggerPreviewUpdate();
+      }}
+    />
+    <TextField
+      label="Model path"
+      value={otherBodyModelPath}
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        formState.otherBodyModelPath = event.target.value;
+        if (!trainsTabPanelState.editingTrainFormat) return;
+
+        const indexInOtherBodies = selectedCarBodyIndex - editingTrainFormat.bogies.length;
+        if (!trainsTabPanelState.editingTrainFormat.otherBodyModelPaths) {
+          trainsTabPanelState.editingTrainFormat.otherBodyModelPaths = [];
+        }
+        trainsTabPanelState.editingTrainFormat.otherBodyModelPaths[indexInOtherBodies] = event.target.value;
         triggerPreviewUpdate();
       }}
     />

@@ -56,6 +56,11 @@ function BogieModel({
   if (isEditing && panelState.editingTrainFormat) {
     const format = panelState.editingTrainFormat;
 
+    // ホバー状態の判定
+    if (isHovered) {
+      highlightColor = "yellow";
+    }
+
     // 1. Body Supporter Joint の Bogie 接続
     if (panelState.selectedBodySupporterJointIndex !== -1) {
       const joint = format.bodySupporterJoints[panelState.selectedBodySupporterJointIndex];
@@ -90,7 +95,99 @@ function BogieModel({
     <>
       <group ref={groupRef} {...props}>
         {format?.modelPath ? (
-          <GLTFModel modelPath={format.modelPath} />
+          <GLTFModel modelPath={format.modelPath} highlightColor={highlightColor} onClick={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
+
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
+
+              // スタンダードモードでは選択不可
+              if (formState.editingTrainFormatMode === "standard") return;
+
+              // ジョイント選択中かどうかの判定
+              const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
+
+              if (!isSelectingJoint) {
+                // 3Dシーン上でクリックして編集対象（台車）を切り替える
+                panelState.selectedCarBodyIndex = bogieIndex;
+                panelState.selectedAxleIndex = -1;
+                triggerPreviewUpdate();
+                return;
+              }
+
+              // 1. Body Supporter Joint の Bogie 選択
+              if (panelState.selectedBodySupporterJointIndex !== -1) {
+                if (panelState.isSelectingCarBodyB && panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
+                  panelState.isSelectingCarBodyB = false;
+                  panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                  triggerPreviewUpdate();
+                }
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+
+                if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bogieIndex) {
+                  // すでに選択されている場合は選択解除
+                  trainsState.selectedTrainId = "";
+                  trainsState.selectedBodyIndex = -1;
+                  trainsState.isCameraFollowing = false;
+                } else {
+                  // 新しく選択（フォーカス追従）する
+                  trainsState.selectedTrainId = trainId;
+                  trainsState.selectedBodyIndex = bogieIndex;
+                  trainsState.isCameraFollowing = true;
+                }
+              }
+            }
+          }} onPointerMove={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
+
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
+              if (formState.editingTrainFormatMode === "standard") return;
+              const isSelectable =
+                (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+                panelState.isSelectingCarBodyB ||
+                (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+              if (isSelectable) {
+                trainsState.hoveredBodyIndex = bogieIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = bogieIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
+            }
+          }} onPointerOut={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
+
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
+              if (formState.editingTrainFormatMode === "standard") return;
+              const isSelectable =
+                (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+                panelState.isSelectingCarBodyB ||
+                (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+              if (isSelectable) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+              }
+            }
+          }} />
         ) : (
           <mesh
             raycast={isPreview ? () => null : undefined}
@@ -245,6 +342,7 @@ function WheelAndAxleModel({
 }) {
   const groupRef = React.useRef<THREE.Group>(null)
   const meshRef = React.useRef<THREE.Mesh>(null)
+  const gltfGroupRef = React.useRef<THREE.Group>(null)
   const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
@@ -255,11 +353,17 @@ function WheelAndAxleModel({
       if (meshRef.current) {
         meshRef.current.rotation.set(-mutableAxle.rotationX, 0, Math.PI / 2)
       }
+      if (gltfGroupRef.current) {
+        gltfGroupRef.current.rotation.set(-mutableAxle.rotationX, 0, 0)
+      }
     } else {
       groupRef.current!.position.copy(axle.position)
       groupRef.current!.rotation.copy(axle.rotation)
       if (meshRef.current) {
         meshRef.current.rotation.set(-axle.rotationX, 0, Math.PI / 2)
+      }
+      if (gltfGroupRef.current) {
+        gltfGroupRef.current.rotation.set(-axle.rotationX, 0, 0)
       }
     }
   })
@@ -289,7 +393,33 @@ function WheelAndAxleModel({
   return (
     <group ref={groupRef} {...props}>
       {format?.modelPath ? (
-        <GLTFModel modelPath={format.modelPath} />
+        <group ref={gltfGroupRef}>
+          <GLTFModel modelPath={format.modelPath} highlightColor={axleMeshColor} onClick={isEditing ? (event) => {
+            event.stopPropagation();
+            const ps = trainsTabPanelState;
+            if (formState.editingTrainFormatMode !== "advanced") return;
+            if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+            ps.selectedCarBodyIndex = bogieIndex ?? -1;
+            ps.selectedAxleIndex = axleIndex ?? -1;
+            triggerPreviewUpdate();
+          } : undefined} onPointerMove={isEditing ? (event) => {
+            event.stopPropagation();
+            const ps = trainsTabPanelState;
+            if (formState.editingTrainFormatMode !== "advanced") return;
+            if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+            trainsState.hoveredBodyIndex = bogieIndex ?? -1;
+            trainsState.hoveredAxleIndex = axleIndex ?? -1;
+            trainsState.hoveredTrainId = trainId ?? "";
+          } : undefined} onPointerOut={isEditing ? (event) => {
+            event.stopPropagation();
+            const ps = trainsTabPanelState;
+            if (formState.editingTrainFormatMode !== "advanced") return;
+            if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+            trainsState.hoveredBodyIndex = -1;
+            trainsState.hoveredAxleIndex = -1;
+            trainsState.hoveredTrainId = "";
+          } : undefined} />
+        </group>
       ) : (
         <mesh
           ref={meshRef}
@@ -362,17 +492,30 @@ function OtherBodyModel({
   isPreview?: boolean;
   isSelected?: boolean;
 }) {
+  const groupRef = React.useRef<THREE.Group>(null)
   const meshRef = React.useRef<THREE.Mesh>(null)
   const panelState = useSnapshot(trainsTabPanelState)
 
   useFrame(() => {
     const mutableOtherBody = trainId && store.data.trains[trainId]?.otherBodies[otherBodyIndex];
-    if (mutableOtherBody) {
-      meshRef.current!.position.copy(mutableOtherBody.position)
-      meshRef.current!.rotation.copy(mutableOtherBody.rotation)
+    if (modelPath) {
+      if (!groupRef.current) return;
+      if (mutableOtherBody) {
+        groupRef.current.position.copy(mutableOtherBody.position)
+        groupRef.current.rotation.copy(mutableOtherBody.rotation)
+      } else if (otherBody) {
+        groupRef.current.position.copy(otherBody.position)
+        groupRef.current.rotation.copy(otherBody.rotation)
+      }
     } else {
-      meshRef.current!.position.copy(otherBody.position)
-      meshRef.current!.rotation.copy(otherBody.rotation)
+      if (!meshRef.current) return;
+      if (mutableOtherBody) {
+        meshRef.current.position.copy(mutableOtherBody.position)
+        meshRef.current.rotation.copy(mutableOtherBody.rotation)
+      } else if (otherBody) {
+        meshRef.current.position.copy(otherBody.position)
+        meshRef.current.rotation.copy(otherBody.rotation)
+      }
     }
   })
 
@@ -401,6 +544,11 @@ function OtherBodyModel({
       }
     }
 
+    // ホバー状態の判定
+    if (isHovered) {
+      highlightColor = "yellow";
+    }
+
     // 3. アドバンスモードで編集対象として選択されているOtherBodyに色を付ける
     if (formState.editingTrainFormatMode === "advanced" && panelState.selectedCarBodyIndex === bodyIndex) {
       highlightColor = "#10b981"; // プレミアム・エメラルドグリーン
@@ -410,7 +558,114 @@ function OtherBodyModel({
   return (
     <>
       {modelPath ? (
-        <GLTFModel modelPath={modelPath} />
+        <group ref={groupRef}>
+          <GLTFModel modelPath={modelPath} highlightColor={highlightColor} onClick={(event) => {
+          event.stopPropagation();
+          if (trainsState.activeTrainId) return;
+
+          if (isEditing) {
+            const panelState = trainsTabPanelState;
+
+            // スタンダードモードでは選択不可
+            if (formState.editingTrainFormatMode === "standard") return;
+
+            // ジョイント選択中かどうかの判定
+            const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
+
+            if (!isSelectingJoint) {
+              // 3Dシーン上でクリックして編集対象（OtherBody）を切り替える
+              panelState.selectedCarBodyIndex = bodyIndex;
+              panelState.selectedAxleIndex = -1;
+              triggerPreviewUpdate();
+              return;
+            }
+
+            // 1. Body Supporter Joint の OtherBody 選択
+            if (panelState.selectedBodySupporterJointIndex !== -1) {
+              if (panelState.isSelectingCarBodyA && panelState.isSelectingCarBodyToBodySupporterJoint) {
+                panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].otherBodyIndex = otherBodyIndex;
+                panelState.isSelectingCarBodyA = false;
+                panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                triggerPreviewUpdate();
+              }
+            }
+
+            // 2. Other Joint の選択 (bodyA / bodyB)
+            if (panelState.selectedOtherJointIndex !== -1) {
+              if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
+                panelState.isSelectingCarBodyA = false;
+                triggerPreviewUpdate();
+              } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
+                panelState.isSelectingCarBodyB = false;
+                triggerPreviewUpdate();
+              }
+            }
+          } else {
+            if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+              trainsState.hoveredBodyIndex = -1;
+              trainsState.hoveredTrainId = "";
+
+              if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bodyIndex) {
+                // すでに選択されている場合は選択解除
+                trainsState.selectedTrainId = "";
+                trainsState.selectedBodyIndex = -1;
+                trainsState.isCameraFollowing = false;
+              } else {
+                // 新しく選択（フォーカス追従）する
+                trainsState.selectedTrainId = trainId;
+                trainsState.selectedBodyIndex = bodyIndex;
+                trainsState.isCameraFollowing = true;
+              }
+            }
+          }
+        }} onPointerMove={(event) => {
+          event.stopPropagation();
+          if (trainsState.activeTrainId) return;
+
+          if (isEditing) {
+            const panelState = trainsTabPanelState;
+            if (formState.editingTrainFormatMode === "standard") return;
+            const isSelectable =
+              (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+              panelState.isSelectingCarBodyA ||
+              panelState.isSelectingCarBodyB;
+
+            if (isSelectable) {
+              trainsState.hoveredBodyIndex = bodyIndex;
+              trainsState.hoveredTrainId = trainId;
+            }
+          } else {
+            if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+              trainsState.hoveredBodyIndex = bodyIndex;
+              trainsState.hoveredTrainId = trainId;
+            }
+          }
+        }} onPointerOut={(event) => {
+          event.stopPropagation();
+          if (trainsState.activeTrainId) return;
+
+          if (isEditing) {
+            const panelState = trainsTabPanelState;
+            if (formState.editingTrainFormatMode === "standard") return;
+            const isSelectable =
+              (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+              panelState.isSelectingCarBodyA ||
+              panelState.isSelectingCarBodyB;
+
+            if (isSelectable) {
+              trainsState.hoveredBodyIndex = -1;
+              trainsState.hoveredTrainId = "";
+            }
+          } else {
+            if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+              trainsState.hoveredBodyIndex = -1;
+              trainsState.hoveredTrainId = "";
+            }
+          }
+        }} />
+        </group>
       ) : (
         <mesh
           raycast={isPreview ? () => null : undefined}

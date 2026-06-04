@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { store } from "./game";
-import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack, Track } from "./tracks";
+import { PointOnTrack, TransitionCurve, getDistance, getLength, getPosition, getRotation, runPointOnTrack, Track, getGradient } from "./tracks";
 import { assignSchedulesToTrains, DEFAULT_STOP_RANGE, DiagramTrackRoute, getRouteIndex, ROUTE_NOT_VIA, TIME_IS_NOT_SET, twelveHoursMilliseconds } from "./diagram";
 
 // Resistances
@@ -846,18 +846,30 @@ export function updateTrainOnTime(train: Train, delta: number) {
 
   // 勾配抵抗を輪軸にかかる重量から計算する
   let gradientResistance = 0;
+  // bogie.weightが0の場合、train.weightをボギー数で均等に割り当てる
+  const bogieCount = train.bogies.length;
+  const defaultBogieWeight = bogieCount > 0 ? train.weight / bogieCount : 0;
+  // otherBodyWeightsが0の場合、train.weightをotherBody数で均等に割り当てる
+  const otherBodyCount = trainFormat.otherBodyWeights.length;
+  const totalBogieWeight = trainFormat.bogies.reduce((sum, b) => sum + b.weight, 0);
+  const remainingWeight = train.weight - totalBogieWeight;
+  const defaultOtherBodyWeight = otherBodyCount > 0 && remainingWeight > 0 ? remainingWeight / otherBodyCount : 0;
   train.bogies.forEach((bogie, bogieIndex) => {
     // ボギーの重量を輪軸数で均等に分配
-    const bogieWeightPerAxle = bogie.weight / bogie.axles.length;
-    
+    const bogieWeight = bogie.weight > 0 ? bogie.weight : defaultBogieWeight;
+    const bogieWeightPerAxle = bogieWeight / bogie.axles.length;
+
     // このボギーが支持するotherBodyの重量を計算
     let supportedOtherBodyWeight = 0;
     trainFormat.bodySupporterJoints.forEach(joint => {
       if (joint.bogieIndex === bogieIndex && joint.otherBodyIndex >= 0) {
-        supportedOtherBodyWeight += trainFormat.otherBodyWeights[joint.otherBodyIndex];
+        const otherBodyWeight = trainFormat.otherBodyWeights[joint.otherBodyIndex] > 0
+          ? trainFormat.otherBodyWeights[joint.otherBodyIndex]
+          : defaultOtherBodyWeight;
+        supportedOtherBodyWeight += otherBodyWeight;
       }
     });
-    
+
     // otherBodyの重量も輪軸数で均等に分配
     const otherBodyWeightPerAxle = supportedOtherBodyWeight / bogie.axles.length;
     
@@ -875,14 +887,14 @@ export function updateTrainOnTime(train: Train, delta: number) {
       const axleWeight = bogieWeightPerAxle + otherBodyWeightPerAxle;
       
       // 勾配抵抗を計算
-      // 正の勾配（上り坂）では進行方向と逆向きに力がかかる
+      // 正の勾配（上り坂）では進行方向と逆向きに力がかかる（減速）
       // rotationIsReversedがtrueの場合、進行方向が逆転する
       const directionMultiplier = axle.rotationIsReversed ? -1 : 1;
-      gradientResistance += axleWeight * g * Math.sin(gradientAngle) * directionMultiplier;
+      gradientResistance -= axleWeight * g * Math.sin(gradientAngle) * directionMultiplier;
     });
   });
 
-  // 勾配抵抗を加速度に適用（正の値は加速、負の値は減速）
+  // 勾配抵抗を加速度に適用（上り坂は負の値で減速、下り坂は正の値で加速）
   acceleration += gradientResistance / train.weight;
 
   deceleration += resistances / train.weight

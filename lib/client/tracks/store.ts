@@ -23,7 +23,7 @@ export const offsetTrackState = proxy<{
 }>({
   isOffsetting: false,
   offsetDistance: "3.5",
-  vehicleOffsetConstant: "0.5",
+  vehicleOffsetConstant: "24000",
   transitionLength1: "20",
   transitionLength2: "20",
   curveRadius: "200",

@@ -711,7 +711,7 @@ export function getDistance(trackIds: string[], toLength: number, fromLength: nu
 /**
  * 車両偏倚量計算用の定数
  */
-export const VEHICLE_OFFSET_CONSTANT = 0.5; // 車両偏倚量計算の係数（変更可能）
+export const VEHICLE_OFFSET_CONSTANT = 24000; // 車両偏倚量計算の係数（変更可能）
 
 /**
  * 曲率半径から車両偏倚量を計算

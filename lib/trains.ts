@@ -75,18 +75,21 @@ export type AxleFormat = {
   z: number;
   diameter: number;
   hasMotor: boolean;
+  modelPath?: string;
 };
 
 export type BogieFormat = {
   offset: number;
   axles: AxleFormat[];
   weight: number;
+  modelPath?: string;
 };
 
 export type TrainFormat = {
   bogies: BogieFormat[];
   otherBodyOffsets: number[];
   otherBodyWeights: number[];
+  otherBodyModelPaths?: string[];
   cabFormats: (CabFormatType | null)[];
   bodySupporterJoints: BodySupporterJoint[];
   otherJoints: Joint[];
@@ -96,6 +99,7 @@ export type SerializableTrainFormat = {
   bogies: BogieFormat[];
   otherBodyOffsets: number[];
   otherBodyWeights: number[];
+  otherBodyModelPaths?: string[];
   cabFormats: (CabFormatType | null)[];
   bodySupporterJoints: SerializableBodySupporterJoint[];
   otherJoints: SerializableJoint[];

@@ -12,6 +12,7 @@ import { formState } from './gui/TrainFormatEditPanel'
 import { tracksState } from '@/lib/client/tracks/store'
 import { camerasState } from './cameras-and-controls/Cameras'
 import { cameraControlsState } from './cameras-and-controls/CameraControls'
+import GLTFModel from './GLTFModel'
 
 
 function BogieModel({
@@ -88,118 +89,121 @@ function BogieModel({
   return (
     <>
       <group ref={groupRef} {...props}>
-        <mesh
-          raycast={isPreview ? () => null : undefined}
-          castShadow
-          receiveShadow
-          onClick={(event) => {
-            event.stopPropagation();
-            if (trainsState.activeTrainId) return;
+        {format?.modelPath ? (
+          <GLTFModel modelPath={format.modelPath} />
+        ) : (
+          <mesh
+            raycast={isPreview ? () => null : undefined}
+            castShadow
+            receiveShadow
+            onClick={(event) => {
+              event.stopPropagation();
+              if (trainsState.activeTrainId) return;
 
-            if (isEditing) {
-              const panelState = trainsTabPanelState;
+              if (isEditing) {
+                const panelState = trainsTabPanelState;
 
-              // スタンダードモードでは選択不可
-              if (formState.editingTrainFormatMode === "standard") return;
+                // スタンダードモードでは選択不可
+                if (formState.editingTrainFormatMode === "standard") return;
 
-              // ジョイント選択中かどうかの判定
-              const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
+                // ジョイント選択中かどうかの判定
+                const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
 
-              if (!isSelectingJoint) {
-                // 3Dシーン上でクリックして編集対象（台車）を切り替える
-                panelState.selectedCarBodyIndex = bogieIndex;
-                panelState.selectedAxleIndex = -1;
-                triggerPreviewUpdate();
-                return;
-              }
-
-              // 1. Body Supporter Joint の Bogie 選択
-              if (panelState.selectedBodySupporterJointIndex !== -1) {
-                if (panelState.isSelectingCarBodyB && panelState.isSelectingCarBodyToBodySupporterJoint) {
-                  panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
-                  panelState.isSelectingCarBodyB = false;
-                  panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                if (!isSelectingJoint) {
+                  // 3Dシーン上でクリックして編集対象（台車）を切り替える
+                  panelState.selectedCarBodyIndex = bogieIndex;
+                  panelState.selectedAxleIndex = -1;
                   triggerPreviewUpdate();
+                  return;
+                }
+
+                // 1. Body Supporter Joint の Bogie 選択
+                if (panelState.selectedBodySupporterJointIndex !== -1) {
+                  if (panelState.isSelectingCarBodyB && panelState.isSelectingCarBodyToBodySupporterJoint) {
+                    panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].bogieIndex = bogieIndex;
+                    panelState.isSelectingCarBodyB = false;
+                    panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                    triggerPreviewUpdate();
+                  }
+                }
+
+                // 2. Other Joint の選択 (bodyA / bodyB)
+                if (panelState.selectedOtherJointIndex !== -1) {
+                  if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                    panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bogieIndex;
+                    panelState.isSelectingCarBodyA = false;
+                    triggerPreviewUpdate();
+                  } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                    panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
+                    panelState.isSelectingCarBodyB = false;
+                    triggerPreviewUpdate();
+                  }
+                }
+              } else {
+                if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                  trainsState.hoveredBodyIndex = -1;
+                  trainsState.hoveredTrainId = "";
+
+                  if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bogieIndex) {
+                    // すでに選択されている場合は選択解除
+                    trainsState.selectedTrainId = "";
+                    trainsState.selectedBodyIndex = -1;
+                    trainsState.isCameraFollowing = false;
+                  } else {
+                    // 新しく選択（フォーカス追従）する
+                    trainsState.selectedTrainId = trainId;
+                    trainsState.selectedBodyIndex = bogieIndex;
+                    trainsState.isCameraFollowing = true;
+                  }
                 }
               }
+            }}
+            onPointerMove={(event) => {
+              event.stopPropagation();
+              if (trainsState.activeTrainId) return;
 
-              // 2. Other Joint の選択 (bodyA / bodyB)
-              if (panelState.selectedOtherJointIndex !== -1) {
-                if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
-                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bogieIndex;
-                  panelState.isSelectingCarBodyA = false;
-                  triggerPreviewUpdate();
-                } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
-                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bogieIndex;
-                  panelState.isSelectingCarBodyB = false;
-                  triggerPreviewUpdate();
+              if (isEditing) {
+                const panelState = trainsTabPanelState;
+                if (formState.editingTrainFormatMode === "standard") return;
+                const isSelectable =
+                  (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+                  panelState.isSelectingCarBodyB ||
+                  (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+                if (isSelectable) {
+                  trainsState.hoveredBodyIndex = bogieIndex;
+                  trainsState.hoveredTrainId = trainId;
+                }
+              } else {
+                if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                  trainsState.hoveredBodyIndex = bogieIndex;
+                  trainsState.hoveredTrainId = trainId;
                 }
               }
-            } else {
-              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
-                trainsState.hoveredBodyIndex = -1;
-                trainsState.hoveredTrainId = "";
+            }}
+            onPointerOut={(event) => {
+              event.stopPropagation();
+              if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return;
 
-                if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bogieIndex) {
-                  // すでに選択されている場合は選択解除
-                  trainsState.selectedTrainId = "";
-                  trainsState.selectedBodyIndex = -1;
-                  trainsState.isCameraFollowing = false;
-                } else {
-                  // 新しく選択（フォーカス追従）する
-                  trainsState.selectedTrainId = trainId;
-                  trainsState.selectedBodyIndex = bogieIndex;
-                  trainsState.isCameraFollowing = true;
-                }
-              }
+              trainsState.hoveredBodyIndex = -1;
+              trainsState.hoveredTrainId = "";
+            }}
+          >
+            <boxGeometry args={[2.29, 1.16, 2.1]} />
+            {isPreview
+              ? <meshBasicMaterial color="#10b981" transparent opacity={0.6} depthWrite={false} />
+              : isHovered
+                ? <meshBasicMaterial color="yellow" />
+                : isSelected && !trainsState.activeTrainId
+                  ? <meshBasicMaterial color="#3b82f6" />
+                  : highlightColor
+                    ? <meshBasicMaterial color={highlightColor} />
+                    : isActive && !trainsState.activeTrainId
+                      ? <meshBasicMaterial color="red" />
+                      : <meshStandardMaterial color="#4b5563" metalness={0.5} roughness={0.4} />
             }
-          }}
-          onPointerMove={(event) => {
-            event.stopPropagation();
-            if (trainsState.activeTrainId) return;
-
-            if (isEditing) {
-              const panelState = trainsTabPanelState;
-              if (formState.editingTrainFormatMode === "standard") return;
-              const isSelectable =
-                (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
-                panelState.isSelectingCarBodyB ||
-                (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint);
-
-              if (isSelectable) {
-                trainsState.hoveredBodyIndex = bogieIndex;
-                trainsState.hoveredTrainId = trainId;
-              }
-            } else {
-              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
-                trainsState.hoveredBodyIndex = bogieIndex;
-                trainsState.hoveredTrainId = trainId;
-              }
-            }
-          }}
-          onPointerOut={(event) => {
-            event.stopPropagation();
-            if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bogieIndex) return;
-
-            trainsState.hoveredBodyIndex = -1;
-            trainsState.hoveredTrainId = "";
-          }}
-          rotation={[Math.PI / 2, 0, 0]}
-        >
-          <cylinderGeometry args={[0.5, 0, 3, 8]} />
-          {isPreview
-            ? <meshBasicMaterial color="#10b981" transparent opacity={0.6} depthWrite={false} />
-            : isHovered
-              ? <meshBasicMaterial color="yellow" />
-              : isSelected && !trainsState.activeTrainId
-                ? <meshBasicMaterial color="#3b82f6" />
-                : highlightColor
-                  ? <meshBasicMaterial color={highlightColor} />
-                  : isActive && !trainsState.activeTrainId
-                    ? <meshBasicMaterial color="red" />
-                    : <meshStandardMaterial color="#4b5563" metalness={0.5} roughness={0.4} />
-          }
-        </mesh>
+          </mesh>
+        )}
       </group>
       {format?.axles && bogie.axles.map((axle, axleIndex) => {
         const axleFormat = format.axles[axleIndex];
@@ -284,46 +288,50 @@ function WheelAndAxleModel({
 
   return (
     <group ref={groupRef} {...props}>
-      <mesh
-        ref={meshRef}
-        raycast={isPreview ? () => null : undefined}
-        castShadow
-        receiveShadow
-        position={[0, format.diameter / 2, 0]}
-        rotation={[axle.rotationX, 0, Math.PI / 2]}
-        onClick={isEditing ? (event) => {
-          event.stopPropagation();
-          const ps = trainsTabPanelState;
-          if (formState.editingTrainFormatMode !== "advanced") return;
-          if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
-          ps.selectedCarBodyIndex = bogieIndex ?? -1;
-          ps.selectedAxleIndex = axleIndex ?? -1;
-          triggerPreviewUpdate();
-        } : undefined}
-        onPointerMove={isEditing ? (event) => {
-          event.stopPropagation();
-          const ps = trainsTabPanelState;
-          if (formState.editingTrainFormatMode !== "advanced") return;
-          if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
-          trainsState.hoveredBodyIndex = bogieIndex ?? -1;
-          trainsState.hoveredAxleIndex = axleIndex ?? -1;
-          trainsState.hoveredTrainId = trainId ?? "";
-        } : undefined}
-        onPointerOut={isEditing ? (event) => {
-          event.stopPropagation();
-          trainsState.hoveredBodyIndex = -1;
-          trainsState.hoveredAxleIndex = -1;
-          trainsState.hoveredTrainId = "";
-        } : undefined}
-      >
-        <cylinderGeometry args={[format.diameter / 2, format.diameter / 2, 1.267, 8]} />
-        {isPreview
-          ? <meshBasicMaterial color="#059669" transparent opacity={0.6} depthWrite={false} />
-          : axleMeshColor
-            ? <meshBasicMaterial color={axleMeshColor} />
-            : <meshStandardMaterial />
-        }
-      </mesh>
+      {format?.modelPath ? (
+        <GLTFModel modelPath={format.modelPath} />
+      ) : (
+        <mesh
+          ref={meshRef}
+          raycast={isPreview ? () => null : undefined}
+          castShadow
+          receiveShadow
+          position={[0, format.diameter / 2, 0]}
+          rotation={[axle.rotationX, 0, Math.PI / 2]}
+          onClick={isEditing ? (event) => {
+            event.stopPropagation();
+            const ps = trainsTabPanelState;
+            if (formState.editingTrainFormatMode !== "advanced") return;
+            if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+            ps.selectedCarBodyIndex = bogieIndex ?? -1;
+            ps.selectedAxleIndex = axleIndex ?? -1;
+            triggerPreviewUpdate();
+          } : undefined}
+          onPointerMove={isEditing ? (event) => {
+            event.stopPropagation();
+            const ps = trainsTabPanelState;
+            if (formState.editingTrainFormatMode !== "advanced") return;
+            if (ps.isSelectingCarBodyA || ps.isSelectingCarBodyB) return;
+            trainsState.hoveredBodyIndex = bogieIndex ?? -1;
+            trainsState.hoveredAxleIndex = axleIndex ?? -1;
+            trainsState.hoveredTrainId = trainId ?? "";
+          } : undefined}
+          onPointerOut={isEditing ? (event) => {
+            event.stopPropagation();
+            trainsState.hoveredBodyIndex = -1;
+            trainsState.hoveredAxleIndex = -1;
+            trainsState.hoveredTrainId = "";
+          } : undefined}
+        >
+          <cylinderGeometry args={[format.diameter / 2, format.diameter / 2, 1.267, 8]} />
+          {isPreview
+            ? <meshBasicMaterial color="#059669" transparent opacity={0.6} depthWrite={false} />
+            : axleMeshColor
+              ? <meshBasicMaterial color={axleMeshColor} />
+              : <meshStandardMaterial />
+          }
+        </mesh>
+      )}
     </group>
   )
 }
@@ -333,6 +341,8 @@ function OtherBodyModel({
   bodyIndex,
   otherBodyIndex,
   otherBody,
+  format,
+  modelPath,
   isHovered,
   isActive,
   isEditing = false,
@@ -344,6 +354,8 @@ function OtherBodyModel({
   bodyIndex: number;
   otherBodyIndex: number;
   otherBody: CarBody;
+  format?: TrainFormat;
+  modelPath?: string;
   isHovered: boolean;
   isActive: boolean;
   isEditing?: boolean;
@@ -396,118 +408,124 @@ function OtherBodyModel({
   }
 
   return (
-    <mesh
-      raycast={isPreview ? () => null : undefined}
-      ref={meshRef}
-      castShadow
-      receiveShadow
-      onClick={(event) => {
-        event.stopPropagation();
-        if (trainsState.activeTrainId) return;
+    <>
+      {modelPath ? (
+        <GLTFModel modelPath={modelPath} />
+      ) : (
+        <mesh
+          raycast={isPreview ? () => null : undefined}
+          ref={meshRef}
+          castShadow
+          receiveShadow
+          onClick={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
 
-        if (isEditing) {
-          const panelState = trainsTabPanelState;
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
 
-          // スタンダードモードでは選択不可
-          if (formState.editingTrainFormatMode === "standard") return;
+              // スタンダードモードでは選択不可
+              if (formState.editingTrainFormatMode === "standard") return;
 
-          // ジョイント選択中かどうかの判定
-          const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
+              // ジョイント選択中かどうかの判定
+              const isSelectingJoint = panelState.isSelectingCarBodyA || panelState.isSelectingCarBodyB;
 
-          if (!isSelectingJoint) {
-            // 3Dシーン上でクリックして編集対象（OtherBody）を切り替える
-            panelState.selectedCarBodyIndex = bodyIndex;
-            panelState.selectedAxleIndex = -1;
-            triggerPreviewUpdate();
-            return;
-          }
+              if (!isSelectingJoint) {
+                // 3Dシーン上でクリックして編集対象（OtherBody）を切り替える
+                panelState.selectedCarBodyIndex = bodyIndex;
+                panelState.selectedAxleIndex = -1;
+                triggerPreviewUpdate();
+                return;
+              }
 
-          // 1. Body Supporter Joint の OtherBody 選択
-          if (panelState.selectedBodySupporterJointIndex !== -1) {
-            if (panelState.isSelectingCarBodyA && panelState.isSelectingCarBodyToBodySupporterJoint) {
-              panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].otherBodyIndex = otherBodyIndex;
-              panelState.isSelectingCarBodyA = false;
-              panelState.isSelectingCarBodyToBodySupporterJoint = false;
-              triggerPreviewUpdate();
+              // 1. Body Supporter Joint の OtherBody 選択
+              if (panelState.selectedBodySupporterJointIndex !== -1) {
+                if (panelState.isSelectingCarBodyA && panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.bodySupporterJoints[panelState.selectedBodySupporterJointIndex].otherBodyIndex = otherBodyIndex;
+                  panelState.isSelectingCarBodyA = false;
+                  panelState.isSelectingCarBodyToBodySupporterJoint = false;
+                  triggerPreviewUpdate();
+                }
+              }
+
+              // 2. Other Joint の選択 (bodyA / bodyB)
+              if (panelState.selectedOtherJointIndex !== -1) {
+                if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
+                  panelState.isSelectingCarBodyA = false;
+                  triggerPreviewUpdate();
+                } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
+                  panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
+                  panelState.isSelectingCarBodyB = false;
+                  triggerPreviewUpdate();
+                }
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = -1;
+                trainsState.hoveredTrainId = "";
+
+                if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bodyIndex) {
+                  // すでに選択されている場合は選択解除
+                  trainsState.selectedTrainId = "";
+                  trainsState.selectedBodyIndex = -1;
+                  trainsState.isCameraFollowing = false;
+                } else {
+                  // 新しく選択（フォーカス追従）する
+                  trainsState.selectedTrainId = trainId;
+                  trainsState.selectedBodyIndex = bodyIndex;
+                  trainsState.isCameraFollowing = true;
+                }
+              }
             }
-          }
+          }}
+          onPointerMove={(event) => {
+            event.stopPropagation();
+            if (trainsState.activeTrainId) return;
 
-          // 2. Other Joint の選択 (bodyA / bodyB)
-          if (panelState.selectedOtherJointIndex !== -1) {
-            if (panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyToBodySupporterJoint) {
-              panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexA = bodyIndex;
-              panelState.isSelectingCarBodyA = false;
-              triggerPreviewUpdate();
-            } else if (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint) {
-              panelState.editingTrainFormat!.otherJoints[panelState.selectedOtherJointIndex].bodyIndexB = bodyIndex;
-              panelState.isSelectingCarBodyB = false;
-              triggerPreviewUpdate();
+            if (isEditing) {
+              const panelState = trainsTabPanelState;
+              if (formState.editingTrainFormatMode === "standard") return;
+              const isSelectable =
+                (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
+                panelState.isSelectingCarBodyA ||
+                (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint);
+
+              if (isSelectable) {
+                trainsState.hoveredBodyIndex = bodyIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
+            } else {
+              if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+                trainsState.hoveredBodyIndex = bodyIndex;
+                trainsState.hoveredTrainId = trainId;
+              }
             }
-          }
-        } else {
-          if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
+          }}
+          onPointerOut={(event) => {
+            event.stopPropagation();
+            if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bodyIndex) return;
+
             trainsState.hoveredBodyIndex = -1;
             trainsState.hoveredTrainId = "";
-
-            if (trainsState.selectedTrainId === trainId && trainsState.selectedBodyIndex === bodyIndex) {
-              // すでに選択されている場合は選択解除
-              trainsState.selectedTrainId = "";
-              trainsState.selectedBodyIndex = -1;
-              trainsState.isCameraFollowing = false;
-            } else {
-              // 新しく選択（フォーカス追従）する
-              trainsState.selectedTrainId = trainId;
-              trainsState.selectedBodyIndex = bodyIndex;
-              trainsState.isCameraFollowing = true;
-            }
+          }}
+        >
+          <boxGeometry args={[3.0, 2.94, 1.6]} />
+          {isPreview
+            ? <meshBasicMaterial color="#34d399" transparent opacity={0.5} depthWrite={false} />
+            : isHovered
+              ? <meshBasicMaterial color="yellow" />
+              : isSelected && !trainsState.activeTrainId
+                ? <meshBasicMaterial color="#3b82f6" />
+                : highlightColor
+                  ? <meshBasicMaterial color={highlightColor} />
+                  : isActive && !trainsState.activeTrainId
+                    ? <meshBasicMaterial color="red" />
+                    : <meshStandardMaterial color="#0284c7" metalness={0.1} roughness={0.5} />
           }
-        }
-      }}
-      onPointerMove={(event) => {
-        event.stopPropagation();
-        if (trainsState.activeTrainId) return;
-
-        if (isEditing) {
-          const panelState = trainsTabPanelState;
-          if (formState.editingTrainFormatMode === "standard") return;
-          const isSelectable =
-            (!panelState.isSelectingCarBodyA && !panelState.isSelectingCarBodyB) ||
-            panelState.isSelectingCarBodyA ||
-            (panelState.isSelectingCarBodyB && !panelState.isSelectingCarBodyToBodySupporterJoint);
-
-          if (isSelectable) {
-            trainsState.hoveredBodyIndex = bodyIndex;
-            trainsState.hoveredTrainId = trainId;
-          }
-        } else {
-          if (guiState.selectedTab === "trains" && !trainsTabPanelState.isShowTrainTable) {
-            trainsState.hoveredBodyIndex = bodyIndex;
-            trainsState.hoveredTrainId = trainId;
-          }
-        }
-      }}
-      onPointerOut={(event) => {
-        event.stopPropagation();
-        if (trainsState.hoveredTrainId !== trainId || trainsState.hoveredBodyIndex !== bodyIndex) return;
-
-        trainsState.hoveredBodyIndex = -1;
-        trainsState.hoveredTrainId = "";
-      }}
-    >
-      <boxGeometry args={[0.11, 0.11, 1.6]} />
-      {isPreview
-        ? <meshBasicMaterial color="#34d399" transparent opacity={0.5} depthWrite={false} />
-        : isHovered
-          ? <meshBasicMaterial color="yellow" />
-          : isSelected && !trainsState.activeTrainId
-            ? <meshBasicMaterial color="#3b82f6" />
-            : highlightColor
-              ? <meshBasicMaterial color={highlightColor} />
-              : isActive && !trainsState.activeTrainId
-                ? <meshBasicMaterial color="red" />
-                : <meshStandardMaterial color="#0284c7" metalness={0.1} roughness={0.5} />
-      }
-    </mesh>
+        </mesh>
+      )}
+    </>
   )
 }
 
@@ -684,6 +702,8 @@ export function TrainComponent({ trainId = "", train, format, isEditing = false,
           bodyIndex={bodyIndex}
           otherBodyIndex={otherBodieIndex}
           otherBody={otherBody}
+          format={format}
+          modelPath={format?.otherBodyModelPaths?.[otherBodieIndex]}
           isActive={isActive}
           isHovered={isHovered}
           isEditing={isEditing}

@@ -13,7 +13,8 @@ import { tracksState } from "@/lib/client/tracks/store"
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
-import { editTracksInDiagramState, onUpdateTrackList } from './gui/EditTracksInDiagramPanel'
+import { editTracksInDiagramState, onUpdateTrackList, getConnectedTracks } from './gui/EditTracksInDiagramPanel'
+import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit'
 import { ThreeEvent } from '@react-three/fiber'
 import { Fragment, useEffect } from 'react'
 import { gltfState } from '@/lib/client/gltf'
@@ -43,6 +44,7 @@ function TrackModel({
   maxDistance,
   isRail = false,
   color,
+  overrideGradients,
 }: {
   track: Track;
   from: number;
@@ -54,6 +56,7 @@ function TrackModel({
   maxDistance: number;
   isRail?: boolean;
   color?: string;
+  overrideGradients?: { [key: number]: number };
 }) {
   useEffect(() => {
     gltfState.errorBoundaryResetFuncList.forEach(func => func());
@@ -76,7 +79,7 @@ function TrackModel({
     </Detailed>
   </ErrorBoundary>;
 
-  const fromPos = getPosition(track, from);
+  const fromPos = getPosition(track, from, overrideGradients);
   if (from === to) {
     const rotation = getRotation(track, from);
     rotation.z = -tilt;
@@ -89,7 +92,7 @@ function TrackModel({
     </group>;
   }
 
-  const toPos = getPosition(track, to);
+  const toPos = getPosition(track, to, overrideGradients);
   if (!isInclined) toPos.setY(fromPos.y);
   return <group
     position={fromPos}
@@ -149,7 +152,7 @@ function AddingTracks() {
     {addingCurves.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const lengthOfPoints = getLengthOfPoints(curve as Track);
+      const lengthOfPoints = getLengthOfPoints(curve as Track).lengthOfPoints;
       const points = lengthOfPoints.map(length => getPosition(curve, length));
 
       return <TrackLine
@@ -175,7 +178,7 @@ function AddingTracks() {
     {addingTransitionsAB.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve);
+      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve).lengthOfPoints;
       const points = lengthOfPoints.map(length => getPosition(curve, length));
 
       return <TrackLine
@@ -201,7 +204,7 @@ function AddingTracks() {
     {addingTransitionsCD.map((curve, trackIndex) => {
       if (!curve) return;
 
-      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve);
+      const lengthOfPoints = getLengthOfPoints(curve as TransitionCurve).lengthOfPoints;
       const points = lengthOfPoints.map(length => getPosition(curve, length));
 
       return <TrackLine
@@ -259,6 +262,7 @@ export default function Tracks() {
   // サーバー接続時にセーブデータを即時反映するために、分割代入でデータを参照する
   const { tracks } = useSnapshot(store.data);
   const { selectedTab } = useSnapshot(guiState);
+  const { tracksIsEditing } = useSnapshot(tracksSubMenuState);
 
   return <>
     {Object.keys(tracks).map(trackId => {
@@ -269,7 +273,7 @@ export default function Tracks() {
         : <TracksOnTrackMode key={trackId} track={track as Track} trackId={trackId} />;
     })}
     <AddingTracks />
-    <PointingOnTrack />
+    {!tracksIsEditing && <PointingOnTrack />}
     <PointingOnTrackDiagramSectionRoute />
   </>;
 }
@@ -277,8 +281,9 @@ export default function Tracks() {
 function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }) {
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrainFormatId, isAddingTrainFormat, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
-  const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
-  const { editingTrackId, beginCant, endCant } = useSnapshot(tracksSubMenuState);
+  const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
+  const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds } = useSnapshot(tracksSubMenuState);
+  const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
 
   track = { ...track };
@@ -334,8 +339,8 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   }
 
   const { length, trackModels } = track;
-  const lengthOfPoints = getLengthOfPoints(track);
-  const points = lengthOfPoints.map(length => getPosition(track, length));
+  const { lengthOfPoints, previewGradients } = getLengthOfPoints(track, false, trackId, gradientPoints, verticalCurveTrackIds, isEditingVerticalCurve, editingTrackIds);
+  const points = lengthOfPoints.map(length => getPosition(track, length, previewGradients));
 
   let cantList: number[] = [];
   for (let i = 1; i < lengthOfPoints.length; i++)
@@ -353,15 +358,30 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const eventIsEnable =
     selectedTab === "tracks"
     || T
-    || D;
+    || D
+    || tracksIsEditing;
   const isSelectable =
-    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve;
+    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing;
   let isHoverable = isSelectable;
   let isPointableOnTrack = T;
 
+  if (tracksIsEditing) {
+    if (!editingTrackIds.length) {
+      isHoverable = true;
+      isPointableOnTrack = true;
+    } else {
+      const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+      const connectedTracks = getConnectedTracks(store.data.tracks[lastTrackId], [...editingTrackIds]);
+      if (connectedTracks.includes(trackId)) {
+        isHoverable = true;
+        isPointableOnTrack = true;
+      }
+    }
+  }
+
   if (D && sections && 0 <= selectingRouteIndex) {
     const trackRoute = sections[selectingDiagramSectionIndex].routes[selectingRouteIndex];
-    if (tracksIsEditing) {
+    if (diagramTracksIsEditing) {
       if (!trackRoute.trackIds.length) {
         isHoverable = true;
         isPointableOnTrack = true;
@@ -393,6 +413,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             modelPath={trackModel.modelPath}
             minDistance={trackModel.minDistance}
             maxDistance={trackModel.maxDistance}
+            overrideGradients={previewGradients}
             isRail={true}
             color={color}
           />;
@@ -413,6 +434,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           minDistance={trackModel.minDistance}
           maxDistance={trackModel.maxDistance}
           color={color}
+          overrideGradients={previewGradients}
         />;
 
       // 非レール用の3Dモデル
@@ -440,6 +462,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             minDistance={trackModel.minDistance}
             maxDistance={trackModel.maxDistance}
             color={color}
+            overrideGradients={previewGradients}
           />
         )}
       </Fragment>;
@@ -486,6 +509,29 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           tracksState.pointingOnTrack = undefined;
         }
 
+        if (tracksIsEditing) {
+          if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+
+          if (!editingTrackIds.length) {
+            tracksSubMenuState.editingTrackIds = [trackId];
+          } else {
+            const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+            const connectedTracks = getConnectedTracks(store.data.tracks[lastTrackId], [...editingTrackIds]);
+            if (connectedTracks.includes(trackId)) {
+              tracksSubMenuState.editingTrackIds = [...editingTrackIds, trackId];
+            }
+          }
+          // Update next track list
+          if (editingTrackIds.length) {
+            const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+            const track = store.data.tracks[lastTrackId];
+            editTracksInDiagramState.nextTrackIds = getConnectedTracks(track, [...editingTrackIds]);
+            if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+              editTracksInDiagramState.focusedNextTrackIndex = 0;
+          }
+          return;
+        }
+
         if (D) {
           if (!diagramsTabPanelState.sections || diagramsTabPanelState.selectingRouteIndex < 0) return;
 
@@ -512,10 +558,11 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
 }
 
 function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string }) {
+  const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const { switches } = useSnapshot(store.data);
 
-  const lengthOfPoints = getLengthOfPoints(track, true);
-  const points = lengthOfPoints.map(length => getPosition(track, length));
+  const { lengthOfPoints, previewGradients } = getLengthOfPoints(track, true, trackId, gradientPoints, verticalCurveTrackIds, isEditingVerticalCurve, []);
+  const points = lengthOfPoints.map(length => getPosition(track, length, previewGradients));
 
   let colorStart: string | undefined;
   let colorEnd: string | undefined;
@@ -605,13 +652,74 @@ function TracksOnSwitchMode({ track, trackId }: { track: Track, trackId: string 
   </>;
 }
 
-function getLengthOfPoints(track: Track, isSwitchMode = false) {
+function getLengthOfPoints(track: Track, isSwitchMode = false, trackId?: string, previewGradientPoints?: readonly { position: string; gradient: string }[], verticalCurveTrackIds?: readonly string[], isEditingVerticalCurve?: boolean, editingTrackIds?: readonly string[]): { lengthOfPoints: number[], previewGradients: { [key: number]: number } } {
   const { length, radius, beginCant, endCant, gradients } = track;
+  
+  // If editing vertical curve, use gradientPoints from state for preview
+  let previewGradients = gradients;
+  if (trackId && previewGradientPoints && verticalCurveTrackIds && isEditingVerticalCurve && editingTrackIds) {
+    if (isEditingVerticalCurve && editingTrackIds.includes(trackId) && verticalCurveTrackIds.includes(trackId)) {
+      // Sort gradient points by position
+      const sortedPoints = previewGradientPoints
+        .map(p => ({ position: parseFloat(p.position), gradient: parseFloat(p.gradient) }))
+        .filter(p => !isNaN(p.position) && !isNaN(p.gradient))
+        .sort((a, b) => a.position - b.position);
+      
+      // Calculate total length and track lengths
+      let totalLength = 0;
+      const trackLengths: number[] = [];
+      for (const tid of verticalCurveTrackIds) {
+        const t = store.data.tracks[tid];
+        if (t) {
+          trackLengths.push(t.length);
+          totalLength += t.length;
+        }
+      }
+      
+      // Find the index of current track
+      const trackIndex = verticalCurveTrackIds.indexOf(trackId);
+      if (trackIndex !== -1) {
+        const trackLength = trackLengths[trackIndex];
+        let currentLength = 0;
+        for (let i = 0; i < trackIndex; i++) {
+          currentLength += trackLengths[i];
+        }
+        const trackStart = currentLength;
+        const trackEnd = currentLength + trackLength;
+        
+        // Find gradient points that fall within this track
+        previewGradients = {};
+        for (const point of sortedPoints) {
+          if (point.position >= trackStart && point.position <= trackEnd) {
+            const relativePosition = point.position - trackStart;
+            previewGradients[relativePosition] = point.gradient;
+          }
+        }
+        
+        // Ensure we have at least the start and end points
+        if (Object.keys(previewGradients).length === 0) {
+          // Use the gradient from the nearest point
+          const startGradient = getGradientAtPosition(sortedPoints, trackStart);
+          previewGradients[0] = startGradient;
+          previewGradients[trackLength] = startGradient;
+        } else {
+          // Ensure start point exists
+          if (!previewGradients[0]) {
+            previewGradients[0] = getGradientAtPosition(sortedPoints, trackStart);
+          }
+          // Ensure end point exists
+          if (!previewGradients[trackLength]) {
+            previewGradients[trackLength] = getGradientAtPosition(sortedPoints, trackEnd);
+          }
+        }
+      }
+    }
+  }
 
   let lengthOfPoints: number[] = [];
   if ((track as TransitionCurve).endPosition === undefined) {
     if (radius === 0) {
-      const g = Object.keys(gradients).length;
+      const g = Object.keys(previewGradients).length;
       if (1 < g) {
         const numberOfPoints = Math.ceil(length / 5); // TODO
         for (let i = 0; i <= numberOfPoints; i++)
@@ -637,19 +745,67 @@ function getLengthOfPoints(track: Track, isSwitchMode = false) {
     lengthOfPoints.push(length);
   }
 
-  return lengthOfPoints;
+  return { lengthOfPoints, previewGradients };
+}
+
+function getGradientAtPosition(points: { position: number; gradient: number }[], position: number): number {
+  if (points.length === 0) return 0;
+  
+  // Find the point at or before the position
+  let beforePoint = points[0];
+  let afterPoint = points[points.length - 1];
+  
+  for (const point of points) {
+    if (point.position <= position) {
+      beforePoint = point;
+    }
+    if (point.position >= position) {
+      afterPoint = point;
+      break;
+    }
+  }
+  
+  // If position is before the first point
+  if (position < points[0].position) {
+    return points[0].gradient;
+  }
+  
+  // If position is after the last point
+  if (position > points[points.length - 1].position) {
+    return points[points.length - 1].gradient;
+  }
+  
+  // Interpolate between before and after points
+  if (beforePoint.position === afterPoint.position) {
+    return beforePoint.gradient;
+  }
+  
+  const t = (position - beforePoint.position) / (afterPoint.position - beforePoint.position);
+  return beforePoint.gradient + t * (afterPoint.gradient - beforePoint.gradient);
 }
 
 function useTrackColorOnTrackMode(trackId: string) {
-  const { isAddingCurve, isEditingModels } = useSnapshot(tracksSubMenuState);
+  const { isAddingCurve, isEditingModels, tracksIsEditing, editingTrackIds } = useSnapshot(tracksSubMenuState);
   const { selectedTab } = useSnapshot(guiState);
   const { hoveredTracks, selectedTrackIds, pointingOnTrack } = useSnapshot(tracksState);
-  const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing } = useSnapshot(diagramsTabPanelState);
+  const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { focusedNextTrackIndex, nextTrackIds } = useSnapshot(editTracksInDiagramState);
   const { tracks } = useSnapshot(store.data);
   const { switches } = useSnapshot(store.data);
 
   if (isAddingCurve) return "#888";
+
+  if (tracksIsEditing) {
+    if (editingTrackIds.includes(trackId)) return "#f0f";
+
+    if (nextTrackIds.length) {
+      if (0 <= focusedNextTrackIndex
+        && trackId === nextTrackIds[focusedNextTrackIndex])
+        return "#f00";
+      else if (nextTrackIds.includes(trackId))
+        return "#ff0";
+    }
+  }
 
   if (
     0 <= hoveredTracks.findIndex(value => value === trackId)
@@ -659,6 +815,8 @@ function useTrackColorOnTrackMode(trackId: string) {
 
   if (selectedTab === "tracks") {
     if (isEditingModels) return;
+
+    if (tracksIsEditing) return;
 
     if (0 <= selectedTrackIds.findIndex(value => value === trackId)) return "#f00";
 
@@ -692,7 +850,7 @@ function useTrackColorOnTrackMode(trackId: string) {
 
         if (trackRoute.trackIds.includes(trackId)) return "#f0f";
 
-        if (tracksIsEditing) {
+        if (diagramTracksIsEditing) {
           if (nextTrackIds.length) {
             if (0 <= focusedNextTrackIndex
               && trackId === nextTrackIds[focusedNextTrackIndex])

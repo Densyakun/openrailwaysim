@@ -1,12 +1,12 @@
 import { proxy, useSnapshot } from 'valtio';
-import { Button, Checkbox, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Button, ButtonGroup, Checkbox, IconButton, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
-import { TrackModel } from '@/lib/tracks';
+import { TrackModel, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
 import CurveEditMenu from './CurveEditMenu';
 import { getSelectedTracks } from "@/lib/client/tracks/index";
@@ -15,6 +15,10 @@ import React from 'react';
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
 import { Path, PathValue, SerializableORSAppDataType, store } from '@/lib/game';
+import EditTracksInDiagramPanel, { editTracksInDiagramState, getConnectedTracks } from './EditTracksInDiagramPanel';
+import { setCameraTargetPosition } from '@/lib/client/camera';
+import VerticalCurveEditor from './VerticalCurveEditPanel';
+import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -34,6 +38,8 @@ export const tracksSubMenuState = proxy<{
   editingTrackId: string;
   beginCant: string;
   endCant: string;
+  tracksIsEditing: boolean;
+  editingTrackIds: string[];
 }>({
   isAddingCurve: false,
   hoveredAddingTracks: -1,
@@ -42,6 +48,8 @@ export const tracksSubMenuState = proxy<{
   editingTrackId: "",
   beginCant: "",
   endCant: "",
+  tracksIsEditing: false,
+  editingTrackIds: [],
 });
 
 function TrackModelSettings() {
@@ -226,7 +234,8 @@ function TrackModelSettings() {
 }
 
 export default function TracksSubMenu() {
-  const { isEditingModels, isAddingCurve, editingTrackId } = useSnapshot(tracksSubMenuState);
+  const { isEditingModels, isAddingCurve, editingTrackId, tracksIsEditing } = useSnapshot(tracksSubMenuState);
+  const { isEditing: isEditingVerticalCurve, trackIds: verticalCurveTrackIds } = useSnapshot(verticalCurveEditState);
 
   return <Paper sx={{
     p: 1,
@@ -239,7 +248,13 @@ export default function TracksSubMenu() {
         ? <AddingCurve />
         : editingTrackId
           ? <TrackEditMenu />
-          : <MainMenu />}
+          : tracksIsEditing
+            ? <TrackRouteSelectionPanel />
+            : isEditingVerticalCurve
+              ? (verticalCurveTrackIds.length > 0 && verticalCurveEditState.gradientPoints.length > 0
+                ? <VerticalCurveEditor />
+                : null)
+              : <MainMenu />}
   </Paper>;
 }
 
@@ -315,6 +330,53 @@ function MainMenu() {
     }}>
       Model settings
     </Button>
+    <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
+      tracksSubMenuState.tracksIsEditing = true;
+      tracksSubMenuState.editingTrackIds = [...selectedTrackIds];
+      editTracksInDiagramState.nextTrackIds = [];
+      editTracksInDiagramState.focusedNextTrackIndex = -1;
+      // Calculate next tracks
+      if (tracksSubMenuState.editingTrackIds.length) {
+        const lastTrackId = tracksSubMenuState.editingTrackIds[tracksSubMenuState.editingTrackIds.length - 1];
+        const track = store.data.tracks[lastTrackId];
+        editTracksInDiagramState.nextTrackIds = getConnectedTracks(track, tracksSubMenuState.editingTrackIds);
+        if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+          editTracksInDiagramState.focusedNextTrackIndex = 0;
+      }
+      // Set up vertical curve edit state
+      verticalCurveEditState.trackIds = [...selectedTrackIds];
+      // Initialize gradient points from existing track gradients
+      let totalLength = 0;
+      const trackLengths: number[] = [];
+      for (const trackId of selectedTrackIds) {
+        const track = store.data.tracks[trackId];
+        trackLengths.push(track.length);
+        totalLength += track.length;
+      }
+      let currentLength = 0;
+      const initialGradientPoints: { position: string; gradient: string }[] = [];
+      for (let i = 0; i < selectedTrackIds.length; i++) {
+        const trackId = selectedTrackIds[i];
+        const track = store.data.tracks[trackId];
+        const trackLength = trackLengths[i];
+        const trackStart = currentLength;
+        const trackEnd = currentLength + trackLength;
+        
+        // Add gradient points from this track
+        for (const [position, gradient] of Object.entries(track.gradients)) {
+          const absolutePosition = trackStart + parseFloat(position);
+          initialGradientPoints.push({
+            position: absolutePosition.toString(),
+            gradient: gradient.toString()
+          });
+        }
+        
+        currentLength += trackLength;
+      }
+      verticalCurveEditState.gradientPoints = initialGradientPoints;
+    }}>
+      Edit vertical curve
+    </Button>
   </Stack>;
 }
 
@@ -330,6 +392,131 @@ function AddingCurve() {
     </Button>
     <CurveEditMenu />
   </Stack>;
+}
+
+function TrackRouteSelectionPanel() {
+  const { editingTrackIds } = useSnapshot(tracksSubMenuState);
+  const {
+    focusedNextTrackIndex,
+    nextTrackIds,
+  } = useSnapshot(editTracksInDiagramState);
+
+  function onUpdateTrackList() {
+    if (!editingTrackIds.length) {
+      editTracksInDiagramState.nextTrackIds = [];
+      editTracksInDiagramState.focusedNextTrackIndex = -1;
+      return;
+    }
+
+    const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+    const track = store.data.tracks[lastTrackId];
+
+    editTracksInDiagramState.nextTrackIds = getConnectedTracks(
+      track,
+      editingTrackIds,
+    );
+
+    if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+      editTracksInDiagramState.focusedNextTrackIndex = 0;
+    focusingNextSegmentIndex();
+  }
+
+  function focusingNextSegmentIndex() {
+    if (!editTracksInDiagramState.nextTrackIds.length) return;
+
+    const nextTrackId = editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex];
+    const nextTrack = store.data.tracks[nextTrackId];
+
+    setCameraTargetPosition(getPosition(nextTrack, nextTrack.length / 2));
+  }
+
+  return <Paper sx={{
+    p: 1,
+    pointerEvents: 'auto',
+    userSelect: 'none',
+  }}>
+    <Stack direction={'column'} spacing={1}>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <div>Select track route for vertical curve</div>
+        <Button variant='outlined' onClick={() => {
+          tracksSubMenuState.tracksIsEditing = false;
+          tracksSubMenuState.editingTrackIds = [];
+          tracksState.pointingOnTrack = undefined;
+        }}>
+          Back
+        </Button>
+      </Stack>
+      {editingTrackIds.length
+        ? <Paper>
+          <Stack spacing={1}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <div>Selected tracks: {editingTrackIds.length}</div>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <div>Next track: {focusedNextTrackIndex + 1} / {nextTrackIds.length}</div>
+              <ButtonGroup variant="contained">
+                <Button variant='contained' disabled={!nextTrackIds.length} onClick={() => {
+                  editTracksInDiagramState.focusedNextTrackIndex--;
+                  if (editTracksInDiagramState.focusedNextTrackIndex < 0)
+                    editTracksInDiagramState.focusedNextTrackIndex = nextTrackIds.length - 1;
+                  focusingNextSegmentIndex();
+                }}>
+                  {"<"}
+                </Button>
+                <Button variant='contained' disabled={!nextTrackIds.length} onClick={() => {
+                  editTracksInDiagramState.focusedNextTrackIndex++;
+                  if (nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+                    editTracksInDiagramState.focusedNextTrackIndex = 0;
+                  focusingNextSegmentIndex();
+                }}>
+                  {">"}
+                </Button>
+              </ButtonGroup>
+            </Stack>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Button variant='contained' startIcon={<AddIcon />} disabled={!nextTrackIds.length} onClick={() => {
+                tracksSubMenuState.editingTrackIds.push(nextTrackIds[focusedNextTrackIndex]);
+                onUpdateTrackList();
+              }}>
+                Add
+              </Button>
+              <Button variant='contained' onClick={() => {
+                tracksSubMenuState.editingTrackIds.pop();
+                onUpdateTrackList();
+              }} disabled={!editingTrackIds.length}>
+                Remove last
+              </Button>
+            </Stack>
+            <Button variant='contained' disabled={!editingTrackIds.length} onClick={() => {
+              verticalCurveEditState.isEditing = true;
+              verticalCurveEditState.trackIds = [...editingTrackIds];
+              verticalCurveEditState.gradientPoints = [];
+              tracksSubMenuState.tracksIsEditing = false;
+              initializeGradientPoints();
+            }}>
+              Edit vertical curve
+            </Button>
+          </Stack>
+        </Paper>
+        : <Alert severity="error">
+          軌道を選択して追加してください
+        </Alert>
+      }
+    </Stack>
+  </Paper>;
+}
+
+function initializeGradientPoints() {
+  let totalLength = 0;
+  for (const trackId of verticalCurveEditState.trackIds) {
+    const track = store.data.tracks[trackId];
+    totalLength += track.length;
+  }
+
+  verticalCurveEditState.gradientPoints = [
+    { position: "0", gradient: "0" },
+    { position: totalLength.toString(), gradient: "0" }
+  ];
 }
 
 function TrackEditMenu() {

@@ -219,8 +219,9 @@ export function getGradient(length: number, gradients: GradientsType) {
   return gradients[l];
 }
 
-export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
+export function getPosition(track: TrackShape, length: number, overrideGradients?: GradientsType): THREE.Vector3 {
   const { position, rotationY, radius, length: curveLength, gradients } = track;
+  const gradientsToUse = overrideGradients || gradients;
 
   if (length === 0)
     return cV(position);
@@ -240,19 +241,20 @@ export function getPosition(track: TrackShape, length: number): THREE.Vector3 {
         length: 0,
         gradients: { 0: 0 },
       },
-      length - i * curveLength / (track as TransitionCurve).transitionCurves.length
+      length - i * curveLength / (track as TransitionCurve).transitionCurves.length,
+      gradientsToUse
     ).applyEuler(rotation).add(cV(position))
-      .add(new THREE.Vector3(0, getHeight(length, gradients)));
+      .add(new THREE.Vector3(0, getHeight(length, gradientsToUse)));
   }
 
   if (radius === 0)
     return cV(position).add(new THREE.Vector3(1).applyEuler(rotation).multiplyScalar(length))
-      .add(new THREE.Vector3(0, getHeight(length, gradients)));
+      .add(new THREE.Vector3(0, getHeight(length, gradientsToUse)));
   else
     return cV(position)
       .add(new THREE.Vector3(0, 0, radius).applyEuler(rotation))
       .add(new THREE.Vector3(0, 0, -radius).applyEuler(new THREE.Euler(0, length / -radius + rotationY)))
-      .add(new THREE.Vector3(0, getHeight(length, gradients)));
+      .add(new THREE.Vector3(0, getHeight(length, gradientsToUse)));
 }
 
 export function getCant(track: Track, length: number) {

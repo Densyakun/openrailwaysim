@@ -10,7 +10,7 @@ import { TrackModel, getPosition } from '@/lib/tracks';
 import { socket } from '../Client';
 import CurveEditMenu from './CurveEditMenu';
 import { getSelectedTracks } from "@/lib/client/tracks/index";
-import { tracksState } from "@/lib/client/tracks/store";
+import { tracksState, offsetTrackState } from "@/lib/client/tracks/store";
 import React from 'react';
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
@@ -19,11 +19,14 @@ import EditTracksInDiagramPanel, { editTracksInDiagramState, getConnectedTracks 
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import VerticalCurveEditor from './VerticalCurveEditPanel';
 import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit';
+import { offsetTrackRoute, VEHICLE_OFFSET_CONSTANT } from '@/lib/tracks';
+import { v4 as uuidv4 } from 'uuid';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
   hoveredAddingTracks: number;
   isEditingModels: boolean;
+  isOffsetting: boolean;
   trackModels: {
     modelPath: string;
     start: string;
@@ -44,6 +47,7 @@ export const tracksSubMenuState = proxy<{
   isAddingCurve: false,
   hoveredAddingTracks: -1,
   isEditingModels: false,
+  isOffsetting: false,
   trackModels: [],
   editingTrackId: "",
   beginCant: "",
@@ -234,7 +238,7 @@ function TrackModelSettings() {
 }
 
 export default function TracksSubMenu() {
-  const { isEditingModels, isAddingCurve, editingTrackId, tracksIsEditing } = useSnapshot(tracksSubMenuState);
+  const { isEditingModels, isAddingCurve, editingTrackId, tracksIsEditing, isOffsetting } = useSnapshot(tracksSubMenuState);
   const { isEditing: isEditingVerticalCurve, trackIds: verticalCurveTrackIds } = useSnapshot(verticalCurveEditState);
 
   return <Paper sx={{
@@ -254,7 +258,9 @@ export default function TracksSubMenu() {
               ? (verticalCurveTrackIds.length > 0 && verticalCurveEditState.gradientPoints.length > 0
                 ? <VerticalCurveEditor />
                 : null)
-              : <MainMenu />}
+              : isOffsetting
+                ? <OffsetTrackMenu />
+                : <MainMenu />}
   </Paper>;
 }
 
@@ -293,6 +299,11 @@ function MainMenu() {
       tracksSubMenuState.isAddingCurve = true;
     }}>
       Create new curve
+    </Button>
+    <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
+      tracksSubMenuState.isOffsetting = true;
+    }}>
+      Offset track
     </Button>
     <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() =>
       tracksState.selectedTrackIds.forEach(trackId => {
@@ -361,7 +372,7 @@ function MainMenu() {
         const trackLength = trackLengths[i];
         const trackStart = currentLength;
         const trackEnd = currentLength + trackLength;
-        
+
         // Add gradient points from this track
         for (const [position, gradient] of Object.entries(track.gradients)) {
           const absolutePosition = trackStart + parseFloat(position);
@@ -370,7 +381,7 @@ function MainMenu() {
             gradient: gradient.toString()
           });
         }
-        
+
         currentLength += trackLength;
       }
       verticalCurveEditState.gradientPoints = initialGradientPoints;
@@ -413,7 +424,7 @@ function TrackRouteSelectionPanel() {
 
     editTracksInDiagramState.nextTrackIds = getConnectedTracks(
       track,
-      editingTrackIds,
+      editingTrackIds as string[],
     );
 
     if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
@@ -634,6 +645,160 @@ function TrackEditMenu() {
         send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
       }}>
       Save
+    </Button>
+  </Stack>;
+}
+
+function OffsetTrackMenu() {
+  const {
+    offsetDistance,
+    vehicleOffsetConstant,
+    transitionLength1,
+    transitionLength2,
+    curveRadius,
+  } = useSnapshot(offsetTrackState, { sync: true });
+  const { selectedTrackIds } = useSnapshot(tracksState, { sync: true });
+
+  const updatePreview = (offsetDist?: string, vehicleConst?: string) => {
+    const dist = parseFloat(offsetDist ?? offsetDistance);
+    const constVal = parseFloat(vehicleConst ?? vehicleOffsetConstant);
+    
+    if (isNaN(dist) || isNaN(constVal)) {
+      offsetTrackState.previewTracks = [];
+      return;
+    }
+
+    // storeから直接selectedTrackIdsを取得
+    const trackIds = [...tracksState.selectedTrackIds];
+    
+    if (trackIds.length === 0) {
+      offsetTrackState.previewTracks = [];
+      return;
+    }
+
+    const selectedTracks = trackIds.map(id => store.data.tracks[id]).filter(t => t !== undefined);
+
+    if (selectedTracks.length === 0) {
+      offsetTrackState.previewTracks = [];
+      return;
+    }
+
+    // Create offset tracks for preview
+    const offsetTracks = offsetTrackRoute(
+      trackIds,
+      dist,
+      constVal,
+      selectedTracks[0]?.trackModels || []
+    );
+
+    offsetTrackState.previewTracks = offsetTracks;
+  };
+
+  // 初期プレビューを表示
+  React.useEffect(() => {
+    updatePreview();
+  }, []);
+
+  return <Stack direction={'column'} spacing={1}>
+    <Button variant='outlined' onClick={() => {
+      tracksSubMenuState.isOffsetting = false;
+      offsetTrackState.previewTracks = [];
+    }}>
+      <ArrowBackIcon />
+    </Button>
+    <TextField
+      label="Offset distance (m)"
+      value={offsetDistance}
+      size="small"
+      type="number"
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = event.target.value;
+        offsetTrackState.offsetDistance = newValue;
+        updatePreview(newValue);
+      }}
+    />
+    <TextField
+      label="Vehicle offset constant"
+      value={vehicleOffsetConstant}
+      size="small"
+      type="number"
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+        const newValue = event.target.value;
+        offsetTrackState.vehicleOffsetConstant = newValue;
+        updatePreview(undefined, newValue);
+      }}
+    />
+    <TextField
+      label="Transition length 1 (m)"
+      value={transitionLength1}
+      size="small"
+      type="number"
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.transitionLength1 = event.target.value}
+    />
+    <TextField
+      label="Transition length 2 (m)"
+      value={transitionLength2}
+      size="small"
+      type="number"
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.transitionLength2 = event.target.value}
+    />
+    <TextField
+      label="Curve radius (m)"
+      value={curveRadius}
+      size="small"
+      type="number"
+      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.curveRadius = event.target.value}
+    />
+    <Button variant="contained" startIcon={<SaveIcon />}
+      disabled={
+        isNaN(parseFloat(offsetDistance)) ||
+        isNaN(parseFloat(vehicleOffsetConstant)) ||
+        isNaN(parseFloat(transitionLength1)) ||
+        isNaN(parseFloat(transitionLength2)) ||
+        isNaN(parseFloat(curveRadius))
+      }
+      onClick={() => {
+        const offsetDist = parseFloat(offsetDistance);
+        const vehicleConst = parseFloat(vehicleOffsetConstant);
+        const transLen1 = parseFloat(transitionLength1);
+        const transLen2 = parseFloat(transitionLength2);
+        const curveRad = parseFloat(curveRadius);
+
+        if (
+          isNaN(offsetDist) ||
+          isNaN(vehicleConst) ||
+          isNaN(transLen1) ||
+          isNaN(transLen2) ||
+          isNaN(curveRad)
+        ) return;
+
+        const selectedTracks = getSelectedTracks();
+        const trackIds = tracksState.selectedTrackIds;
+
+        // Create offset tracks
+        const offsetTracks = offsetTrackRoute(
+          trackIds,
+          offsetDist,
+          vehicleConst,
+          selectedTracks[0]?.trackModels || []
+        );
+
+        // Add the offset tracks to the store
+        const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?]][] = [];
+
+        offsetTracks.forEach((offsetTrack, index) => {
+          const newTrackId = uuidv4();
+          messages.push([MessageCode.FROM_CLIENT_SET_PROP, [
+            ["tracks", newTrackId],
+            offsetTrack,
+          ]]);
+        });
+
+        send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
+        tracksSubMenuState.isOffsetting = false;
+        offsetTrackState.previewTracks = [];
+      }}>
+      Create offset tracks
     </Button>
   </Stack>;
 }

@@ -707,3 +707,227 @@ export function getDistance(trackIds: string[], toLength: number, fromLength: nu
     }
   }
 }
+
+/**
+ * 車両偏倚量計算用の定数
+ */
+export const VEHICLE_OFFSET_CONSTANT = 0.5; // 車両偏倚量計算の係数（変更可能）
+
+/**
+ * 曲率半径から車両偏倚量を計算
+ * @param radius 曲率半径
+ * @param offsetConstant 車両偏倚量計算用定数
+ * @returns 車両偏倚量
+ */
+export function calculateVehicleOffset(radius: number, offsetConstant: number = VEHICLE_OFFSET_CONSTANT): number {
+  if (radius === 0) return 0;
+  return offsetConstant / Math.abs(radius);
+}
+
+/**
+ * 直線軌道をオフセットして敷設
+ * @param track ベースとなる軌道
+ * @param offsetDistance オフセット距離（正の値で左側、負の値で右側）
+ * @param trackModels トラックモデル
+ * @returns オフセットされた軌道
+ */
+export function offsetStraightTrack(track: Track, offsetDistance: number, trackModels: TrackModel[] = []): SerializableTrack {
+  const direction = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, track.rotationY));
+  const perpendicular = new THREE.Vector3(-direction.z, 0, direction.x).normalize();
+  
+  const offsetPosition = cV(track.position).add(perpendicular.multiplyScalar(offsetDistance));
+  
+  return {
+    position: offsetPosition.toArray(),
+    rotationY: track.rotationY,
+    length: track.length,
+    radius: 0,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: track.beginCant,
+    endCant: track.endCant,
+    trackModels: trackModels.length > 0 ? trackModels : track.trackModels,
+    gradients: { ...track.gradients },
+  };
+}
+
+/**
+ * 曲線軌道をオフセットして敷設
+ * @param track ベースとなる曲線軌道
+ * @param offsetDistance オフセット距離（正の値で外側、負の値で内側）
+ * @param vehicleOffsetConstant 車両偏倚量計算用定数
+ * @param trackModels トラックモデル
+ * @returns オフセットされた軌道
+ */
+export function offsetCurveTrack(track: Track, offsetDistance: number, vehicleOffsetConstant: number = VEHICLE_OFFSET_CONSTANT, trackModels: TrackModel[] = []): SerializableTrack {
+  const vehicleOffset = calculateVehicleOffset(track.radius, vehicleOffsetConstant);
+  const totalOffset = offsetDistance + vehicleOffset;
+  
+  const isRightCurve = track.radius > 0;
+  const adjustedRadius = isRightCurve ? track.radius - totalOffset : track.radius + totalOffset;
+  
+  const centerOffset = new THREE.Vector3(0, 0, track.radius).applyEuler(new THREE.Euler(0, track.rotationY));
+  const adjustedCenterOffset = new THREE.Vector3(0, 0, adjustedRadius).applyEuler(new THREE.Euler(0, track.rotationY));
+  
+  const offsetPosition = cV(track.position).add(centerOffset).sub(adjustedCenterOffset);
+  
+  return {
+    position: offsetPosition.toArray(),
+    rotationY: track.rotationY,
+    length: track.length * Math.abs(adjustedRadius / track.radius),
+    radius: adjustedRadius,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: track.beginCant,
+    endCant: track.endCant,
+    trackModels: trackModels.length > 0 ? trackModels : track.trackModels,
+    gradients: { ...track.gradients },
+  };
+}
+
+/**
+ * 軌道ルートに対してオフセット敷設を行う
+ * @param trackIds オフセット対象の軌道ID配列
+ * @param offsetDistance オフセット距離
+ * @param vehicleOffsetConstant 車両偏倚量計算用定数
+ * @param trackModels トラックモデル
+ * @returns オフセットされた軌道の配列
+ */
+export function offsetTrackRoute(
+  trackIds: string[],
+  offsetDistance: number,
+  vehicleOffsetConstant: number = VEHICLE_OFFSET_CONSTANT,
+  trackModels: TrackModel[] = []
+): SerializableTrack[] {
+  const data = store.data;
+  const offsetTracks: SerializableTrack[] = [];
+  
+  for (const trackId of trackIds) {
+    const track = data.tracks[trackId];
+    if (!track) continue;
+    
+    let offsetTrack: SerializableTrack;
+    
+    if (track.radius === 0) {
+      // 直線部
+      offsetTrack = offsetStraightTrack(track, offsetDistance, trackModels);
+    } else {
+      // 曲線部
+      offsetTrack = offsetCurveTrack(track, offsetDistance, vehicleOffsetConstant, trackModels);
+    }
+    
+    offsetTracks.push(offsetTrack);
+  }
+  
+  return offsetTracks;
+}
+
+/**
+ * 直線間に曲線と緩和曲線を作成して接続
+ * @param track1 前の軌道
+ * @param track2 次の軌道
+ * @param transitionLength1 前の緩和曲線長
+ * @param transitionLength2 後の緩和曲線長
+ * @param curveRadius 曲線半径
+ * @param trackModels トラックモデル
+ * @returns 作成された軌道の配列
+ */
+export function createCurvesBetweenStraights(
+  track1: Track,
+  track2: Track,
+  transitionLength1: number = 20,
+  transitionLength2: number = 20,
+  curveRadius: number = 200,
+  trackModels: TrackModel[] = []
+): SerializableTrack[] {
+  const point1End = getPosition(track1, track1.length);
+  const point2Start = getPosition(track2, 0);
+  
+  const dir1 = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, track1.rotationY));
+  const dir2 = new THREE.Vector3(1, 0, 0).applyEuler(new THREE.Euler(0, track2.rotationY));
+  
+  const angleDiff = track2.rotationY - track1.rotationY;
+  const normalizedAngle = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
+  
+  const tracks: SerializableTrack[] = [];
+  
+  if (transitionLength1 > 0) {
+    const transitionData1 = getTransitionCurveData(0, 1 / curveRadius, transitionLength1);
+    const transitionTrack1: SerializableTrack = {
+      position: point1End.toArray(),
+      rotationY: track1.rotationY,
+      length: transitionLength1,
+      radius: 0,
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+      connectedFromStartIsToEnd: false,
+      connectedFromEndIsToEnd: false,
+      beginCant: 0,
+      endCant: 0,
+      trackModels,
+      gradients: { 0: 0 },
+    };
+    applyTransitionCurveToSerializableTrack(transitionTrack1, {
+      ...transitionData1,
+      curveDirection: normalizedAngle > 0,
+    } as TransitionCurve);
+    tracks.push(transitionTrack1);
+  }
+  
+  // 曲線部
+  const curveLength = Math.abs(normalizedAngle) * curveRadius;
+  const curveTrack: SerializableTrack = {
+    position: point1End.toArray(),
+    rotationY: track1.rotationY,
+    length: curveLength,
+    radius: normalizedAngle > 0 ? curveRadius : -curveRadius,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: 0,
+    endCant: 0,
+    trackModels,
+    gradients: { 0: 0 },
+  };
+  tracks.push(curveTrack);
+  
+  if (transitionLength2 > 0) {
+    const transitionData2 = getTransitionCurveData(1 / curveRadius, 0, transitionLength2);
+    const transitionTrack2: SerializableTrack = {
+      position: point2Start.toArray(),
+      rotationY: track2.rotationY - (normalizedAngle > 0 ? transitionData2.endRotationY : -transitionData2.endRotationY),
+      length: transitionLength2,
+      radius: 0,
+      idOfTrackOrSwitchConnectedFromStart: "",
+      idOfTrackOrSwitchConnectedFromEnd: "",
+      connectedFromStartIsTrack: true,
+      connectedFromEndIsTrack: true,
+      connectedFromStartIsToEnd: false,
+      connectedFromEndIsToEnd: false,
+      beginCant: 0,
+      endCant: 0,
+      trackModels,
+      gradients: { 0: 0 },
+    };
+    applyTransitionCurveToSerializableTrack(transitionTrack2, {
+      ...transitionData2,
+      curveDirection: normalizedAngle > 0,
+    } as TransitionCurve);
+    tracks.push(transitionTrack2);
+  }
+  
+  return tracks;
+}

@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
-import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation } from '@/lib/tracks'
+import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation, SerializableTrack } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
@@ -9,7 +9,7 @@ import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boun
 import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints } from "@/lib/client/tracks/index"
-import { tracksState } from "@/lib/client/tracks/store"
+import { tracksState, offsetTrackState } from "@/lib/client/tracks/store"
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
@@ -230,6 +230,119 @@ function AddingTracks() {
   </>;
 }
 
+function OffsetTrackPreview() {
+  const { isOffsetting } = useSnapshot(tracksSubMenuState);
+  const { previewTracks } = useSnapshot(offsetTrackState, { sync: true });
+
+  if (!isOffsetting || previewTracks.length === 0) return null;
+
+  return <>
+    {previewTracks.map((track, index) => {
+      // SerializableTrackをTrackに変換
+      const convertedTrack: Track = {
+        ...track,
+        position: new THREE.Vector3(...track.position),
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      };
+
+      const { length, trackModels, radius } = track;
+      const { lengthOfPoints } = getLengthOfPoints(convertedTrack);
+      const points = lengthOfPoints.map(length => getPosition(convertedTrack, length));
+
+      // NaNチェック
+      if (points.some(p => isNaN(p.x) || isNaN(p.y) || isNaN(p.z))) {
+        return null;
+      }
+
+      let cantList: number[] = [];
+      for (let i = 1; i < lengthOfPoints.length; i++)
+        cantList.push(getCant(convertedTrack, (i - 0.5) * length / (lengthOfPoints.length - 1)));
+
+      return <Fragment key={index}>
+        {points.map((_, pointIndex) => {
+          if (pointIndex === 0) return null;
+
+          return <Fragment key={pointIndex}>
+            {trackModels.map((trackModel, modelIndex) => {
+              if (
+                trackModel.interval !== 0
+                || lengthOfPoints[pointIndex] < trackModel.start
+                || trackModel.end !== -1 && trackModel.end < lengthOfPoints[pointIndex - 1]
+              ) return;
+
+              return <TrackModel
+                key={modelIndex}
+                track={convertedTrack}
+                from={Math.max(lengthOfPoints[pointIndex - 1], trackModel.start)}
+                to={Math.min(lengthOfPoints[pointIndex], trackModel.end === -1 ? track.length : trackModel.end)}
+                isInclined={trackModel.isInclined}
+                tilt={trackModel.isTilting ? cantList[pointIndex - 1] : 0}
+                modelPath={trackModel.modelPath}
+                minDistance={trackModel.minDistance}
+                maxDistance={trackModel.maxDistance}
+                isRail={true}
+                color="#00f"
+              />;
+            })}
+          </Fragment>;
+        })}
+        {trackModels.map((trackModel, modelIndex) => {
+          if (trackModel.start === trackModel.end)
+            return <TrackModel
+              key={modelIndex}
+              track={convertedTrack}
+              from={trackModel.start}
+              to={trackModel.start + trackModel.span}
+              isInclined={trackModel.isInclined}
+              tilt={trackModel.isTilting ? getCant(convertedTrack, trackModel.start) : 0}
+              modelPath={trackModel.modelPath}
+              minDistance={trackModel.minDistance}
+              maxDistance={trackModel.maxDistance}
+              color="#00f"
+            />;
+
+          if (trackModel.interval === 0) return;
+
+          const modelLength = (trackModel.end === -1 ? track.length : trackModel.end) - trackModel.start;
+          const modelCount = Math.round(modelLength / trackModel.interval);
+
+          return <Fragment key={modelIndex}>
+            {[...Array(modelCount)].map((_, index) =>
+              <TrackModel
+                key={index}
+                track={convertedTrack}
+                from={trackModel.start + modelLength * index / modelCount}
+                to={
+                  trackModel.span === 0
+                    ? trackModel.start + modelLength * index / modelCount
+                    : trackModel.span === -1
+                      ? trackModel.start + modelLength * (index + 1) / modelCount
+                      : trackModel.start + modelLength * index / modelCount + trackModel.span
+                }
+                isInclined={trackModel.isInclined}
+                tilt={trackModel.isTilting ? getCant(convertedTrack, modelLength * (index - 0.5) / modelCount) : 0}
+                modelPath={trackModel.modelPath}
+                minDistance={trackModel.minDistance}
+                maxDistance={trackModel.maxDistance}
+                color="#00f"
+              />
+            )}
+          </Fragment>;
+        })}
+        <TrackLine
+          points={points}
+          color="#00f"
+        />
+      </Fragment>;
+    })}
+  </>;
+}
+
 function PointingOnTrack() {
   const { pointingOnTrack } = useSnapshot(tracksState);
   const { tracks } = useSnapshot(store.data);
@@ -273,6 +386,7 @@ export default function Tracks() {
         : <TracksOnTrackMode key={trackId} track={track as Track} trackId={trackId} />;
     })}
     <AddingTracks />
+    <OffsetTrackPreview />
     {!tracksIsEditing && <PointingOnTrack />}
     <PointingOnTrackDiagramSectionRoute />
   </>;

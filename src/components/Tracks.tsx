@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
-import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation, SerializableTrack } from '@/lib/tracks'
+import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation, SerializableTrack, SerializableTransitionCurve } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
@@ -239,9 +239,20 @@ function OffsetTrackPreview() {
   return <>
     {previewTracks.map((track, index) => {
       // SerializableTrackをTrackに変換
+      const serTrack = track as SerializableTransitionCurve;
+      const isTransition = serTrack.endPosition !== undefined;
       const convertedTrack: Track = {
         ...track,
+        ...(isTransition ? {
+          endPosition: new THREE.Vector3(...serTrack.endPosition),
+          transitionCurves: serTrack.transitionCurves.map(s => ({
+            ...s,
+            position: new THREE.Vector3(...s.position),
+          })),
+          curveDirection: serTrack.curveDirection,
+        } : {}),
         position: new THREE.Vector3(...track.position),
+        trackModels: [...track.trackModels],
         idOfTrackOrSwitchConnectedFromStart: "",
         idOfTrackOrSwitchConnectedFromEnd: "",
         connectedFromStartIsTrack: true,
@@ -396,7 +407,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { selectedTab } = useSnapshot(guiState);
   const { editingTrainFormatId, isAddingTrainFormat, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
-  const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds } = useSnapshot(tracksSubMenuState);
+  const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
   const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
 
@@ -473,13 +484,28 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     selectedTab === "tracks"
     || T
     || D
-    || tracksIsEditing;
+    || tracksIsEditing
+    || isOffsetting;
   const isSelectable =
-    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing;
+    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing && !isOffsetting;
   let isHoverable = isSelectable;
   let isPointableOnTrack = T;
 
   if (tracksIsEditing) {
+    if (!editingTrackIds.length) {
+      isHoverable = true;
+      isPointableOnTrack = true;
+    } else {
+      const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+      const connectedTracks = getConnectedTracks(store.data.tracks[lastTrackId], [...editingTrackIds]);
+      if (connectedTracks.includes(trackId)) {
+        isHoverable = true;
+        isPointableOnTrack = true;
+      }
+    }
+  }
+
+  if (isOffsetting) {
     if (!editingTrackIds.length) {
       isHoverable = true;
       isPointableOnTrack = true;
@@ -624,6 +650,29 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         }
 
         if (tracksIsEditing) {
+          if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+
+          if (!editingTrackIds.length) {
+            tracksSubMenuState.editingTrackIds = [trackId];
+          } else {
+            const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+            const connectedTracks = getConnectedTracks(store.data.tracks[lastTrackId], [...editingTrackIds]);
+            if (connectedTracks.includes(trackId)) {
+              tracksSubMenuState.editingTrackIds = [...editingTrackIds, trackId];
+            }
+          }
+          // Update next track list
+          if (editingTrackIds.length) {
+            const lastTrackId = editingTrackIds[editingTrackIds.length - 1];
+            const track = store.data.tracks[lastTrackId];
+            editTracksInDiagramState.nextTrackIds = getConnectedTracks(track, [...editingTrackIds]);
+            if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+              editTracksInDiagramState.focusedNextTrackIndex = 0;
+          }
+          return;
+        }
+
+        if (isOffsetting) {
           if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
 
           if (!editingTrackIds.length) {
@@ -899,7 +948,7 @@ function getGradientAtPosition(points: { position: number; gradient: number }[],
 }
 
 function useTrackColorOnTrackMode(trackId: string) {
-  const { isAddingCurve, isEditingModels, tracksIsEditing, editingTrackIds } = useSnapshot(tracksSubMenuState);
+  const { isAddingCurve, isEditingModels, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
   const { selectedTab } = useSnapshot(guiState);
   const { hoveredTracks, selectedTrackIds, pointingOnTrack } = useSnapshot(tracksState);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
@@ -909,7 +958,7 @@ function useTrackColorOnTrackMode(trackId: string) {
 
   if (isAddingCurve) return "#888";
 
-  if (tracksIsEditing) {
+  if (tracksIsEditing || isOffsetting) {
     if (editingTrackIds.includes(trackId)) return "#f0f";
 
     if (nextTrackIds.length) {

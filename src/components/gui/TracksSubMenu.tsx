@@ -300,8 +300,25 @@ function MainMenu() {
     }}>
       Create new curve
     </Button>
-    <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
+    <Button variant='contained' disabled={selectedTrackIds.length === 0} onClick={() => {
       tracksSubMenuState.isOffsetting = true;
+      tracksSubMenuState.editingTrackIds = [...selectedTrackIds];
+      editTracksInDiagramState.nextTrackIds = [];
+      editTracksInDiagramState.focusedNextTrackIndex = -1;
+      // Calculate next tracks
+      if (tracksSubMenuState.editingTrackIds.length) {
+        const lastTrackId = tracksSubMenuState.editingTrackIds[tracksSubMenuState.editingTrackIds.length - 1];
+        const track = store.data.tracks[lastTrackId];
+        editTracksInDiagramState.nextTrackIds = getConnectedTracks(track, tracksSubMenuState.editingTrackIds);
+        if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+          editTracksInDiagramState.focusedNextTrackIndex = 0;
+        // Focus on next track
+        if (editTracksInDiagramState.nextTrackIds.length > 0) {
+          const nextTrackId = editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex];
+          const nextTrack = store.data.tracks[nextTrackId];
+          setCameraTargetPosition(getPosition(nextTrack, nextTrack.length / 2));
+        }
+      }
     }}>
       Offset track
     </Button>
@@ -653,24 +670,27 @@ function OffsetTrackMenu() {
   const {
     offsetDistance,
     vehicleOffsetConstant,
-    transitionLength1,
-    transitionLength2,
-    curveRadius,
-  } = useSnapshot(offsetTrackState, { sync: true });
-  const { selectedTrackIds } = useSnapshot(tracksState, { sync: true });
+  } = useSnapshot(offsetTrackState);
+  const { editingTrackIds } = useSnapshot(tracksSubMenuState);
+  const {
+    focusedNextTrackIndex,
+    nextTrackIds,
+  } = useSnapshot(editTracksInDiagramState);
 
-  const updatePreview = (offsetDist?: string, vehicleConst?: string) => {
+  const [localOffsetDist, setLocalOffsetDist] = React.useState(offsetDistance);
+  const [localVehicleConst, setLocalVehicleConst] = React.useState(vehicleOffsetConstant);
+
+  const updatePreview = (offsetDist?: string, vehicleConst?: string, trackIdsOverride?: string[]) => {
     const dist = parseFloat(offsetDist ?? offsetDistance);
     const constVal = parseFloat(vehicleConst ?? vehicleOffsetConstant);
-    
+
     if (isNaN(dist) || isNaN(constVal)) {
       offsetTrackState.previewTracks = [];
       return;
     }
 
-    // storeから直接selectedTrackIdsを取得
-    const trackIds = [...tracksState.selectedTrackIds];
-    
+    const trackIds = trackIdsOverride ? [...trackIdsOverride] : [...editingTrackIds];
+
     if (trackIds.length === 0) {
       offsetTrackState.previewTracks = [];
       return;
@@ -694,93 +714,157 @@ function OffsetTrackMenu() {
     offsetTrackState.previewTracks = offsetTracks;
   };
 
+  function onUpdateTrackList(trackIds?: string[]) {
+    const currentEditingTrackIds = trackIds ?? editingTrackIds;
+    if (!currentEditingTrackIds.length) {
+      editTracksInDiagramState.nextTrackIds = [];
+      editTracksInDiagramState.focusedNextTrackIndex = -1;
+      return;
+    }
+
+    const lastTrackId = currentEditingTrackIds[currentEditingTrackIds.length - 1];
+    const track = store.data.tracks[lastTrackId];
+
+    editTracksInDiagramState.nextTrackIds = getConnectedTracks(
+      track,
+      currentEditingTrackIds as string[],
+    );
+
+    if (editTracksInDiagramState.focusedNextTrackIndex === -1 || editTracksInDiagramState.nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+      editTracksInDiagramState.focusedNextTrackIndex = 0;
+    focusingNextSegmentIndex();
+  }
+
+  function focusingNextSegmentIndex() {
+    if (!editTracksInDiagramState.nextTrackIds.length) return;
+
+    const nextTrackId = editTracksInDiagramState.nextTrackIds[editTracksInDiagramState.focusedNextTrackIndex];
+    const nextTrack = store.data.tracks[nextTrackId];
+
+    setCameraTargetPosition(getPosition(nextTrack, nextTrack.length / 2));
+  }
+
   // 初期プレビューを表示
   React.useEffect(() => {
-    updatePreview();
+    updatePreview(undefined, undefined, tracksSubMenuState.editingTrackIds);
+    onUpdateTrackList(tracksSubMenuState.editingTrackIds);
   }, []);
 
   return <Stack direction={'column'} spacing={1}>
-    <Button variant='outlined' onClick={() => {
-      tracksSubMenuState.isOffsetting = false;
-      offsetTrackState.previewTracks = [];
-    }}>
-      <ArrowBackIcon />
-    </Button>
+    <Stack direction="row" spacing={1} alignItems="center">
+      <div>Offset track</div>
+      <Button variant='outlined' onClick={() => {
+        tracksSubMenuState.isOffsetting = false;
+        tracksSubMenuState.editingTrackIds = [];
+        tracksState.pointingOnTrack = undefined;
+        offsetTrackState.previewTracks = [];
+      }}>
+        Back
+      </Button>
+    </Stack>
+    {editingTrackIds.length
+      ? <Paper>
+        <Stack spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <div>Selected tracks: {editingTrackIds.length}</div>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <div>Next track: {focusedNextTrackIndex + 1} / {nextTrackIds.length}</div>
+            <ButtonGroup variant="contained">
+              <Button variant='contained' disabled={!nextTrackIds.length} onClick={() => {
+                editTracksInDiagramState.focusedNextTrackIndex--;
+                if (editTracksInDiagramState.focusedNextTrackIndex < 0)
+                  editTracksInDiagramState.focusedNextTrackIndex = nextTrackIds.length - 1;
+                focusingNextSegmentIndex();
+              }}>
+                {"<"}
+              </Button>
+              <Button variant='contained' disabled={!nextTrackIds.length} onClick={() => {
+                editTracksInDiagramState.focusedNextTrackIndex++;
+                if (nextTrackIds.length <= editTracksInDiagramState.focusedNextTrackIndex)
+                  editTracksInDiagramState.focusedNextTrackIndex = 0;
+                focusingNextSegmentIndex();
+              }}>
+                {">"}
+              </Button>
+            </ButtonGroup>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button variant='contained' startIcon={<AddIcon />} disabled={!nextTrackIds.length} onClick={() => {
+              const newEditingTrackIds = [...editingTrackIds, nextTrackIds[focusedNextTrackIndex]];
+              tracksSubMenuState.editingTrackIds = newEditingTrackIds;
+              onUpdateTrackList(newEditingTrackIds);
+              updatePreview(localOffsetDist, localVehicleConst, newEditingTrackIds);
+            }}>
+              Add
+            </Button>
+            <Button variant='contained' onClick={() => {
+              const newEditingTrackIds = editingTrackIds.slice(0, -1);
+              tracksSubMenuState.editingTrackIds = newEditingTrackIds;
+              onUpdateTrackList(newEditingTrackIds);
+              updatePreview(localOffsetDist, localVehicleConst, newEditingTrackIds);
+            }} disabled={!editingTrackIds.length}>
+              Remove last
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+      : <Alert severity="error">
+        軌道を選択して追加してください
+      </Alert>
+    }
     <TextField
       label="Offset distance (m)"
-      value={offsetDistance}
+      value={localOffsetDist}
       size="small"
-      type="number"
+      type="text"
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = event.target.value;
-        offsetTrackState.offsetDistance = newValue;
-        updatePreview(newValue);
+        setLocalOffsetDist(newValue);
+        updatePreview(newValue, localVehicleConst);
+      }}
+      onBlur={() => {
+        offsetTrackState.offsetDistance = localOffsetDist;
       }}
     />
     <TextField
       label="Vehicle offset constant"
-      value={vehicleOffsetConstant}
+      value={localVehicleConst}
       size="small"
-      type="number"
+      type="text"
       onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = event.target.value;
-        offsetTrackState.vehicleOffsetConstant = newValue;
-        updatePreview(undefined, newValue);
+        setLocalVehicleConst(newValue);
+        updatePreview(localOffsetDist, newValue);
       }}
-    />
-    <TextField
-      label="Transition length 1 (m)"
-      value={transitionLength1}
-      size="small"
-      type="number"
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.transitionLength1 = event.target.value}
-    />
-    <TextField
-      label="Transition length 2 (m)"
-      value={transitionLength2}
-      size="small"
-      type="number"
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.transitionLength2 = event.target.value}
-    />
-    <TextField
-      label="Curve radius (m)"
-      value={curveRadius}
-      size="small"
-      type="number"
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => offsetTrackState.curveRadius = event.target.value}
+      onBlur={() => {
+        offsetTrackState.vehicleOffsetConstant = localVehicleConst;
+      }}
     />
     <Button variant="contained" startIcon={<SaveIcon />}
       disabled={
-        isNaN(parseFloat(offsetDistance)) ||
-        isNaN(parseFloat(vehicleOffsetConstant)) ||
-        isNaN(parseFloat(transitionLength1)) ||
-        isNaN(parseFloat(transitionLength2)) ||
-        isNaN(parseFloat(curveRadius))
+        isNaN(parseFloat(localOffsetDist)) ||
+        isNaN(parseFloat(localVehicleConst)) ||
+        !editingTrackIds.length
       }
       onClick={() => {
-        const offsetDist = parseFloat(offsetDistance);
-        const vehicleConst = parseFloat(vehicleOffsetConstant);
-        const transLen1 = parseFloat(transitionLength1);
-        const transLen2 = parseFloat(transitionLength2);
-        const curveRad = parseFloat(curveRadius);
+        const offsetDist = parseFloat(localOffsetDist);
+        const vehicleConst = parseFloat(localVehicleConst);
 
         if (
           isNaN(offsetDist) ||
-          isNaN(vehicleConst) ||
-          isNaN(transLen1) ||
-          isNaN(transLen2) ||
-          isNaN(curveRad)
+          isNaN(vehicleConst)
         ) return;
 
-        const selectedTracks = getSelectedTracks();
-        const trackIds = tracksState.selectedTrackIds;
+        const trackIds = [...editingTrackIds];
+        const selectedTracks = trackIds.map(id => store.data.tracks[id]).filter(t => t !== undefined);
 
         // Create offset tracks
         const offsetTracks = offsetTrackRoute(
           trackIds,
           offsetDist,
           vehicleConst,
-          selectedTracks[0]?.trackModels || []
+          [...(selectedTracks[0]?.trackModels || [])]
         );
 
         // Add the offset tracks to the store
@@ -796,6 +880,7 @@ function OffsetTrackMenu() {
 
         send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
         tracksSubMenuState.isOffsetting = false;
+        tracksSubMenuState.editingTrackIds = [];
         offsetTrackState.previewTracks = [];
       }}>
       Create offset tracks

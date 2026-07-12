@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useRef } from "react"
+import React, { Suspense, useEffect, useMemo, useRef } from "react"
 import { BufferAttribute, BufferGeometry, Mesh } from "three"
 import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
 import { SphericalMercator } from '@mapbox/sphericalmercator'
 import FeatureObject from './FeatureObject'
+import SlopeBlendMaterial from './SlopeBlendMaterial'
 import distance from "@turf/distance"
 import { useSnapshot } from "valtio"
 import { terrainsState } from "@/lib/client/terrains"
@@ -182,7 +183,9 @@ function TerrainTile({
           ? <meshBasicMaterial color="yellow" />
           : guiState.selectedTab === "terrains" && isSelected
             ? <meshBasicMaterial color="red" />
-            : <meshStandardMaterial />
+            : <Suspense fallback={<meshStandardMaterial />}>
+              <SlopeBlendMaterial />
+            </Suspense>
       }
     </mesh>
     {/** 同じメッシュに影を落とすためにメッシュを分ける */}

@@ -9,6 +9,8 @@ import { HeightmapType } from './terrain';
 import { Diagram } from './diagram';
 import { MessageCode, MessageValueMap } from './ws';
 import { proxy } from 'valtio';
+import { ConstructionZone } from './construction';
+import { Tunnel } from './tunnel';
 
 // TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 // Prevent infinite recursion in types with circular references by limiting recursion depth
@@ -63,6 +65,8 @@ export type ORSAppDataType = {
   oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
+  constructionZones: { [key: string]: ConstructionZone };
+  tunnels: { [key: string]: Tunnel };
 };
 
 export type SerializableORSAppDataType = {
@@ -77,6 +81,8 @@ export type SerializableORSAppDataType = {
   oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
+  constructionZones: { [key: string]: ConstructionZone };
+  tunnels: { [key: string]: Tunnel };
 };
 
 export function createAppData(): ORSAppDataType {
@@ -92,6 +98,8 @@ export function createAppData(): ORSAppDataType {
     oneHandleMasterControllerUIConfigs: {},
     nowDate: Date.now(),
     diagrams: {},
+    constructionZones: {},
+    tunnels: {},
   };
 }
 

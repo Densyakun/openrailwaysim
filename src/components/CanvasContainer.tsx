@@ -8,6 +8,8 @@ import Tracks from './Tracks'
 import Trains from './Trains'
 import Terrains from './Terrains'
 import TerrainGenerator from './TerrainGenerator'
+import ConstructionZones from './ConstructionZoneMesh'
+import Tunnels from './TunnelMesh'
 import Client from './Client'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useSnapshot } from 'valtio'
@@ -46,6 +48,8 @@ export default function CanvasContainer() {
           <FeatureCollections />
           <Tracks />
           <Trains />
+          <ConstructionZones />
+          <Tunnels />
           <Terrains />
           <TerrainGenerator />
         </>

@@ -5,6 +5,8 @@ import { PointOnTrack, SerializableTrack, SerializableTransitionCurve, Switch } 
 import { Diagram } from "./diagram";
 import { SerializableTrainFormat, UIOneHandleMasterControllerConfig, CabStateType, getPointOnTrackByTrain, placeTrain } from "./trains";
 import { deserialize, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataType, serialize, store } from "./game";
+import { ConstructionZone } from "./construction";
+import { Tunnel } from "./tunnel";
 
 export type ORSAppSaveDataType = {
   originCoordinate: Position;
@@ -18,6 +20,8 @@ export type ORSAppSaveDataType = {
   oneHandleMasterControllerUIConfigs: { [key: string]: UIOneHandleMasterControllerConfig };
   nowDate: number;
   diagrams: { [key: string]: Diagram };
+  constructionZones: { [key: string]: ConstructionZone };
+  tunnels: { [key: string]: Tunnel };
 };
 
 // セーブデータ用

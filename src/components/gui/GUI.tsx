@@ -6,6 +6,7 @@ import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
+import BuildIcon from '@mui/icons-material/Build';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
 import { Alert, Paper, Snackbar, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
@@ -15,6 +16,8 @@ import Settings from './Settings';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
 import TrainsTabPanel from './TrainsTabPanel';
+import ConstructionTabPanel from './ConstructionTabPanel';
+import DataExchangePanel from './DataExchangePanel';
 import { guiState } from '@/lib/client/gui';
 import { useEffect } from 'react';
 import { trainsState } from '@/lib/client/trains';
@@ -76,6 +79,16 @@ const menuComponents: {
     title: 'Diagrams',
     icon: <DepartureBoardIcon />,
     component: <DiagramsTabPanel />,
+  },
+  'construction': {
+    title: 'Construction',
+    icon: <BuildIcon />,
+    component: <ConstructionTabPanel />,
+  },
+  'dataExchange': {
+    title: 'Data',
+    icon: <SettingsIcon />,
+    component: <DataExchangePanel />,
   },
   'settings': {
     title: 'Settings',

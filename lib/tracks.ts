@@ -1286,3 +1286,153 @@ export function offsetTrackRoute(
   return finalTracks;
 }
 
+/**
+ * 分岐番数から分岐角を計算する
+ * @param switchNumber 分岐番数（例：8, 10, 12）
+ * @param isJapanese true=日本式（正接 tan）、false=欧州式（正弦 sin）
+ * @returns 分岐角（ラジアン）
+ */
+export function getSwitchAngle(switchNumber: number, isJapanese: boolean): number {
+  if (isJapanese) {
+    // 日本式: 分岐角 = arctan(1/N)
+    return Math.atan(1 / switchNumber);
+  } else {
+    // 欧州式: 分岐角 = arcsin(1/N)
+    return Math.asin(1 / switchNumber);
+  }
+}
+
+/**
+ * 分岐器の軌道を作成する（交点と分岐番数から）
+ *
+ * @param mainTrack 本線の軌道
+ * @param mainTrackLength 本線上の交点位置（距離）
+ * @param switchNumber 分岐番数（例：8, 10, 12）
+ * @param isJapanese true=日本式（正接）、false=欧州式（正弦）
+ * @param isDivergeLeft 分岐方向が左か（true=左、false=右）
+ * @param divergingLength 分岐側の直線軌道長
+ * @param trackModels トラックモデル
+ * @returns 作成された軌道と分岐器の情報
+ */
+export function createSwitchTracks(
+  mainTrack: Track,
+  mainTrackLength: number,
+  switchNumber: number,
+  isJapanese: boolean,
+  isDivergeLeft: boolean,
+  divergingLength: number,
+  trackModels: TrackModel[] = [],
+): {
+  mainTrackBefore: SerializableTrack;
+  mainTrackAfter: SerializableTrack;
+  divergingTrack: SerializableTrack;
+  switch: Switch;
+} {
+  const angle = getSwitchAngle(switchNumber, isJapanese);
+  const direction = isDivergeLeft ? 1 : -1;
+
+  // 本線の交点位置の座標と回転を取得
+  const intersectionPos = getPosition(mainTrack, mainTrackLength);
+  const mainRotationY = mainTrack.rotationY;
+
+  // 本線の傾き（勾配）を取得
+  const gradient = getGradient(mainTrack, mainTrackLength);
+
+  // 本線を分岐点で分割
+  const mainTrackBefore: SerializableTrack = {
+    position: mainTrack.position.toArray(),
+    rotationY: mainTrack.rotationY,
+    length: mainTrackLength,
+    radius: mainTrack.radius,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: mainTrack.beginCant,
+    endCant: mainTrackLength > 0 ? getCant(mainTrack, mainTrackLength) : mainTrack.beginCant,
+    trackModels,
+    gradients: { ...mainTrack.gradients },
+  };
+
+  const mainTrackAfter: SerializableTrack = {
+    position: intersectionPos.toArray(),
+    rotationY: mainTrack.rotationY,
+    length: mainTrack.length - mainTrackLength,
+    radius: mainTrack.radius,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: mainTrackLength > 0 ? getCant(mainTrack, mainTrackLength) : mainTrack.beginCant,
+    endCant: mainTrack.endCant,
+    trackModels,
+    gradients: (() => {
+      // 勾配の相対位置を調整
+      const newGradients: GradientsType = {};
+      for (const [pos, grad] of Object.entries(mainTrack.gradients)) {
+        const newPos = parseFloat(pos) - mainTrackLength;
+        if (newPos >= 0) {
+          newGradients[newPos.toString()] = grad;
+        }
+      }
+      if (Object.keys(newGradients).length === 0) {
+        newGradients["0"] = getGradient(mainTrack, mainTrackLength);
+      }
+      return newGradients;
+    })(),
+  };
+
+  // 分岐側の軌道：本線から角度をつけて分岐
+  // 勾配に合わせて傾いた平面上に敷設する
+  // 分岐角が大きくなるほどカントが付く（外軌超高）
+  const cantAngle = Math.abs(angle) * direction;
+
+  // 分岐側の回転角を計算
+  const divergingRotationY = mainRotationY + angle * direction;
+
+  // 分岐側の位置：交点から分岐角の方向に少しオフセット
+  const divergingPos = new THREE.Vector3(
+    intersectionPos.x,
+    intersectionPos.y,
+    intersectionPos.z,
+  );
+
+  const divergingTrack: SerializableTrack = {
+    position: divergingPos.toArray(),
+    rotationY: divergingRotationY,
+    length: divergingLength,
+    radius: 0,
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: cantAngle,
+    endCant: cantAngle,
+    trackModels,
+    gradients: (() => {
+      // 分岐側の勾配：本線の勾配に分岐角の効果を加算
+      return { 0: gradient + Math.tan(angle) * 1000 * direction };
+    })(),
+  };
+
+  // 分岐器オブジェクト
+  const railroadSwitch: Switch = {
+    connectedTrackIds: [],
+    isConnectedToEnd: [],
+    currentConnected: -1,
+  };
+
+  return {
+    mainTrackBefore,
+    mainTrackAfter,
+    divergingTrack,
+    switch: railroadSwitch,
+  };
+}
+

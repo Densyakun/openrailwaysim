@@ -24,6 +24,7 @@ import { trainsState } from '@/lib/client/trains';
 import DiagramsTabPanel from './DiagramsTabPanel';
 import CameraPositionChip from '../CameraPositionChip';
 import TerrainsTabPanel from './TerrainsTabPanel';
+import SwitchPlacementPanel from './SwitchPlacementPanel';
 import { store } from '@/lib/game';
 
 function TopInfo() {
@@ -69,6 +70,7 @@ const menuComponents: {
   'switches': {
     title: 'Switches',
     icon: <AltRouteIcon />,
+    component: <SwitchPlacementPanel />,
   },
   'trains': {
     title: 'Trains',

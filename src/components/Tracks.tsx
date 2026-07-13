@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useSnapshot } from 'valtio'
 import { Detailed, Line } from '@react-three/drei'
-import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation, SerializableTrack, SerializableTransitionCurve } from '@/lib/tracks'
+import { Track, TransitionCurve, getCant, getLength, getPosition, getRotation, SerializableTransitionCurve } from '@/lib/tracks'
 import { tracksSubMenuState } from './gui/TracksSubMenu'
 import { socket } from './Client'
 import GLTFModel from './GLTFModel';
@@ -20,6 +20,7 @@ import { Fragment, useEffect } from 'react'
 import { gltfState } from '@/lib/client/gltf'
 import { MessageCode, send } from '@/lib/ws'
 import { curveEditMenuState } from '@/lib/client/curveEditMenu'
+import { switchPlacementState } from '@/lib/client/switchPlacement'
 import { store } from '@/lib/game'
 
 function ErrorFallback({ }: FallbackProps) {
@@ -354,6 +355,55 @@ function OffsetTrackPreview() {
   </>;
 }
 
+function SwitchPlacementPreview() {
+  const { isPlacing, previewTracks } = useSnapshot(switchPlacementState);
+
+  if (!isPlacing || previewTracks.length === 0) return null;
+
+  return <>
+    {previewTracks.map((track, index) => {
+      const serTrack = track as SerializableTransitionCurve;
+      const isTransition = serTrack.endPosition !== undefined;
+      const convertedTrack: Track = {
+        ...track,
+        ...(isTransition ? {
+          endPosition: new THREE.Vector3(...serTrack.endPosition),
+          transitionCurves: serTrack.transitionCurves.map(s => ({
+            ...s,
+            position: new THREE.Vector3(...s.position),
+          })),
+          curveDirection: serTrack.curveDirection,
+        } : {}),
+        position: new THREE.Vector3(...track.position),
+        trackModels: [...track.trackModels],
+        idOfTrackOrSwitchConnectedFromStart: "",
+        idOfTrackOrSwitchConnectedFromEnd: "",
+        connectedFromStartIsTrack: true,
+        connectedFromEndIsTrack: true,
+        connectedFromStartIsToEnd: false,
+        connectedFromEndIsToEnd: false,
+      };
+
+      const { length } = track;
+      const { lengthOfPoints } = getLengthOfPoints(convertedTrack);
+      const points = lengthOfPoints.map(length => getPosition(convertedTrack, length));
+
+      if (points.some(p => isNaN(p.x) || isNaN(p.y) || isNaN(p.z))) {
+        return null;
+      }
+
+      // 分岐側(index=2)は黄色、本線は水色
+      const color = index === 2 ? "#ff0" : "#0ff";
+
+      return <TrackLine
+        key={index}
+        points={points}
+        color={color}
+      />;
+    })}
+  </>;
+}
+
 function PointingOnTrack() {
   const { pointingOnTrack } = useSnapshot(tracksState);
   const { tracks } = useSnapshot(store.data);
@@ -398,6 +448,7 @@ export default function Tracks() {
     })}
     <AddingTracks />
     <OffsetTrackPreview />
+    <SwitchPlacementPreview />
     {!tracksIsEditing && <PointingOnTrack />}
     <PointingOnTrackDiagramSectionRoute />
   </>;
@@ -410,6 +461,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
   const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
+  const { isPlacing: isSwitchPlacing } = useSnapshot(switchPlacementState);
 
   track = { ...track };
   if (editingTrackId) {
@@ -482,14 +534,16 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     && 0 <= selectingDiagramSectionIndex;
   const eventIsEnable =
     selectedTab === "tracks"
+    || selectedTab === "switches"
     || T
     || D
     || tracksIsEditing
     || isOffsetting;
   const isSelectable =
-    selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing && !isOffsetting;
+    (selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing && !isOffsetting)
+    || (selectedTab === "switches" && isSwitchPlacing);
   let isHoverable = isSelectable;
-  let isPointableOnTrack = T;
+  let isPointableOnTrack = T || (selectedTab === "switches" && isSwitchPlacing);
 
   if (tracksIsEditing) {
     if (!editingTrackIds.length) {
@@ -640,6 +694,15 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
             tracksState.selectedTrackIds.splice(index, 1);
           else
             tracksState.selectedTrackIds.push(trackId);
+        }
+
+        // 分岐器敷設モード
+        if (selectedTab === "switches" && isSwitchPlacing) {
+          if (!tracksState.pointingOnTrack || trackId !== tracksState.pointingOnTrack.trackId) return;
+
+          switchPlacementState.mainTrackId = trackId;
+          switchPlacementState.mainTrackLength = tracksState.pointingOnTrack.length;
+          return;
         }
 
         if (T) {
@@ -955,8 +1018,20 @@ function useTrackColorOnTrackMode(trackId: string) {
   const { focusedNextTrackIndex, nextTrackIds } = useSnapshot(editTracksInDiagramState);
   const { tracks } = useSnapshot(store.data);
   const { switches } = useSnapshot(store.data);
+  const { isPlacing: isSwitchPlacing, mainTrackId } = useSnapshot(switchPlacementState);
 
   if (isAddingCurve) return "#888";
+
+  // 分岐器敷設モード
+  if (selectedTab === "switches" && isSwitchPlacing) {
+    if (trackId === mainTrackId) return "#f00";
+    if (
+      0 <= hoveredTracks.findIndex(value => value === trackId)
+      || pointingOnTrack?.trackId === trackId
+    )
+      return "#ff0";
+    return;
+  }
 
   if (tracksIsEditing || isOffsetting) {
     if (editingTrackIds.includes(trackId)) return "#f0f";

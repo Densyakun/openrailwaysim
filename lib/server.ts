@@ -6,6 +6,7 @@ import { fetchHeightmap } from "./terrain";
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
+import { relocateTrainsForTimeChange } from "./diagram";
 import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
 
 export const saveFilePath = "./save.json";
@@ -290,6 +291,20 @@ export function setupServer(wss: WebSocketServer) {
         case MessageCode.FROM_CLIENT_SAVE: {
           saveData();
           send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_SET_TIME: {
+          if (typeof value !== 'number') break;
+
+          const newNowDate = value as number;
+
+          // 時刻を変更
+          store.data.nowDate = newNowDate;
+
+          // 列車を再配置
+          relocateTrainsForTimeChange(store.data, newNowDate);
 
           messageEmitter.isInvalidMessage = false;
           break;

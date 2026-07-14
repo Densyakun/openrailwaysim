@@ -1,4 +1,5 @@
 import { ORSAppDataType } from "./game";
+import { Train, placeTrain, setupTrainMetrics, TrainFormat } from "./trains";
 import moment from 'moment-timezone';
 
 /**
@@ -191,4 +192,195 @@ export function getRouteIndex(sections: DiagramSection[], diagramCurve: TrainDia
 
 export function getTimeText(date: Date, timezone: string): string {
   return moment.tz(date, timezone || "Asia/Tokyo").format((timezone || "Asia/Tokyo") === "Asia/Tokyo" ? "HH:mm:ss" : "HH:mm:ss (z)");
+}
+
+/**
+ * ダイヤカーブのインデックスから、指定時刻における列車のセクションインデックスと進路インデックスを求める
+ */
+function getSectionIndexAtTime(
+  diagramSections: DiagramSection[],
+  diagramCurve: TrainDiagramCurve,
+  nowTimeMs: number,
+): { sectionIndex: number; routeIndex: number } | null {
+  const cycleMs = twelveHoursMilliseconds * 2;
+  const timeInCycle = nowTimeMs % cycleMs;
+
+  // セクションを順に走査し、列車がどこにいるかを判定
+  let currentSectionIndex = -1;
+  for (let i = 0; i < diagramSections.length; i++) {
+    // 経由しないセクションはスキップ
+    if (diagramCurve.passTime[i] === ROUTE_NOT_VIA) continue;
+
+    const passTime = diagramCurve.passTime[i] % cycleMs;
+
+    // 発車時刻が来ていないなら、このセクションにいる（到着済みで発車待ち）
+    const timeSincePass = (timeInCycle - passTime + cycleMs) % cycleMs;
+    if (timeSincePass < twelveHoursMilliseconds) {
+      // まだ発車時刻から12時間以内（＝発車時刻が「未来」または「直近」）
+      currentSectionIndex = i;
+      break;
+    }
+
+    // このセクションは発車済み
+    currentSectionIndex = i;
+  }
+
+  if (currentSectionIndex < 0) return null;
+
+  const routeIndex = getRouteIndex(
+    diagramSections,
+    diagramCurve,
+    currentSectionIndex,
+    // 既知のtrackIdがない場合でも、最初のルートを返す
+    diagramSections[currentSectionIndex].routes[0]?.trackIds[0] ?? "",
+  );
+
+  return {
+    sectionIndex: currentSectionIndex,
+    routeIndex: routeIndex >= 0 ? routeIndex : 0,
+  };
+}
+
+/**
+ * 時刻変更に合わせて列車を再配置する。
+ * 全列車のダイヤ割り当てを解除し、新しい時刻に合わせて再割り当て・テレポートする。
+ */
+export function relocateTrainsForTimeChange(data: ORSAppDataType, newNowDate: number) {
+  // 1. 全列車のダイヤ割り当てを解除
+  for (const train of Object.values(data.trains)) {
+    train.currentDiagramId = "";
+    train.currentDiagramCurveIndex = -1;
+    train.currentDiagramSectionIndex = 0;
+    train.currentRouteIndex = 0;
+    train.isStopping = true;
+    train.speed = 0;
+  }
+
+  // 2. 新しい時刻に合わせて列車を配置するための情報を作成
+  // 各ダイヤカーブに対して、新しい時刻でのセクションを求める
+  type PlacementInfo = {
+    trainId: string;
+    trainFormatId: string;
+    diagramId: string;
+    diagramCurveIndex: number;
+    sectionIndex: number;
+    routeIndex: number;
+    trackRoute: DiagramTrackRoute;
+  };
+
+  const placements: PlacementInfo[] = [];
+
+  for (const [diagramId, diagram] of Object.entries(data.diagrams)) {
+    for (let curveIndex = 0; curveIndex < diagram.diagramCurves.length; curveIndex++) {
+      const diagramCurve = diagram.diagramCurves[curveIndex];
+
+      const result = getSectionIndexAtTime(diagram.sections, diagramCurve, newNowDate);
+      if (!result) continue;
+
+      const section = diagram.sections[result.sectionIndex];
+      if (!section.routes[result.routeIndex]) continue;
+
+      placements.push({
+        trainId: "",
+        trainFormatId: "",
+        diagramId,
+        diagramCurveIndex: curveIndex,
+        sectionIndex: result.sectionIndex,
+        routeIndex: result.routeIndex,
+        trackRoute: section.routes[result.routeIndex],
+      });
+    }
+  }
+
+  // 3. 既存の列車と配置情報をマッチング
+  // TrainGroupでフィルタリング: 各ダイヤのtrainGroupsに含まれる列車グループの列車のみ割り当てる
+  const trainIds = Object.keys(data.trains);
+  const assignedTrainIds = new Set<string>();
+
+  for (const placement of placements) {
+    const diagram = data.diagrams[placement.diagramId];
+
+    // このダイヤに関連するTrainGroupの列車を探す
+    let matchedTrainId = "";
+    for (const trainId of trainIds) {
+      if (assignedTrainIds.has(trainId)) continue;
+      const train = data.trains[trainId];
+
+      // trainGroupsフィルタ: trainGroupsが定義されていて、列車がグループに含まれているか確認
+      if (diagram.trainGroups.length > 0) {
+        const isInGroup = diagram.trainGroups.some(groupId => {
+          const group = data.trainGroups[groupId];
+          return group && group.includes(trainId);
+        });
+        if (!isInGroup) continue;
+      }
+
+      matchedTrainId = trainId;
+      break;
+    }
+
+    if (!matchedTrainId) continue;
+    assignedTrainIds.add(matchedTrainId);
+
+    placement.trainId = matchedTrainId;
+    placement.trainFormatId = data.trains[matchedTrainId].trainFormatId;
+  }
+
+  // 4. 列車を配置（重複を避ける）
+  // 同じtrackId+lengthに列車が重ならないように、配置済みの位置を追跡する
+  const placedPositions = new Map<string, number>(); // trackId -> 次に使用するlength
+
+  for (const placement of placements) {
+    if (!placement.trainId) continue;
+
+    const train = data.trains[placement.trainId];
+    const trainFormat = data.trainFormats[placement.trainFormatId];
+    if (!trainFormat) continue;
+
+    const trackRoute = placement.trackRoute;
+    if (!trackRoute.trackIds.length) continue;
+
+    // 始点のtrackIdとlengthを求める
+    const firstTrackId = trackRoute.trackIds[0];
+    const track = data.tracks[firstTrackId];
+    if (!track) continue;
+
+    // 重複を避けるため、同じtrackIdに既に列車がある場合はオフセットを加える
+    const posKey = firstTrackId;
+    const existingLength = placedPositions.get(posKey) ?? 0;
+    const trainLength = trainFormat.bogies.reduce((sum, b) => {
+      const lastAxle = b.axles[b.axles.length - 1];
+      const firstAxle = b.axles[0];
+      return Math.max(sum, Math.abs((lastAxle?.z ?? 0) - (firstAxle?.z ?? 0)));
+    }, 3); // デフォルトの列車長さは3m
+
+    const pointOnTrack = { trackId: firstTrackId, length: existingLength };
+    placedPositions.set(posKey, existingLength + trainLength + 2); // 2mの隙間を空ける
+
+    const directionIsReversed = false;
+
+    // placeTrainで新しいTrainを生成
+    const result = placeTrain(trainFormat, pointOnTrack, directionIsReversed);
+    if (!result.train) continue;
+
+    // 既存の列車のプロパティを新しい列車で置き換える
+    train.bogies = result.train.bogies;
+    train.otherBodies = result.train.otherBodies;
+    train.cabStates = result.train.cabStates;
+    train.fromJointIndexes = result.train.fromJointIndexes;
+    train.toJointIndexes = result.train.toJointIndexes;
+    train.weight = result.train.weight;
+    train.motors = result.train.motors;
+    train.speed = 0;
+
+    // ダイヤ状態を設定
+    train.currentDiagramId = placement.diagramId;
+    train.currentDiagramCurveIndex = placement.diagramCurveIndex;
+    train.currentDiagramSectionIndex = placement.sectionIndex;
+    train.currentRouteIndex = placement.routeIndex;
+    train.isStopping = true;
+  }
+
+  // 5. 割り当てられなかった列車を通常の割り当てに任せる
+  assignSchedulesToTrains(data);
 }

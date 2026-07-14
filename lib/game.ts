@@ -11,6 +11,7 @@ import { MessageCode, MessageValueMap } from './ws';
 import { proxy } from 'valtio';
 import { ConstructionZone } from './construction';
 import { Tunnel } from './tunnel';
+import { Platform, WorldModel } from './platforms';
 
 // TODO Pathの親世代のパスに対して子のパスの型推論が正しく行われないのを修正する
 // Prevent infinite recursion in types with circular references by limiting recursion depth
@@ -67,6 +68,8 @@ export type ORSAppDataType = {
   diagrams: { [key: string]: Diagram };
   constructionZones: { [key: string]: ConstructionZone };
   tunnels: { [key: string]: Tunnel };
+  platforms: { [key: string]: Platform };
+  worldModels: { [key: string]: WorldModel };
 };
 
 export type SerializableORSAppDataType = {
@@ -83,6 +86,8 @@ export type SerializableORSAppDataType = {
   diagrams: { [key: string]: Diagram };
   constructionZones: { [key: string]: ConstructionZone };
   tunnels: { [key: string]: Tunnel };
+  platforms: { [key: string]: Platform };
+  worldModels: { [key: string]: WorldModel };
 };
 
 export function createAppData(): ORSAppDataType {
@@ -100,6 +105,8 @@ export function createAppData(): ORSAppDataType {
     diagrams: {},
     constructionZones: {},
     tunnels: {},
+    platforms: {},
+    worldModels: {},
   };
 }
 
@@ -126,6 +133,7 @@ export const carBodyArrayTypeId = "carBodyArray";
 export const carBodyTypeId = "carBody";
 export const threeVector3TypeId = "THREE.Vector3";
 export const threeEulerTypeId = "THREE.Euler";
+export const worldModelsObjectTypeId = "worldModelsObject";
 
 export function getTypeIdByPath(path: Path<SerializableORSAppDataType>) {
   if (!path.length) return orsAppDataTypeId;
@@ -202,9 +210,25 @@ export function serialize(type: string, value: any): any {
       ...orsAppData,
       tracks: serialize(tracksObjectTypeId, orsAppData.tracks) as { [key: string]: SerializableTrack | SerializableTransitionCurve },
       trainFormats: serialize(trainFormatsObjectTypeId, orsAppData.trainFormats) as { [key: string]: SerializableTrainFormat },
+      worldModels: serialize(worldModelsObjectTypeId, orsAppData.worldModels) as { [key: string]: any },
     };
 
     return serializableORSAppData;
+  } else if (type === worldModelsObjectTypeId) {
+    const worldModels: { [key: string]: WorldModel } = value;
+    const serializableWorldModels: { [key: string]: any } = {};
+
+    Object.keys(worldModels).forEach(id => {
+      const model = worldModels[id];
+      serializableWorldModels[id] = {
+        ...model,
+        position: serialize(threeVector3TypeId, model.position),
+        rotation: serialize(threeEulerTypeId, model.rotation),
+        scale: serialize(threeVector3TypeId, model.scale),
+      };
+    });
+
+    return serializableWorldModels;
   } else if (type === tracksObjectTypeId) {
     const tracks: { [key: string]: Track | TransitionCurve } = value;
     const serializableTracks: { [key: string]: SerializableTrack | SerializableTransitionCurve } = {};
@@ -459,9 +483,25 @@ export function deserialize(type: string, value: any): any {
       tracks: deserialize(tracksObjectTypeId, serializableORSAppData.tracks) as { [key: string]: Track },
       trainFormats: deserialize(trainFormatsObjectTypeId, serializableORSAppData.trainFormats) as { [key: string]: TrainFormat },
       trains: deserialize(trainsObjectTypeId, serializableORSAppData.trains) as { [key: string]: Train },
+      worldModels: deserialize(worldModelsObjectTypeId, serializableORSAppData.worldModels) as { [key: string]: WorldModel },
     };
 
     return orsAppData;
+  } else if (type === worldModelsObjectTypeId) {
+    const serializableWorldModels: { [key: string]: any } = value;
+    const worldModels: { [key: string]: WorldModel } = {};
+
+    Object.keys(serializableWorldModels).forEach(id => {
+      const model = serializableWorldModels[id];
+      worldModels[id] = {
+        ...model,
+        position: deserialize(threeVector3TypeId, model.position),
+        rotation: deserialize(threeEulerTypeId, model.rotation),
+        scale: deserialize(threeVector3TypeId, model.scale),
+      };
+    });
+
+    return worldModels;
   } else if (type === tracksObjectTypeId) {
     const serializableTracks: { [key: string]: SerializableTrack } = value;
     const tracks: { [key: string]: Track } = {};

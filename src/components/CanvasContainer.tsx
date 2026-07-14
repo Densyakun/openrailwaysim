@@ -10,6 +10,8 @@ import Terrains from './Terrains'
 import TerrainGenerator from './TerrainGenerator'
 import ConstructionZones from './ConstructionZoneMesh'
 import Tunnels from './TunnelMesh'
+import Platforms from './PlatformMesh'
+import WorldModels from './WorldModels'
 import Client from './Client'
 import { ErrorBoundary } from 'react-error-boundary'
 import { useSnapshot } from 'valtio'
@@ -50,6 +52,8 @@ export default function CanvasContainer() {
           <Trains />
           <ConstructionZones />
           <Tunnels />
+          <Platforms />
+          <WorldModels />
           <Terrains />
           <TerrainGenerator />
         </>

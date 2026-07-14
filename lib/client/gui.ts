@@ -16,5 +16,6 @@ export function lightingIsForEditing(selectedTab: string) {
     || selectedTab === "tracks"
     || selectedTab === "switches"
     || selectedTab === "trains" && trainsState.activeBodyIndex === -1
-    || selectedTab === "diagrams" && diagramsTabPanelState.editingSectionsInDiagramId;
+    || selectedTab === "diagrams" && diagramsTabPanelState.editingSectionsInDiagramId
+    || selectedTab === "platforms";
 }

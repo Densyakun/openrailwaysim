@@ -15,7 +15,7 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { store } from '@/lib/game';
 import { platformsState } from '@/lib/client/platforms';
-import { Platform, BoundaryVertex, WorldModel } from '@/lib/platforms';
+import { Platform, BoundaryVertex, WorldModel, exportPlatformAsGLTF, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
 
@@ -454,9 +454,19 @@ export default function PlatformsTabPanel() {
     }
   };
 
-  const handleExportGLTF = () => {
-    // GLTFエクスポート機能（将来実装）
-    alert('GLTFエクスポート機能は現在開発中です');
+  const handleExportGLTF = async () => {
+    const platformList = Object.values(platforms);
+    if (platformList.length === 0) {
+      alert('エクスポートするプラットフォームがありません');
+      return;
+    }
+
+    const blob = await exportPlatformsAsGLTF(platformList);
+    if (blob) {
+      downloadBlob(blob, 'platforms.gltf');
+    } else {
+      alert('エクスポートに失敗しました');
+    }
   };
 
   const handleImportModel = (event: React.ChangeEvent<HTMLInputElement>) => {

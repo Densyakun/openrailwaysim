@@ -234,6 +234,95 @@ export function mergePlatforms(
 }
 
 /**
+ * プラットフォームをGLTF形式でエクスポートする
+ */
+export async function exportPlatformAsGLTF(platform: Platform): Promise<Blob | null> {
+  const geometry = createPlatformMesh(platform);
+  if (!geometry) return null;
+
+  const scene = new THREE.Scene();
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshStandardMaterial({ color: platform.color })
+  );
+  scene.add(mesh);
+
+  // THREE.jsのGLTFExporterを使用
+  const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+  const exporter = new GLTFExporter();
+
+  return new Promise((resolve) => {
+    exporter.parse(
+      scene,
+      (result) => {
+        const output = JSON.stringify(result);
+        const blob = new Blob([output], { type: 'application/json' });
+        resolve(blob);
+      },
+      (error) => {
+        console.error('GLTF export failed:', error);
+        resolve(null);
+      },
+      { binary: false }
+    );
+  });
+}
+
+/**
+ * 複数のプラットフォームをGLTF形式でエクスポートする
+ */
+export async function exportPlatformsAsGLTF(platforms: Platform[]): Promise<Blob | null> {
+  if (platforms.length === 0) return null;
+
+  const scene = new THREE.Scene();
+
+  for (const platform of platforms) {
+    const geometry = createPlatformMesh(platform);
+    if (!geometry) continue;
+
+    const mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshStandardMaterial({ color: platform.color })
+    );
+    mesh.name = platform.name;
+    scene.add(mesh);
+  }
+
+  const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+  const exporter = new GLTFExporter();
+
+  return new Promise((resolve) => {
+    exporter.parse(
+      scene,
+      (result) => {
+        const output = JSON.stringify(result);
+        const blob = new Blob([output], { type: 'application/json' });
+        resolve(blob);
+      },
+      (error) => {
+        console.error('GLTF export failed:', error);
+        resolve(null);
+      },
+      { binary: false }
+    );
+  });
+}
+
+/**
+ * ダウンロードリンクを生成する
+ */
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
  * 凸包を計算する（Andrew's monotone chain algorithm）
  */
 function computeConvexHull(points: THREE.Vector3[]): THREE.Vector3[] {

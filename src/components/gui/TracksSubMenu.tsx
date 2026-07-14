@@ -43,6 +43,9 @@ export const tracksSubMenuState = proxy<{
   endCant: string;
   tracksIsEditing: boolean;
   editingTrackIds: string[];
+  showTrackTypes: boolean;
+  showShortTracks: boolean;
+  shortTrackThreshold: number;
 }>({
   isAddingCurve: false,
   hoveredAddingTracks: -1,
@@ -54,6 +57,9 @@ export const tracksSubMenuState = proxy<{
   endCant: "",
   tracksIsEditing: false,
   editingTrackIds: [],
+  showTrackTypes: false,
+  showShortTracks: false,
+  shortTrackThreshold: 10,
 });
 
 function TrackModelSettings() {
@@ -266,6 +272,7 @@ export default function TracksSubMenu() {
 
 function MainMenu() {
   const { selectedTrackIds } = useSnapshot(tracksState);
+  const { showTrackTypes, showShortTracks, shortTrackThreshold } = useSnapshot(tracksSubMenuState);
 
   return <Stack direction={'column'} spacing={1}>
     <div>Selected: {selectedTrackIds.length}</div>
@@ -405,6 +412,47 @@ function MainMenu() {
     }}>
       Edit vertical curve
     </Button>
+    
+    {/* 表示オプション */}
+    <Paper sx={{ p: 1, mt: 1 }}>
+      <Typography variant="subtitle2" gutterBottom>
+        表示オプション
+      </Typography>
+      <Stack spacing={1}>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Checkbox
+            checked={showTrackTypes}
+            onChange={(e) => {
+              tracksSubMenuState.showTrackTypes = e.target.checked;
+            }}
+          />
+          <Typography variant="body2">軌道タイプを色分け</Typography>
+        </Stack>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Checkbox
+            checked={showShortTracks}
+            onChange={(e) => {
+              tracksSubMenuState.showShortTracks = e.target.checked;
+            }}
+          />
+          <Typography variant="body2">短い軌道をハイライト</Typography>
+        </Stack>
+        {showShortTracks && (
+          <TextField
+            label="短い軌道の閾値 (m)"
+            value={shortTrackThreshold}
+            size="small"
+            type="number"
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value > 0) {
+                tracksSubMenuState.shortTrackThreshold = value;
+              }
+            }}
+          />
+        )}
+      </Stack>
+    </Paper>
   </Stack>;
 }
 

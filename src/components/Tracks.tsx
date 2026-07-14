@@ -1010,8 +1010,21 @@ function getGradientAtPosition(points: { position: number; gradient: number }[],
   return beforePoint.gradient + t * (afterPoint.gradient - beforePoint.gradient);
 }
 
+function getTrackTypeColor(track: Track): string | undefined {
+  // 緩和曲線
+  if ((track as TransitionCurve).transitionCurves !== undefined) {
+    return "#0f0"; // 緩和曲線は緑
+  }
+  // 円曲線（曲率半径が0でない直線以外）
+  if (track.radius !== 0) {
+    return "#00f"; // 円曲線は青
+  }
+  // 直線
+  return "#ff0"; // 直線は黄
+}
+
 function useTrackColorOnTrackMode(trackId: string) {
-  const { isAddingCurve, isEditingModels, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
+  const { isAddingCurve, isEditingModels, tracksIsEditing, editingTrackIds, isOffsetting, showTrackTypes, showShortTracks, shortTrackThreshold } = useSnapshot(tracksSubMenuState);
   const { selectedTab } = useSnapshot(guiState);
   const { hoveredTracks, selectedTrackIds, pointingOnTrack } = useSnapshot(tracksState);
   const { sections, selectingDiagramSectionIndex, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
@@ -1077,6 +1090,22 @@ function useTrackColorOnTrackMode(trackId: string) {
           const trackSwitch = switches[hoveredTrack.idOfTrackOrSwitchConnectedFromEnd];
           if (trackSwitch.connectedTrackIds.includes(trackId)) return "#00f";
         }
+      }
+    }
+
+    // 軌道タイプ別の色付け（非選択・非編集時のみ）
+    if (showTrackTypes && !tracksIsEditing && !isOffsetting && selectedTrackIds.length === 0) {
+      const track = tracks[trackId];
+      if (track) {
+        return getTrackTypeColor(track);
+      }
+    }
+
+    // 短い軌道のハイライト
+    if (showShortTracks) {
+      const track = tracks[trackId];
+      if (track && track.length < shortTrackThreshold) {
+        return "#f0f"; // 短い軌道はマゼンタ
       }
     }
   } else if (sections.length) {

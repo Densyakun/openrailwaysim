@@ -84,10 +84,14 @@ export function getSaveData() {
 }
 
 export function storeSaveData(saveData: ORSAppSaveDataType) {
-  store.data = deserialize(orsAppDataTypeId, {
+  const newData = deserialize(orsAppDataTypeId, {
     ...saveData,
     trains: {},
   }) as ORSAppDataType;
+
+  Object.keys(newData).forEach(key =>
+    store.data[key as keyof ORSAppDataType] = newData[key]
+  );
 
   Object.keys(saveData.trains).forEach(trainId => {
     const savedTrain = saveData.trains[trainId];

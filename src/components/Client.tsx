@@ -71,6 +71,9 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
     case MessageCode.FROM_SERVER_AUTH_RESULT:
       if (value) {
         clientState.isAuthenticated = true;
+        if (!clientState.adminPasswordRequired) {
+          clientState.isAdmin = true;
+        }
         send(ws, MessageCode.FROM_CLIENT_SET_USERNAME, clientState.username || "Anonymous");
       } else {
         clientState.passwordRequired = true;
@@ -79,6 +82,25 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       break
     case MessageCode.FROM_SERVER_USER_LIST:
       clientState.users = value as { id: string; username: string }[]
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED:
+      clientState.adminPasswordRequired = value as boolean
+      if (!(value as boolean) && clientState.isAuthenticated) {
+        clientState.isAdmin = true
+      }
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_ADMIN_AUTH_RESULT:
+      clientState.isAdmin = value as boolean
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_SAVE_LIST:
+      clientState.saves = value as string[]
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_LOAD_COMPLETED:
+      clientState.showSaveSuccess = true
       messageEmitter.isInvalidMessage = false
       break
     default:
@@ -121,6 +143,7 @@ function Subscription({ address }: { address: string }) {
         clientState.readyState = socket.readyState as 3
         clientState.isSynced = false
         clientState.isAuthenticated = false
+        clientState.isAdmin = false
         clientState.passwordRequired = false
         messageEmitter.off('message', onMessage)
 

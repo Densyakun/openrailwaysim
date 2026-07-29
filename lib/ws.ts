@@ -20,6 +20,13 @@ export enum MessageCode {
   FROM_CLIENT_SET_USERNAME,
   FROM_SERVER_USER_LIST,
   FROM_SERVER_ADMIN_PASSWORD_REQUIRED,
+  FROM_CLIENT_ADMIN_AUTH,
+  FROM_SERVER_ADMIN_AUTH_RESULT,
+  FROM_CLIENT_LIST_SAVES,
+  FROM_SERVER_SAVE_LIST,
+  FROM_CLIENT_LOAD_SAVE,
+  FROM_SERVER_LOAD_COMPLETED,
+  FROM_CLIENT_DELETE_SAVE,
 }
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
@@ -29,7 +36,7 @@ export type MessageValueMap = {
   [MessageCode.FROM_CLIENT_MESSAGES]: [MessageCode, unknown][];
   [MessageCode.FROM_CLIENT_SET_PROP]: [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?];
   [MessageCode.FROM_CLIENT_DELETE_PROP]: Path<SerializableORSAppDataType>;
-  [MessageCode.FROM_CLIENT_SAVE]: undefined;
+  [MessageCode.FROM_CLIENT_SAVE]: string;
   [MessageCode.FROM_CLIENT_SWITCH_TRACK]: [string, number];
   [MessageCode.FROM_CLIENT_GET_HEIGHTMAP]: [number, number];
   [MessageCode.FROM_SERVER_SAVE_COMPLETED]: undefined;
@@ -37,7 +44,14 @@ export type MessageValueMap = {
   [MessageCode.FROM_SERVER_AUTH_RESULT]: boolean;
   [MessageCode.FROM_CLIENT_SET_USERNAME]: string;
   [MessageCode.FROM_SERVER_USER_LIST]: { id: string; username: string }[];
-  [MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED]: undefined;
+  [MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED]: boolean;
+  [MessageCode.FROM_CLIENT_ADMIN_AUTH]: string;
+  [MessageCode.FROM_SERVER_ADMIN_AUTH_RESULT]: boolean;
+  [MessageCode.FROM_CLIENT_LIST_SAVES]: undefined;
+  [MessageCode.FROM_SERVER_SAVE_LIST]: string[];
+  [MessageCode.FROM_CLIENT_LOAD_SAVE]: string;
+  [MessageCode.FROM_SERVER_LOAD_COMPLETED]: undefined;
+  [MessageCode.FROM_CLIENT_DELETE_SAVE]: string;
 };
 
 // valueの子の型パラメータを使って型推論を行う場合のメッセージコードのオーバーロード

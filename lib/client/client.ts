@@ -13,6 +13,10 @@ export const clientState = proxy<{
   connectionPassword: string;
   isAuthenticated: boolean;
   passwordRequired: boolean;
+  isAdmin: boolean;
+  adminPasswordRequired: boolean;
+  saves: string[];
+  currentSave: string;
   users: { id: string; username: string }[];
 }>({
   readyState: WebSocket.CONNECTING,
@@ -24,6 +28,10 @@ export const clientState = proxy<{
   connectionPassword: "",
   isAuthenticated: false,
   passwordRequired: false,
+  isAdmin: false,
+  adminPasswordRequired: false,
+  saves: [],
+  currentSave: "",
   users: [],
 });
 

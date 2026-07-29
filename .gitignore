@@ -26,4 +26,4 @@ dist-ssr
 .env
 
 # ORS user data
-save.json
+saves/*

@@ -5,6 +5,7 @@ import CanvasContainer from './components/CanvasContainer'
 import GUI from './components/gui/GUI'
 import { ErrorBoundary } from 'react-error-boundary'
 import ErrorFallback from './components/ErrorFallback'
+import ConnectDialog from './components/ConnectDialog'
 
 const darkTheme = createTheme({
   palette: {
@@ -20,6 +21,7 @@ function App() {
         <ErrorBoundary FallbackComponent={ErrorFallback}>
           <CanvasContainer />
           <GUI />
+          <ConnectDialog />
         </ErrorBoundary>
       </ThemeProvider>
     </>

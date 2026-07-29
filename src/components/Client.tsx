@@ -4,7 +4,7 @@ import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
 import { onFrame as onFrameTrains } from "./Trains"
 import { tracksState } from "@/lib/client/tracks/store"
-import { MessageCode } from "@/lib/ws"
+import { MessageCode, send } from "@/lib/ws"
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
   const data = store.data;
@@ -56,10 +56,6 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
             deleteObj(data, path)
 
             break
-          /*case "resolve":
-            break
-          case "reject":
-            break*/
           default:
             console.error(`op: ${op}`)
             break
@@ -70,6 +66,19 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       break
     case MessageCode.FROM_SERVER_SAVE_COMPLETED:
       clientState.showSaveSuccess = true
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_AUTH_RESULT:
+      if (value) {
+        clientState.isAuthenticated = true;
+        send(ws, MessageCode.FROM_CLIENT_SET_USERNAME, clientState.username || "Anonymous");
+      } else {
+        clientState.passwordRequired = true;
+      }
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_USER_LIST:
+      clientState.users = value as { id: string; username: string }[]
       messageEmitter.isInvalidMessage = false
       break
     default:
@@ -87,6 +96,7 @@ function Subscription({ address }: { address: string }) {
     const connect = () => {
       socket = new WebSocket(address)
       clientState.readyState = socket.readyState as 0
+      clientState.isAuthenticated = false
 
       messageEmitter.on('message', onMessage)
 
@@ -110,6 +120,8 @@ function Subscription({ address }: { address: string }) {
       socket.addEventListener("close", () => {
         clientState.readyState = socket.readyState as 3
         clientState.isSynced = false
+        clientState.isAuthenticated = false
+        clientState.passwordRequired = false
         messageEmitter.off('message', onMessage)
 
         clearTimeout(reconnectTimeout);

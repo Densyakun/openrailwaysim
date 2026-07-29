@@ -9,12 +9,22 @@ export const clientState = proxy<{
   cameraFar: number;
   visibleFeatureCollections: string[];
   showSaveSuccess: boolean;
+  username: string;
+  connectionPassword: string;
+  isAuthenticated: boolean;
+  passwordRequired: boolean;
+  users: { id: string; username: string }[];
 }>({
   readyState: WebSocket.CONNECTING,
   isSynced: false,
   cameraFar: 200000,
   visibleFeatureCollections: [],
   showSaveSuccess: false,
+  username: "",
+  connectionPassword: "",
+  isAuthenticated: false,
+  passwordRequired: false,
+  users: [],
 });
 
 export const messageEmitter = new MessageEmitter();

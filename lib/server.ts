@@ -1,9 +1,11 @@
 import { subscribe } from "valtio";
 import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket as WSWebSocket } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
 import { existsSync, readFileSync, writeFileSync } from "fs";
+import crypto from "crypto";
+import "dotenv/config";
 import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
 import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
@@ -38,6 +40,20 @@ const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
 export function setupServer(wss: WebSocketServer) {
   loadData();
+
+  const connectionPassword = process.env.CONNECTION_PASSWORD || "";
+  const adminPassword = process.env.ADMIN_PASSWORD || "";
+  const authenticatedClients = new Map<WSWebSocket, boolean>();
+  const clientUsernames = new Map<WSWebSocket, string>();
+
+  function broadcastUserList() {
+    const users = Array.from(wss.clients)
+      .filter(ws => authenticatedClients.get(ws))
+      .map(ws => ({ id: (ws as any).__id || "", username: clientUsernames.get(ws) || "Anonymous" }));
+    wss.clients.forEach(client =>
+      send(client, MessageCode.FROM_SERVER_USER_LIST, users)
+    );
+  }
 
   let messageEmitter = new MessageEmitter();
 
@@ -253,14 +269,29 @@ export function setupServer(wss: WebSocketServer) {
   wss.on('connection', function connection(ws) {
     ws.on('error', console.error);
 
+    (ws as any).__id = crypto.randomUUID();
+
+    let authenticated = !connectionPassword;
+    authenticatedClients.set(ws, authenticated);
+
     ws.on('message', function message(data) {
       const [id, value] = JSON.parse(data.toString());
 
       messageEmitter.emit("message", id, value, ws);
     });
 
+    send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, !connectionPassword);
+
     const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
+
+    broadcastUserList();
+
+    ws.on('close', () => {
+      authenticatedClients.delete(ws as WSWebSocket);
+      clientUsernames.delete(ws as WSWebSocket);
+      broadcastUserList();
+    });
   });
 
   let time = new Date().getTime();
@@ -287,6 +318,25 @@ export function setupServer(wss: WebSocketServer) {
 
     try {
       switch (code) {
+        case MessageCode.FROM_CLIENT_AUTH: {
+          const password = value as string;
+          const success = password === connectionPassword;
+          authenticatedClients.set(ws as WSWebSocket, success);
+          send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, success);
+          if (success) broadcastUserList();
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_SET_USERNAME: {
+          if (!authenticatedClients.get(ws as WSWebSocket)) break;
+          const username = (value as string).slice(0, 32);
+          clientUsernames.set(ws as WSWebSocket, username);
+          broadcastUserList();
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
         case MessageCode.FROM_CLIENT_SAVE: {
           saveData();
           send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
@@ -398,5 +448,8 @@ export function setupServer(wss: WebSocketServer) {
 
     unsubscribe();
     messageEmitter.off('message', onMessage);
+
+    authenticatedClients.clear();
+    clientUsernames.clear();
   });
 }

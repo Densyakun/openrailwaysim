@@ -1,6 +1,7 @@
 import Box from '@mui/material/Box';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import DepartureBoardIcon from '@mui/icons-material/DepartureBoard';
+import PeopleIcon from '@mui/icons-material/People';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -12,6 +13,7 @@ import { Alert, Paper, Snackbar, Stack, ToggleButton, ToggleButtonGroup, Tooltip
 import ConnectionChip from '../ConnectionChip';
 import { clientState } from '@/lib/client/client';
 import Settings from './Settings';
+import UserListPanel from '../UserListPanel';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
 import TrainsTabPanel from './TrainsTabPanel';
@@ -48,6 +50,11 @@ const menuComponents: {
     component?: JSX.Element;
   }
 } = {
+  'users': {
+    title: 'Users',
+    icon: <PeopleIcon />,
+    component: <UserListPanel />,
+  },
   'terrains': {
     title: 'Terrains',
     icon: <TerrainIcon />,

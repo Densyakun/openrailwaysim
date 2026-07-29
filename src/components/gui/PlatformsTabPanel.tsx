@@ -10,7 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import PlatformIcon from '@mui/icons-material/Train';
-import BoxIcon from '@mui/icons-material/Box';
+import BoxIcon from '@mui/icons-material/Inventory2';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { store } from '@/lib/game';

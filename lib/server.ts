@@ -1,23 +1,51 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
-import { WebSocketServer } from "ws";
+import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
+import { WebSocketServer, WebSocket as WSWebSocket } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "fs";
+import crypto from "crypto";
+import path from "path";
+import "dotenv/config";
 import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
 import { relocateTrainsForTimeChange } from "./diagram";
 import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
 
-export const saveFilePath = "./save.json";
+export const savesDir = "./saves";
 
-function loadData() {
-  if (!existsSync(saveFilePath)) return;
+function ensureSavesDir() {
+  if (!existsSync(savesDir)) {
+    mkdirSync(savesDir, { recursive: true });
+  }
+}
+
+function saveFilePath(name: string): string {
+  // パス・トラバーサル対策: ディレクトリ部を除去し、ファイル名に使えない文字を置換
+  const basename = path.basename(name);
+  const safeName = basename.replace(/[\\/:*?"<>|]/g, "_");
+  return path.join(savesDir, `${safeName}.json`);
+}
+
+function listSaves(): string[] {
+  ensureSavesDir();
+  try {
+    const files = readdirSync(savesDir);
+    return files
+      .filter(f => f.endsWith(".json"))
+      .map(f => f.slice(0, -5));
+  } catch {
+    return [];
+  }
+}
+
+function loadData(name: string): boolean {
+  const filePath = saveFilePath(name);
+  if (!existsSync(filePath)) return false;
 
   try {
-    const saveData: ORSAppSaveDataType = JSON.parse(readFileSync(saveFilePath, 'utf8'));
+    const saveData: ORSAppSaveDataType = JSON.parse(readFileSync(filePath, 'utf8'));
 
-    // 開発用にセーブデータをアップデート
     if (!saveData.trainFormats) {
       saveData.trainFormats = {};
       saveData.trains = {};
@@ -25,20 +53,81 @@ function loadData() {
     }
 
     storeSaveData(saveData);
+    return true;
   } catch (e) {
     console.error(e);
+    return false;
   }
 }
 
-function saveData() {
-  writeFileSync(saveFilePath, JSON.stringify(getSaveData()), "utf8");
-  console.log("Data saved.");
+function saveData(name: string): boolean {
+  ensureSavesDir();
+  const filePath = saveFilePath(name);
+  try {
+    writeFileSync(filePath, JSON.stringify(getSaveData()), "utf8");
+    console.log(`Data saved to ${filePath}`);
+    return true;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+}
+
+function deleteSave(name: string): boolean {
+  const filePath = saveFilePath(name);
+  if (!existsSync(filePath)) return false;
+  try {
+    rmSync(filePath);
+    console.log(`Deleted save: ${filePath}`);
+    return true;
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
 }
 
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
 export function setupServer(wss: WebSocketServer) {
-  loadData();
+  // 旧save.jsonからの移行
+  const oldSavePath = "./save.json";
+  if (existsSync(oldSavePath)) {
+    try {
+      const saves = listSaves();
+      if (!saves.includes("default")) {
+        const data = readFileSync(oldSavePath, 'utf8');
+        const jsonData = JSON.parse(data);
+        ensureSavesDir();
+        writeFileSync(saveFilePath("default"), JSON.stringify(jsonData), "utf8");
+        console.log("Migrated save.json to saves/default.json");
+      }
+      // 移行後もサーバー起動時に読み込む
+      loadData("default");
+    } catch (e) {
+      console.error("Migration error:", e);
+    }
+  }
+
+  const connectionPassword = process.env.CONNECTION_PASSWORD || "";
+  const adminPassword = process.env.ADMIN_PASSWORD || "";
+  const authenticatedClients = new Map<WSWebSocket, boolean>();
+  const adminAuthenticatedClients = new Set<WSWebSocket>();
+  const clientUsernames = new Map<WSWebSocket, string>();
+
+  function isAdmin(ws: WSWebSocket): boolean {
+    if (!authenticatedClients.get(ws)) return false;
+    if (!adminPassword) return true; // 管理パスワード未設定なら認証済みで誰でも管理者
+    return adminAuthenticatedClients.has(ws);
+  }
+
+  function broadcastUserList() {
+    const users = Array.from(wss.clients)
+      .filter(ws => authenticatedClients.get(ws))
+      .map(ws => ({ id: (ws as any).__id || "", username: clientUsernames.get(ws) || "Anonymous" }));
+    wss.clients.forEach(client =>
+      send(client, MessageCode.FROM_SERVER_USER_LIST, users)
+    );
+  }
 
   let messageEmitter = new MessageEmitter();
 
@@ -254,14 +343,30 @@ export function setupServer(wss: WebSocketServer) {
   wss.on('connection', function connection(ws) {
     ws.on('error', console.error);
 
+    (ws as any).__id = crypto.randomUUID();
+
+    let authenticated = !connectionPassword;
+    authenticatedClients.set(ws, authenticated);
+
     ws.on('message', function message(data) {
       const [id, value] = JSON.parse(data.toString());
 
       messageEmitter.emit("message", id, value, ws);
     });
 
+    send(ws, MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED, !!adminPassword);
+    send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, !connectionPassword);
+
     const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
+
+    broadcastUserList();
+
+    ws.on('close', () => {
+      authenticatedClients.delete(ws as WSWebSocket);
+      clientUsernames.delete(ws as WSWebSocket);
+      broadcastUserList();
+    });
   });
 
   let time = new Date().getTime();
@@ -288,8 +393,40 @@ export function setupServer(wss: WebSocketServer) {
 
     try {
       switch (code) {
+        case MessageCode.FROM_CLIENT_AUTH: {
+          const password = value as string;
+          const success = password === connectionPassword;
+          authenticatedClients.set(ws as WSWebSocket, success);
+          send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, success);
+          if (success) broadcastUserList();
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_SET_USERNAME: {
+          if (!authenticatedClients.get(ws as WSWebSocket)) break;
+          const username = (value as string).slice(0, 32);
+          clientUsernames.set(ws as WSWebSocket, username);
+          broadcastUserList();
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_ADMIN_AUTH: {
+          if (!authenticatedClients.get(ws as WSWebSocket)) break;
+          const password = value as string;
+          const success = password === adminPassword;
+          if (success) adminAuthenticatedClients.add(ws as WSWebSocket);
+          send(ws, MessageCode.FROM_SERVER_ADMIN_AUTH_RESULT, success);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
         case MessageCode.FROM_CLIENT_SAVE: {
-          saveData();
+          if (!isAdmin(ws as WSWebSocket)) break;
+          const saveName = value as string;
+          if (!saveName) break;
+          saveData(saveName);
           send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
 
           messageEmitter.isInvalidMessage = false;
@@ -305,6 +442,39 @@ export function setupServer(wss: WebSocketServer) {
 
           // 列車を再配置
           relocateTrainsForTimeChange(store.data, newNowDate);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_LIST_SAVES: {
+          const saves = listSaves();
+          send(ws, MessageCode.FROM_SERVER_SAVE_LIST, saves);
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_LOAD_SAVE: {
+          if (!isAdmin(ws as WSWebSocket)) break;
+          const loadName = value as string;
+          if (!loadName) break;
+          const ok = loadData(loadName);
+          if (ok) {
+            send(ws, MessageCode.FROM_SERVER_LOAD_COMPLETED);
+            const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
+            wss.clients.forEach(client =>
+              send(client, MessageCode.FROM_SERVER_STATE, serializableGameState)
+            );
+          }
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+
+        case MessageCode.FROM_CLIENT_DELETE_SAVE: {
+          if (!isAdmin(ws as WSWebSocket)) break;
+          const deleteName = value as string;
+          if (!deleteName) break;
+          deleteSave(deleteName);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -413,5 +583,9 @@ export function setupServer(wss: WebSocketServer) {
 
     unsubscribe();
     messageEmitter.off('message', onMessage);
+
+    authenticatedClients.clear();
+    adminAuthenticatedClients.clear();
+    clientUsernames.clear();
   });
 }

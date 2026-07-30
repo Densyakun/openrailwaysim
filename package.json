@@ -19,6 +19,7 @@
     "@react-three/drei": "^9.120.4",
     "@react-three/fiber": "^8.17.10",
     "@turf/turf": "^7.1.0",
+    "dotenv": "^17.4.2",
     "events": "^3.3.0",
     "moment-timezone": "^0.5.47",
     "react": "^18.3.1",

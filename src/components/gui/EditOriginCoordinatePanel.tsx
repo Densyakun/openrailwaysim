@@ -7,6 +7,7 @@ import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
 import { socket } from '../Client';
 import { useEffect } from 'react';
 import { MessageCode, send } from '@/lib/ws';
+import { store } from '@/lib/game';
 
 const formState = proxy<{
   lon: string;
@@ -70,12 +71,13 @@ export default function EditOriginCoordinatePanel() {
         }}
       />
       <Button variant="contained" startIcon={<SaveIcon />}
-        onClick={() =>
+        onClick={() => {
+          store.data.originCoordinate = [featureCollectionsTabPanelState.lon, featureCollectionsTabPanelState.lat];
           send(socket, MessageCode.FROM_CLIENT_SET_PROP, [
             ["originCoordinate"],
             [featureCollectionsTabPanelState.lon, featureCollectionsTabPanelState.lat],
-          ])
-        }>
+          ]);
+        }}>
         Save
       </Button>
     </Stack>

@@ -8,10 +8,12 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import IconButton from '@mui/material/IconButton';
-import SkipNextIcon from '@mui/icons-material/SkipNext';
-import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import FastForwardIcon from '@mui/icons-material/FastForward';
 import FastRewindIcon from '@mui/icons-material/FastRewind';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import { proxy, subscribe } from 'valtio';
 import { getDate } from '@/lib/client/client';
 import { store } from '@/lib/game';
@@ -19,12 +21,22 @@ import { send } from '@/lib/ws';
 import { MessageCode } from '@/lib/ws';
 import { socket } from './Client';
 
+const timeZones: { offset: number; name: string }[] = (() => {
+  const zones: { offset: number; name: string }[] = [];
+  for (let h = -12; h <= 14; h++) {
+    const sign = h >= 0 ? '+' : '';
+    const label = h === 0 ? 'GMT±0000' : `GMT${sign}${String(h * 100).padStart(4, '0')}`;
+    zones.push({ offset: h * 60 * 60 * 1000, name: label });
+  }
+  return zones;
+})();
+
 export const state = proxy<{
   timeZoneOffset: number;
   timeZoneName: string;
 }>({
   timeZoneOffset: 540 * 60 * 1000, // Default time zone is Asia/Tokyo
-  timeZoneName: 'GMT+0900 (日本標準時)',
+  timeZoneName: 'GMT+0900',
 })
 
 export default function TimeChip() {
@@ -47,27 +59,25 @@ export default function TimeChip() {
   }), [date]);
 
   const handleClick = () => {
-    // 現在の時刻をdatetime-local形式に変換
-    const y = date.getUTCFullYear();
-    const mo = ("00" + (date.getUTCMonth() + 1)).slice(-2);
-    const d = ("00" + date.getUTCDate()).slice(-2);
-    const h = ("00" + date.getUTCHours()).slice(-2);
-    const mi = ("00" + date.getUTCMinutes()).slice(-2);
-    setEditDate(`${y}-${mo}-${d}T${h}:${mi}`);
+    const d = getDate(state.timeZoneOffset);
+    const y = d.getUTCFullYear();
+    const mo = ("00" + (d.getUTCMonth() + 1)).slice(-2);
+    const da = ("00" + d.getUTCDate()).slice(-2);
+    const h = ("00" + d.getUTCHours()).slice(-2);
+    const mi = ("00" + d.getUTCMinutes()).slice(-2);
+    const s = ("00" + d.getUTCSeconds()).slice(-2);
+    setEditDate(`${y}-${mo}-${da}T${h}:${mi}:${s}`);
     setDialogOpen(true);
   };
 
   const handleSetTime = () => {
     if (!editDate || !socket || socket.readyState !== 1) return;
 
-    // 入力された時刻をUTCエポックミリ秒に変換（タイムゾーンオフセットを考慮）
-    const localDate = new Date(editDate);
-    const newNowDate = localDate.getTime() - state.timeZoneOffset;
+    const [y, mo, d, h, mi, s = "0"] = editDate.split(/[-T:]/).map(Number);
+    const newNowDate = Date.UTC(y, mo - 1, d, h, mi, s) - state.timeZoneOffset;
 
-    // サーバーに時刻変更メッセージを送信
     send(socket, MessageCode.FROM_CLIENT_SET_TIME, newNowDate as any);
 
-    // クライアント側の時刻も即座に更新
     store.data.nowDate = newNowDate;
 
     setDialogOpen(false);
@@ -83,20 +93,39 @@ export default function TimeChip() {
 
   return (
     <>
-      <Chip
-        label={
-          `${date.getUTCFullYear()}/${("00" + (date.getUTCMonth() + 1)).slice(-2)}/${("00" + date.getUTCDate()).slice(-2)} ${("00" + date.getUTCHours()).slice(-2)}:${("00" + date.getUTCMinutes()).slice(-2)}:${("00" + date.getUTCSeconds()).slice(-2)} ${state.timeZoneName}`
-        }
-        size="small"
-        onClick={handleClick}
-        sx={{
-          backgroundColor: "#00000080",
-          cursor: "pointer",
-          "&:hover": {
-            backgroundColor: "#000000A0",
-          },
-        }}
-      />
+      <Stack direction="row" spacing={0} alignItems="center">
+        <IconButton
+          onClick={() => handleTimeJump(-15 * 1000)}
+          size="small"
+          sx={{ pointerEvents: 'auto', p: 0, width: 24, height: 24, backgroundColor: "#00000080", borderRadius: "4px", "&:hover": { backgroundColor: "#000000A0" } }}
+          title="15秒戻す"
+        >
+          <FastRewindIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+        <Chip
+          label={
+            `${date.getUTCFullYear()}/${("00" + (date.getUTCMonth() + 1)).slice(-2)}/${("00" + date.getUTCDate()).slice(-2)} ${("00" + date.getUTCHours()).slice(-2)}:${("00" + date.getUTCMinutes()).slice(-2)}:${("00" + date.getUTCSeconds()).slice(-2)} ${state.timeZoneName}`
+          }
+          size="small"
+          onClick={handleClick}
+          sx={{
+            pointerEvents: 'auto',
+            backgroundColor: "#00000080",
+            cursor: "pointer",
+            "&:hover": {
+              backgroundColor: "#000000A0",
+            },
+          }}
+        />
+        <IconButton
+          onClick={() => handleTimeJump(15 * 1000)}
+          size="small"
+          sx={{ pointerEvents: 'auto', p: 0, width: 24, height: 24, backgroundColor: "#00000080", borderRadius: "4px", "&:hover": { backgroundColor: "#000000A0" } }}
+          title="15秒進める"
+        >
+          <FastForwardIcon sx={{ fontSize: 16 }} />
+        </IconButton>
+      </Stack>
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
         <DialogTitle>時刻を変更</DialogTitle>
         <DialogContent>
@@ -107,22 +136,26 @@ export default function TimeChip() {
               value={editDate}
               onChange={(e) => setEditDate(e.target.value)}
               fullWidth
+              inputProps={{ step: 1 }}
               InputLabelProps={{ shrink: true }}
             />
-            <Stack direction="row" spacing={1} justifyContent="center">
-              <IconButton onClick={() => handleTimeJump(-12 * 60 * 60 * 1000)} title="12時間前">
-                <FastRewindIcon />
-              </IconButton>
-              <IconButton onClick={() => handleTimeJump(-60 * 60 * 1000)} title="1時間前">
-                <SkipPreviousIcon />
-              </IconButton>
-              <IconButton onClick={() => handleTimeJump(60 * 60 * 1000)} title="1時間後">
-                <SkipNextIcon />
-              </IconButton>
-              <IconButton onClick={() => handleTimeJump(12 * 60 * 60 * 1000)} title="12時間後">
-                <FastForwardIcon />
-              </IconButton>
-            </Stack>
+            <FormControl fullWidth size="small">
+              <InputLabel>タイムゾーン</InputLabel>
+              <Select
+                value={state.timeZoneOffset}
+                label="タイムゾーン"
+                onChange={(e) => {
+                  const offset = e.target.value as number;
+                  state.timeZoneOffset = offset;
+                  const tz = timeZones.find(z => z.offset === offset);
+                  if (tz) state.timeZoneName = tz.name;
+                }}
+              >
+                {timeZones.map(tz => (
+                  <MenuItem key={tz.offset} value={tz.offset}>{tz.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Stack>
         </DialogContent>
         <DialogActions>

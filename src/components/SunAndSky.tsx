@@ -54,10 +54,9 @@ export default function SunAndSky() {
 
   useFrame(() => {
     const nowDate = new Date(store.data.nowDate)
-    lightingState.elevation =
-      (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
-      + coordinateToEuler(store.data.originCoordinate).y
-      - Math.PI / 2
+    const timeAngle = (nowDate.getTime() - Date.UTC(nowDate.getUTCFullYear(), nowDate.getUTCMonth(), nowDate.getUTCDate())) * Math.PI / 43200000
+    lightingState.azimuth = timeAngle
+    lightingState.elevation = timeAngle + coordinateToEuler(store.data.originCoordinate).y - Math.PI / 2
 
     sunPosition.copy(getSunPosition())
 

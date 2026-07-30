@@ -48,9 +48,16 @@ function TerrainTile({
   const castShadowMeshRef = useRef<Mesh>(null!);
 
   const vertices = useMemo(() => new Float32Array(heightmapSize ** 2 * 2 * 3 * 3), []);
+  const uvs = useMemo(() => new Float32Array(heightmapSize ** 2 * 2 * 3 * 2), []);
 
   useEffect(() => {
     function a(x: number, y: number, i: number, h0: number | null, h1: number | null, h2: number | null, h3: number | null) {
+      const ui = i / 3 * 2;
+      const u0 = x / (heightmapSize - 1);
+      const u1 = (x + 1) / (heightmapSize - 1);
+      const v0 = y / (heightmapSize - 1);
+      const v1 = (y + 1) / (heightmapSize - 1);
+
       if (h0 === null
         || h1 === null
         || h2 === null
@@ -73,6 +80,8 @@ function TerrainTile({
           vertices[i + 15] =
           vertices[i + 16] =
           vertices[i + 17] = 0;
+        uvs[ui] = uvs[ui+1] = uvs[ui+2] = uvs[ui+3] = uvs[ui+4] = uvs[ui+5] =
+        uvs[ui+6] = uvs[ui+7] = uvs[ui+8] = uvs[ui+9] = uvs[ui+10] = uvs[ui+11] = 0;
       } else {
         const x0 = (x / heightmapSize) * terrainSize;
         const x1 = ((x + 1) / heightmapSize) * terrainSize;
@@ -100,6 +109,15 @@ function TerrainTile({
         vertices[i + 12] = x1;
         vertices[i + 13] = h3;
         vertices[i + 14] = z0;
+
+        uvs[ui] = uvs[ui+10] = u0;
+        uvs[ui+1] = uvs[ui+11] = v0;
+        uvs[ui+2] = u0;
+        uvs[ui+3] = v1;
+        uvs[ui+4] = uvs[ui+6] = u1;
+        uvs[ui+5] = uvs[ui+7] = v1;
+        uvs[ui+8] = u1;
+        uvs[ui+9] = v0;
       }
     }
 
@@ -152,8 +170,9 @@ function TerrainTile({
       }
     }
 
-    function applyVertices(bufferGeometry: BufferGeometry, vertices: Float32Array) {
+    function applyVertices(bufferGeometry: BufferGeometry, vertices: Float32Array, uvs: Float32Array) {
       bufferGeometry.setAttribute("position", new BufferAttribute(vertices, 3));
+      bufferGeometry.setAttribute("uv", new BufferAttribute(uvs, 2));
       bufferGeometry.computeVertexNormals();
 
       bufferGeometry.setDrawRange(
@@ -168,8 +187,8 @@ function TerrainTile({
       );
     }
 
-    applyVertices(receiveShadowMeshRef.current.geometry, vertices);
-    applyVertices(castShadowMeshRef.current.geometry, vertices);
+    applyVertices(receiveShadowMeshRef.current.geometry, vertices, uvs);
+    applyVertices(castShadowMeshRef.current.geometry, vertices, uvs);
   }, [heightmap, eastHeightmap, southHeightmap, southeastHeightmap]);
 
   return <FeatureObject coordinate={merc.ll([tileX * 256, tileY * 256], terrainZoom)}>

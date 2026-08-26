@@ -88,6 +88,15 @@ export function getCoordinateText(coordinate: Position) {
   return `${coordinate[0].toFixed(3)}, ${coordinate[1].toFixed(3)}`;
 }
 
+export function getCoordinateFromRelativePosition(relative: THREE.Vector3, originCoordinate: Position): Position {
+  const distance = Math.sqrt(relative.x ** 2 + relative.z ** 2)
+  if (distance < 1e-6) return [...originCoordinate] as Position
+  const angle = Math.atan2(-relative.z, relative.x)
+  const bearingDeg = -angle * 180 / Math.PI + 90
+  const dest = turfDestination(turfPoint(originCoordinate), distance, bearingDeg, { units: 'meters' })
+  return dest.geometry.coordinates as Position
+}
+
 /**
  * featureCollectionId1 で指定した FeatureCollection の LineString から coordinates に隣接するセグメントを含み、 selectedFeatures に含まれるセグメントを除いたリストを返す。リスト内のセグメントは重複しない。
  * @param featureCollections FeatureCollectionの辞書

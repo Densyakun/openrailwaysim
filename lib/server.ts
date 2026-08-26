@@ -46,10 +46,26 @@ function loadData(name: string): boolean {
   try {
     const saveData: ORSAppSaveDataType = JSON.parse(readFileSync(filePath, 'utf8'));
 
-    if (!saveData.trainFormats) {
-      saveData.trainFormats = {};
-      saveData.trains = {};
-      saveData.trainGroups = {};
+    // 古いセーブデータに存在しないフィールドを補完する
+    const defaultEmptyMap = () => ({});
+    saveData.terrains = saveData.terrains || defaultEmptyMap();
+    saveData.featureCollections = saveData.featureCollections || defaultEmptyMap();
+    saveData.tracks = saveData.tracks || defaultEmptyMap();
+    saveData.switches = saveData.switches || defaultEmptyMap();
+    saveData.trainFormats = saveData.trainFormats || defaultEmptyMap();
+    saveData.trains = saveData.trains || defaultEmptyMap();
+    saveData.trainGroups = saveData.trainGroups || defaultEmptyMap();
+    saveData.oneHandleMasterControllerUIConfigs = saveData.oneHandleMasterControllerUIConfigs || defaultEmptyMap();
+    saveData.diagrams = saveData.diagrams || defaultEmptyMap();
+    saveData.constructionZones = saveData.constructionZones || defaultEmptyMap();
+    saveData.tunnels = saveData.tunnels || defaultEmptyMap();
+    saveData.platforms = saveData.platforms || defaultEmptyMap();
+    saveData.worldModels = saveData.worldModels || defaultEmptyMap();
+    if (typeof saveData.originCoordinate === "undefined" || !Array.isArray(saveData.originCoordinate)) {
+      saveData.originCoordinate = [139.7, 35.691];
+    }
+    if (typeof saveData.nowDate !== "number") {
+      saveData.nowDate = Date.now();
     }
 
     storeSaveData(saveData);
@@ -101,10 +117,19 @@ export function setupServer(wss: WebSocketServer) {
         writeFileSync(saveFilePath("default"), JSON.stringify(jsonData), "utf8");
         console.log("Migrated save.json to saves/default.json");
       }
-      // 移行後もサーバー起動時に読み込む
-      loadData("default");
     } catch (e) {
       console.error("Migration error:", e);
+    }
+  }
+
+  // サーバー起動時にdefault.jsonを読み込む
+  ensureSavesDir();
+  if (existsSync(saveFilePath("default"))) {
+    const loaded = loadData("default");
+    if (loaded) {
+      console.log("Loaded save data from saves/default.json");
+    } else {
+      console.error("Failed to load saves/default.json");
     }
   }
 
@@ -313,6 +338,7 @@ export function setupServer(wss: WebSocketServer) {
           || path[2] === "trackModels"
           || path[2] === "beginCant"
           || path[2] === "endCant"
+          || path[2] === "position"
         )) {
           push()
         }

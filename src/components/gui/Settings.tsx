@@ -5,9 +5,10 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LogoutIcon from '@mui/icons-material/Logout';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
-import { Button, Paper, Stack, TextField, Typography, Chip, Select, MenuItem, FormControl, InputLabel, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip } from '@mui/material';
 import { socket } from '../Client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
@@ -19,6 +20,7 @@ export default function Settings() {
   const [saveName, setSaveName] = useState("");
   const [loadName, setLoadName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [saveListExpanded, setSaveListExpanded] = useState(false);
   const { isAdmin, adminPasswordRequired, saves, currentSave } = useSnapshot(clientState);
 
   useEffect(() => {
@@ -68,13 +70,15 @@ export default function Settings() {
   };
 
   return <Paper square sx={{
-    width: "100%",
-    height: "100%",
+    width: "min(520px, 90vw)",
+    maxHeight: 'calc(100vh - 140px)',
     pointerEvents: 'auto',
     userSelect: 'none',
     p: 1,
-    overflow: 'auto',
+    overflowY: 'auto',
+    overflowX: 'hidden',
     backgroundColor: '#000b',
+    boxSizing: 'border-box',
   }}>
     <Stack spacing={1}>
       <Typography variant="h5" component="h1">Connection</Typography>
@@ -142,50 +146,64 @@ export default function Settings() {
           Save
         </Button>
       </Stack>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <FormControl size="small" sx={{ flexGrow: 1 }}>
-          <InputLabel>Load save</InputLabel>
-          <Select
-            value={loadName}
-            label="Load save"
-            onChange={e => setLoadName(e.target.value)}
-            disabled={!isAdmin}
-          >
-            {saves.map(name => (
-              <MenuItem key={name} value={name}>{name}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleLoad} disabled={!isAdmin || !loadName}>
-          Load
-        </Button>
-        <Button variant="outlined" onClick={handleListSaves} disabled={!isAdmin}>
-          <RefreshIcon />
-        </Button>
-      </Stack>
       {currentSave && (
         <Typography variant="body2" color="text.secondary">
           Current save: {currentSave}
         </Typography>
       )}
-      {saves.length > 0 && (
-        <Box>
-          <Typography variant="subtitle2">Available saves:</Typography>
-          {saves.map(name => (
-            <Stack key={name} direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
-              <Chip label={name} size="small" variant="outlined" />
-              <Button
-                size="small"
-                color="error"
-                onClick={() => handleDelete(name)}
-                disabled={!isAdmin}
-              >
-                <DeleteIcon fontSize="small" />
-              </Button>
-            </Stack>
-          ))}
-        </Box>
-      )}
+      <Accordion expanded={saveListExpanded} onChange={(_, v) => setSaveListExpanded(v)} disableGutters sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.04)' }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />} sx={{ color: 'white' }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexGrow: 1 }}>
+            <Typography variant="subtitle2">セーブデータ一覧 ({saves.length})</Typography>
+            {loadName && (
+              <Chip label={`選択: ${loadName}`} size="small" color="primary" sx={{ ml: 1 }} />
+            )}
+          </Stack>
+          <Tooltip title="更新">
+            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleListSaves(); }} disabled={!isAdmin} sx={{ color: 'white', mr: 1 }}>
+              <RefreshIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0 }}>
+          {saves.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>セーブデータがありません</Typography>
+          ) : (
+            <List dense disablePadding sx={{ maxHeight: 200, overflowY: 'auto' }}>
+              {saves.map(name => {
+                const isSelected = loadName === name;
+                const isCurrent = currentSave === name;
+                return (
+                  <ListItem key={name} disablePadding secondaryAction={
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="読み込む">
+                        <IconButton edge="end" size="small" onClick={() => { setLoadName(name); send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE, name); clientState.currentSave = name; }} disabled={!isAdmin} sx={{ color: isSelected ? 'primary.main' : 'white' }}>
+                          <FolderOpenIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="削除">
+                        <IconButton edge="end" size="small" onClick={() => handleDelete(name)} disabled={!isAdmin} sx={{ color: 'error.main' }}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  }>
+                    <ListItemButton selected={isSelected} onClick={() => setLoadName(name)} sx={{ color: 'white', '&.Mui-selected': { bgcolor: 'rgba(25,118,210,0.24)' }, '&.Mui-selected:hover': { bgcolor: 'rgba(25,118,210,0.32)' } }}>
+                      <ListItemText primary={name} secondary={isCurrent ? 'current' : undefined} primaryTypographyProps={{ variant: 'body2', noWrap: true }} secondaryTypographyProps={{ variant: 'caption' }} />
+                      {isCurrent && <Chip label="current" size="small" color="success" sx={{ ml: 1, height: 18, fontSize: 10 }} />}
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
+          <Stack direction="row" spacing={1} sx={{ p: 1, justifyContent: 'flex-end' }}>
+            <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleLoad} disabled={!isAdmin || !loadName}>
+              選択を読み込む
+            </Button>
+          </Stack>
+        </AccordionDetails>
+      </Accordion>
     </Stack>
     <Dialog open={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)}>
       <DialogTitle>Delete save</DialogTitle>

@@ -66,7 +66,7 @@ function PlatformEditor({ platform, onSave, onCancel }: {
   };
 
   return (
-    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 320, bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: '70vh', overflow: 'auto' }}>
+    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         プラットフォーム編集
       </Typography>
@@ -260,7 +260,7 @@ function WorldModelEditor({ model, onSave, onCancel }: {
   };
 
   return (
-    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 320, bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: '70vh', overflow: 'auto' }}>
+    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         3Dモデル編集
       </Typography>
@@ -515,7 +515,7 @@ export default function PlatformsTabPanel() {
           onCancel={() => { platformsState.isEditingWorldModel = false; }}
         />
       ) : (
-        <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none' }}>
+        <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
           <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
             <Button
               variant={activeTab === 'platforms' ? 'contained' : 'outlined'}

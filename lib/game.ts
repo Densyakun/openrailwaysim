@@ -488,7 +488,7 @@ export function deserialize(type: string, value: any): any {
 
     return orsAppData;
   } else if (type === worldModelsObjectTypeId) {
-    const serializableWorldModels: { [key: string]: any } = value;
+    const serializableWorldModels: { [key: string]: any } = value || {};
     const worldModels: { [key: string]: WorldModel } = {};
 
     Object.keys(serializableWorldModels).forEach(id => {
@@ -503,7 +503,7 @@ export function deserialize(type: string, value: any): any {
 
     return worldModels;
   } else if (type === tracksObjectTypeId) {
-    const serializableTracks: { [key: string]: SerializableTrack } = value;
+    const serializableTracks: { [key: string]: SerializableTrack } = value || {};
     const tracks: { [key: string]: Track } = {};
 
     Object.keys(serializableTracks).forEach(id =>
@@ -593,7 +593,7 @@ export function deserialize(type: string, value: any): any {
 
     return transitionCurveSegment;
   } else if (type === trainFormatsObjectTypeId) {
-    const serializableTrainFormats: { [key: string]: SerializableTrainFormat } = value;
+    const serializableTrainFormats: { [key: string]: SerializableTrainFormat } = value || {};
     const trainFormats: { [key: string]: TrainFormat } = {};
 
     Object.keys(serializableTrainFormats).forEach(id =>
@@ -672,7 +672,7 @@ export function deserialize(type: string, value: any): any {
 
     return joint;
   } else if (type === trainsObjectTypeId) {
-    const serializableTrains: { [key: string]: any } = value;
+    const serializableTrains: { [key: string]: any } = value || {};
     const trains: { [key: string]: Train } = {};
 
     Object.keys(serializableTrains).forEach(id =>

@@ -160,9 +160,24 @@ export default function GUI() {
         width: '100%',
         flexGrow: 1,
         minHeight: 0,
+        maxHeight: 'calc(100vh - 96px)',
+        p: 1,
+        boxSizing: 'border-box',
       }}
     >
-      {selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}
+      <Box sx={{
+        maxWidth: 'min(480px, 90vw)',
+        width: 'fit-content',
+        maxHeight: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        '& > *': {
+          maxWidth: 'min(480px, 90vw)',
+          boxSizing: 'border-box',
+        }
+      }}>
+        {selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}
+      </Box>
     </Stack>
     {(selectedTab !== "trains" || !activeTrainId) &&
       <Paper elevation={0} sx={{

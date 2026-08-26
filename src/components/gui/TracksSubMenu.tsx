@@ -20,6 +20,7 @@ import { setCameraTargetPosition } from '@/lib/client/camera';
 import VerticalCurveEditor from './VerticalCurveEditPanel';
 import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit';
 import { offsetTrackRoute, VEHICLE_OFFSET_CONSTANT } from '@/lib/tracks';
+import { getTerrainHeightAt } from '@/lib/terrain';
 import { v4 as uuidv4 } from 'uuid';
 
 export const tracksSubMenuState = proxy<{
@@ -251,6 +252,11 @@ export default function TracksSubMenu() {
     p: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    maxWidth: 'min(420px, 90vw)',
+    maxHeight: 'calc(100vh - 140px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    boxSizing: 'border-box',
   }}>
     {isEditingModels
       ? <TrackModelSettings />
@@ -273,6 +279,13 @@ export default function TracksSubMenu() {
 function MainMenu() {
   const { selectedTrackIds } = useSnapshot(tracksState);
   const { showTrackTypes, showShortTracks, shortTrackThreshold } = useSnapshot(tracksSubMenuState);
+  const [heightInput, setHeightInput] = React.useState("");
+  React.useEffect(() => {
+    if (selectedTrackIds.length === 1) {
+      const t = store.data.tracks[selectedTrackIds[0]];
+      if (t) setHeightInput(t.position.y.toFixed(2));
+    }
+  }, [selectedTrackIds.join(",")]);
 
   return <Stack direction={'column'} spacing={1}>
     <div>Selected: {selectedTrackIds.length}</div>
@@ -412,7 +425,53 @@ function MainMenu() {
     }}>
       Edit vertical curve
     </Button>
-    
+
+    <Paper sx={{ p: 1, mt: 1 }}>
+      <Typography variant="subtitle2" gutterBottom>高さ編集（原点のみ）</Typography>
+      <Stack spacing={1}>
+        <TextField
+          label="高さ (m)"
+          value={heightInput}
+          size="small"
+          type="number"
+          onChange={e => setHeightInput(e.target.value)}
+        />
+        <Button variant='contained' disabled={!selectedTrackIds.length || isNaN(parseFloat(heightInput))} onClick={() => {
+          const y = parseFloat(heightInput);
+          if (isNaN(y)) return;
+          const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?]][] = [];
+          selectedTrackIds.forEach(trackId => {
+            const track = store.data.tracks[trackId];
+            if (!track) return;
+            const newPos: [number, number, number] = [track.position.x, y, track.position.z];
+            messages.push([MessageCode.FROM_CLIENT_SET_PROP, [["tracks", trackId, "position"], newPos]]);
+          });
+          if (messages.length === 1) send(socket, messages[0][0], messages[0][1]);
+          else if (messages.length > 1) send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
+        }}>
+          高さを適用
+        </Button>
+        <Button variant='contained' disabled={!selectedTrackIds.length} onClick={() => {
+          const messages: [MessageCode.FROM_CLIENT_SET_PROP, [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?]][] = [];
+          let failCount = 0;
+          selectedTrackIds.forEach(trackId => {
+            const track = store.data.tracks[trackId];
+            if (!track) return;
+            const h = getTerrainHeightAt(track.position, store.data.originCoordinate as unknown as [number, number], store.data.terrains as never);
+            if (h === null) { failCount++; return; }
+            const newPos: [number, number, number] = [track.position.x, h, track.position.z];
+            messages.push([MessageCode.FROM_CLIENT_SET_PROP, [["tracks", trackId, "position"], newPos]]);
+            if (selectedTrackIds.length === 1) setHeightInput(h.toFixed(2));
+          });
+          if (failCount) alert(`地形データが無いため ${failCount} 件スキップしました`);
+          if (messages.length === 1) send(socket, messages[0][0], messages[0][1]);
+          else if (messages.length > 1) send(socket, MessageCode.FROM_CLIENT_MESSAGES, messages);
+        }}>
+          地形に合わせる
+        </Button>
+      </Stack>
+    </Paper>
+
     {/* 表示オプション */}
     <Paper sx={{ p: 1, mt: 1 }}>
       <Typography variant="subtitle2" gutterBottom>

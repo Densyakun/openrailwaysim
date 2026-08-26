@@ -1,7 +1,62 @@
+import * as THREE from 'three'
+import { Position } from 'geojson'
+import { SphericalMercator } from '@mapbox/sphericalmercator'
+import { getCoordinateFromRelativePosition } from './gis'
+
 export const terrainZoom = 15
 export const heightmapSize = 256
 
 export type HeightmapType = (number | null)[][]
+
+export const merc = new SphericalMercator({
+  size: 256,
+  antimeridian: true,
+})
+
+export function getTerrainHeightAt(
+  position: THREE.Vector3,
+  originCoordinate: Position,
+  terrains: { [key: string]: { [key: string]: HeightmapType } }
+): number | null {
+  const coord = getCoordinateFromRelativePosition(position, originCoordinate)
+  const px = merc.px(coord as [number, number], terrainZoom) as [number, number]
+  const tileX = Math.floor(px[0] / 256)
+  const tileY = Math.floor(px[1] / 256)
+  const heightmap = (terrains[tileY] as unknown as { [k: string]: HeightmapType } | undefined)?.[tileX]
+  if (!heightmap) return null
+  const pxInsideX = px[0] - tileX * 256
+  const pxInsideY = px[1] - tileY * 256
+  const fx = (pxInsideX * heightmapSize) / 256
+  const fy = (pxInsideY * heightmapSize) / 256
+  const x0 = Math.max(0, Math.min(heightmapSize - 1, Math.floor(fx)))
+  const y0 = Math.max(0, Math.min(heightmapSize - 1, Math.floor(fy)))
+  const x1 = Math.max(0, Math.min(heightmapSize - 1, x0 + 1))
+  const y1 = Math.max(0, Math.min(heightmapSize - 1, y0 + 1))
+  const dx = fx - x0
+  const dy = fy - y0
+  const h00 = heightmap[y0]?.[x0] ?? null
+  const h10 = heightmap[y0]?.[x1] ?? null
+  const h01 = heightmap[y1]?.[x0] ?? null
+  const h11 = heightmap[y1]?.[x1] ?? null
+  if (h00 === null && h10 === null && h01 === null && h11 === null) return null
+  if (h00 !== null && h10 !== null && h01 !== null && h11 !== null) {
+    const h0 = h00 * (1 - dx) + h10 * dx
+    const h1 = h01 * (1 - dx) + h11 * dx
+    return h0 * (1 - dy) + h1 * dy
+  }
+  let sum = 0
+  let wsum = 0
+  const w00 = (1 - dx) * (1 - dy)
+  const w10 = dx * (1 - dy)
+  const w01 = (1 - dx) * dy
+  const w11 = dx * dy
+  if (h00 !== null) { sum += h00 * w00; wsum += w00 }
+  if (h10 !== null) { sum += h10 * w10; wsum += w10 }
+  if (h01 !== null) { sum += h01 * w01; wsum += w01 }
+  if (h11 !== null) { sum += h11 * w11; wsum += w11 }
+  if (wsum === 0) return null
+  return sum / wsum
+}
 
 async function fetchTile(url: string, tileSize = 256) {
   return fetch(url)

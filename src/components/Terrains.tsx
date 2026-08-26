@@ -1,7 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useRef } from "react"
 import { BufferAttribute, BufferGeometry, Mesh } from "three"
-import { HeightmapType, heightmapSize, terrainZoom } from "@/lib/terrain"
-import { SphericalMercator } from '@mapbox/sphericalmercator'
+import { HeightmapType, heightmapSize, merc, terrainZoom } from "@/lib/terrain"
 import FeatureObject from './FeatureObject'
 import SlopeBlendMaterial from './SlopeBlendMaterial'
 import distance from "@turf/distance"
@@ -10,11 +9,6 @@ import { terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"
 import { MeshDiscardMaterial, Plane } from "@react-three/drei"
 import { store } from "@/lib/game"
-
-export const merc = new SphericalMercator({
-  size: 256,
-  antimeridian: true
-});
 
 function TerrainTile({
   tileX,

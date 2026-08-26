@@ -337,6 +337,11 @@ function MainMenu() {
     p: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    maxWidth: 'min(420px,90vw)',
+    maxHeight: 'calc(100vh - 140px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    boxSizing: 'border-box',
   }}>
     <Stack direction={'column'} spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">
@@ -432,6 +437,11 @@ function CreateTrackMenu() {
     p: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    maxWidth: 'min(420px,90vw)',
+    maxHeight: 'calc(100vh - 140px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    boxSizing: 'border-box',
   }}>
     <Stack direction={'column'} spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">

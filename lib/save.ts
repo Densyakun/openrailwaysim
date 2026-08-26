@@ -22,6 +22,8 @@ export type ORSAppSaveDataType = {
   diagrams: { [key: string]: Diagram };
   constructionZones: { [key: string]: ConstructionZone };
   tunnels: { [key: string]: Tunnel };
+  platforms?: { [key: string]: any };
+  worldModels?: { [key: string]: any };
 };
 
 // セーブデータ用

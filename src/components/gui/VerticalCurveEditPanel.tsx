@@ -19,6 +19,11 @@ export default function VerticalCurveEditor() {
     p: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    maxWidth: 'min(420px, 90vw)',
+    maxHeight: 'calc(100vh - 140px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    boxSizing: 'border-box',
   }}>
     <Stack direction={'column'} spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">
@@ -52,7 +57,7 @@ export default function VerticalCurveEditor() {
             Add point
           </Button>
         </Stack>
-        <Stack spacing={0.5}>
+        <Stack spacing={0.5} sx={{ maxHeight: 280, overflowY: 'auto', pr: 0.5 }}>
           {gradientPoints.map((point, index) => (
             <Stack key={index} direction="row" spacing={1} alignItems="center">
               <Typography variant="body2" sx={{ minWidth: 30 }}>{index + 1}</Typography>

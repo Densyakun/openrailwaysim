@@ -17,12 +17,42 @@ import { ConstructionZone } from '@/lib/construction';
 import { Tunnel, TunnelCrossSectionShape } from '@/lib/tunnel';
 import { v4 as uuidv4 } from 'uuid';
 
+type ConstructionZoneForm = {
+  startLength: string;
+  endLength: string;
+  offsetLeft: string;
+  offsetRight: string;
+  groundHeight: string;
+  wallHeight: string;
+  wallThickness: string;
+  slopeGradient: string;
+  slopeTopWidth: string;
+};
+
+type TunnelForm = {
+  startLength: string;
+  endLength: string;
+  width: string;
+  height: string;
+};
+
 function ConstructionZoneEditor({ zone, onSave, onCancel }: {
   zone: ConstructionZone;
   onSave: (zone: ConstructionZone) => void;
   onCancel: () => void;
 }) {
   const [editZone, setEditZone] = useState<ConstructionZone>({ ...zone });
+  const [form, setForm] = useState<ConstructionZoneForm>({
+    startLength: String(zone.startLength),
+    endLength: String(zone.endLength),
+    offsetLeft: String(zone.offsetLeft),
+    offsetRight: String(zone.offsetRight),
+    groundHeight: String(zone.ground.height),
+    wallHeight: String(zone.retainingWall?.height ?? 3),
+    wallThickness: String(zone.retainingWall?.thickness ?? 0.5),
+    slopeGradient: String(zone.slope?.gradient ?? 1.5),
+    slopeTopWidth: String(zone.slope?.topWidth ?? 0.5),
+  });
   const { tracks } = useSnapshot(store.data);
 
   return (
@@ -54,37 +84,57 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
         </FormControl>
         <TextField
           label="開始位置 (m)"
-          type="number"
           size="small"
-          value={editZone.startLength}
-          onChange={e => setEditZone({ ...editZone, startLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.startLength))}
+          value={form.startLength}
+          onChange={e => {
+            setForm(f => ({ ...f, startLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, startLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="終了位置 (m)"
-          type="number"
           size="small"
-          value={editZone.endLength}
-          onChange={e => setEditZone({ ...editZone, endLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.endLength))}
+          value={form.endLength}
+          onChange={e => {
+            setForm(f => ({ ...f, endLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, endLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="左オフセット (m)"
-          type="number"
           size="small"
-          value={editZone.offsetLeft}
-          onChange={e => setEditZone({ ...editZone, offsetLeft: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.offsetLeft))}
+          value={form.offsetLeft}
+          onChange={e => {
+            setForm(f => ({ ...f, offsetLeft: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, offsetLeft: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="右オフセット (m)"
-          type="number"
           size="small"
-          value={editZone.offsetRight}
-          onChange={e => setEditZone({ ...editZone, offsetRight: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.offsetRight))}
+          value={form.offsetRight}
+          onChange={e => {
+            setForm(f => ({ ...f, offsetRight: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, offsetRight: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
@@ -94,13 +144,15 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
 
         <TextField
           label="高さ (m)"
-          type="number"
           size="small"
-          value={editZone.ground.height}
-          onChange={e => setEditZone({
-            ...editZone,
-            ground: { ...editZone.ground, height: Number(e.target.value) },
-          })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.groundHeight))}
+          value={form.groundHeight}
+          onChange={e => {
+            setForm(f => ({ ...f, groundHeight: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, ground: { ...z.ground, height: v } }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
@@ -140,25 +192,35 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           <>
             <TextField
               label="壁高 (m)"
-              type="number"
               size="small"
-              value={editZone.retainingWall.height}
-              onChange={e => setEditZone({
-                ...editZone,
-                retainingWall: { ...editZone.retainingWall!, height: Number(e.target.value) },
-              })}
+              inputMode="decimal"
+              error={Number.isNaN(parseFloat(form.wallHeight))}
+              value={form.wallHeight}
+              onChange={e => {
+                setForm(f => ({ ...f, wallHeight: e.target.value }));
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) setEditZone(z => ({
+                  ...z,
+                  retainingWall: z.retainingWall ? { ...z.retainingWall, height: v } : z.retainingWall,
+                }));
+              }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
             />
             <TextField
               label="壁厚 (m)"
-              type="number"
               size="small"
-              value={editZone.retainingWall.thickness}
-              onChange={e => setEditZone({
-                ...editZone,
-                retainingWall: { ...editZone.retainingWall!, thickness: Number(e.target.value) },
-              })}
+              inputMode="decimal"
+              error={Number.isNaN(parseFloat(form.wallThickness))}
+              value={form.wallThickness}
+              onChange={e => {
+                setForm(f => ({ ...f, wallThickness: e.target.value }));
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) setEditZone(z => ({
+                  ...z,
+                  retainingWall: z.retainingWall ? { ...z.retainingWall, thickness: v } : z.retainingWall,
+                }));
+              }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
             />
@@ -213,25 +275,35 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           <>
             <TextField
               label="勾配 (例: 1.5 = 1:1.5)"
-              type="number"
               size="small"
-              value={editZone.slope.gradient}
-              onChange={e => setEditZone({
-                ...editZone,
-                slope: { ...editZone.slope!, gradient: Number(e.target.value) },
-              })}
+              inputMode="decimal"
+              error={Number.isNaN(parseFloat(form.slopeGradient))}
+              value={form.slopeGradient}
+              onChange={e => {
+                setForm(f => ({ ...f, slopeGradient: e.target.value }));
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) setEditZone(z => ({
+                  ...z,
+                  slope: z.slope ? { ...z.slope, gradient: v } : z.slope,
+                }));
+              }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
             />
             <TextField
               label="天端幅 (m)"
-              type="number"
               size="small"
-              value={editZone.slope.topWidth}
-              onChange={e => setEditZone({
-                ...editZone,
-                slope: { ...editZone.slope!, topWidth: Number(e.target.value) },
-              })}
+              inputMode="decimal"
+              error={Number.isNaN(parseFloat(form.slopeTopWidth))}
+              value={form.slopeTopWidth}
+              onChange={e => {
+                setForm(f => ({ ...f, slopeTopWidth: e.target.value }));
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) setEditZone(z => ({
+                  ...z,
+                  slope: z.slope ? { ...z.slope, topWidth: v } : z.slope,
+                }));
+              }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
             />
@@ -257,6 +329,12 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const [editTunnel, setEditTunnel] = useState<Tunnel>({ ...tunnel });
+  const [form, setForm] = useState<TunnelForm>({
+    startLength: String(tunnel.startLength),
+    endLength: String(tunnel.endLength),
+    width: String(tunnel.crossSection.width),
+    height: String(tunnel.crossSection.height),
+  });
   const { tracks } = useSnapshot(store.data);
 
   return (
@@ -288,19 +366,29 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
         </FormControl>
         <TextField
           label="開始位置 (m)"
-          type="number"
           size="small"
-          value={editTunnel.startLength}
-          onChange={e => setEditTunnel({ ...editTunnel, startLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.startLength))}
+          value={form.startLength}
+          onChange={e => {
+            setForm(f => ({ ...f, startLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditTunnel(t => ({ ...t, startLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="終了位置 (m)"
-          type="number"
           size="small"
-          value={editTunnel.endLength}
-          onChange={e => setEditTunnel({ ...editTunnel, endLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.endLength))}
+          value={form.endLength}
+          onChange={e => {
+            setForm(f => ({ ...f, endLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditTunnel(t => ({ ...t, endLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
@@ -325,25 +413,35 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
         </FormControl>
         <TextField
           label="幅 (m)"
-          type="number"
           size="small"
-          value={editTunnel.crossSection.width}
-          onChange={e => setEditTunnel({
-            ...editTunnel,
-            crossSection: { ...editTunnel.crossSection, width: Number(e.target.value) },
-          })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.width))}
+          value={form.width}
+          onChange={e => {
+            setForm(f => ({ ...f, width: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditTunnel(t => ({
+              ...t,
+              crossSection: { ...t.crossSection, width: v },
+            }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="高さ (m)"
-          type="number"
           size="small"
-          value={editTunnel.crossSection.height}
-          onChange={e => setEditTunnel({
-            ...editTunnel,
-            crossSection: { ...editTunnel.crossSection, height: Number(e.target.value) },
-          })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.height))}
+          value={form.height}
+          onChange={e => {
+            setForm(f => ({ ...f, height: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditTunnel(t => ({
+              ...t,
+              crossSection: { ...t.crossSection, height: v },
+            }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />

@@ -280,6 +280,7 @@ function MainMenu() {
   const { selectedTrackIds } = useSnapshot(tracksState);
   const { showTrackTypes, showShortTracks, shortTrackThreshold } = useSnapshot(tracksSubMenuState);
   const [heightInput, setHeightInput] = React.useState("");
+  const [shortTrackThresholdInput, setShortTrackThresholdInput] = React.useState(shortTrackThreshold.toString());
   React.useEffect(() => {
     if (selectedTrackIds.length === 1) {
       const t = store.data.tracks[selectedTrackIds[0]];
@@ -433,7 +434,8 @@ function MainMenu() {
           label="高さ (m)"
           value={heightInput}
           size="small"
-          type="number"
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(heightInput))}
           onChange={e => setHeightInput(e.target.value)}
         />
         <Button variant='contained' disabled={!selectedTrackIds.length || isNaN(parseFloat(heightInput))} onClick={() => {
@@ -499,10 +501,12 @@ function MainMenu() {
         {showShortTracks && (
           <TextField
             label="短い軌道の閾値 (m)"
-            value={shortTrackThreshold}
+            value={shortTrackThresholdInput}
             size="small"
-            type="number"
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(shortTrackThresholdInput))}
             onChange={(e) => {
+              setShortTrackThresholdInput(e.target.value);
               const value = parseFloat(e.target.value);
               if (!isNaN(value) && value > 0) {
                 tracksSubMenuState.shortTrackThreshold = value;

@@ -213,7 +213,7 @@ function SwitchPlacementEditor() {
         label="分岐番数"
         value={localSwitchNumber}
         size="small"
-        type="number"
+        inputMode="decimal"
         onChange={(event) => {
           setLocalSwitchNumber(event.target.value);
           const num = parseFloat(event.target.value);
@@ -256,7 +256,7 @@ function SwitchPlacementEditor() {
         label="分岐側長さ (m)"
         value={localDivergingLength}
         size="small"
-        type="number"
+        inputMode="decimal"
         onChange={(event) => {
           setLocalDivergingLength(event.target.value);
           const len = parseFloat(event.target.value);

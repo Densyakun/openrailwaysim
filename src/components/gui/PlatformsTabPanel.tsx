@@ -19,12 +19,44 @@ import { Platform, BoundaryVertex, WorldModel, exportPlatformAsGLTF, exportPlatf
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
 
+type PlatformForm = {
+  startLength: string;
+  endLength: string;
+  offset: string;
+  height: string;
+  vehicleOverhang: string;
+  boundaryVertices: { lengthRatio: string; offset: string }[];
+};
+
+type WorldModelForm = {
+  positionX: string;
+  positionY: string;
+  positionZ: string;
+  rotationX: string;
+  rotationY: string;
+  rotationZ: string;
+  scaleX: string;
+  scaleY: string;
+  scaleZ: string;
+};
+
 function PlatformEditor({ platform, onSave, onCancel }: {
   platform: Platform;
   onSave: (platform: Platform) => void;
   onCancel: () => void;
 }) {
   const [editPlatform, setEditPlatform] = useState<Platform>({ ...platform });
+  const [form, setForm] = useState<PlatformForm>({
+    startLength: String(platform.startLength),
+    endLength: String(platform.endLength),
+    offset: String(platform.offset),
+    height: String(platform.height),
+    vehicleOverhang: String(platform.vehicleOverhang),
+    boundaryVertices: platform.boundaryVertices.map(v => ({
+      lengthRatio: String(v.lengthRatio),
+      offset: String(v.offset),
+    })),
+  });
   const { tracks } = useSnapshot(store.data);
 
   const handleAddBoundaryVertex = () => {
@@ -37,6 +69,10 @@ function PlatformEditor({ platform, onSave, onCancel }: {
       ...editPlatform,
       boundaryVertices: [...editPlatform.boundaryVertices, newVertex],
     });
+    setForm(f => ({
+      ...f,
+      boundaryVertices: [...f.boundaryVertices, { lengthRatio: "0.5", offset: "3" }],
+    }));
   };
 
   const handleUpdateBoundaryVertex = (index: number, vertex: BoundaryVertex) => {
@@ -48,6 +84,10 @@ function PlatformEditor({ platform, onSave, onCancel }: {
   const handleRemoveBoundaryVertex = (index: number) => {
     const newVertices = editPlatform.boundaryVertices.filter((_, i) => i !== index);
     setEditPlatform({ ...editPlatform, boundaryVertices: newVertices });
+    setForm(f => ({
+      ...f,
+      boundaryVertices: f.boundaryVertices.filter((_, i) => i !== index),
+    }));
   };
 
   const handleAddTrackId = () => {
@@ -85,37 +125,57 @@ function PlatformEditor({ platform, onSave, onCancel }: {
 
         <TextField
           label="開始位置 (m)"
-          type="number"
           size="small"
-          value={editPlatform.startLength}
-          onChange={e => setEditPlatform({ ...editPlatform, startLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.startLength))}
+          value={form.startLength}
+          onChange={e => {
+            setForm(f => ({ ...f, startLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditPlatform(p => ({ ...p, startLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="終了位置 (m)"
-          type="number"
           size="small"
-          value={editPlatform.endLength}
-          onChange={e => setEditPlatform({ ...editPlatform, endLength: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.endLength))}
+          value={form.endLength}
+          onChange={e => {
+            setForm(f => ({ ...f, endLength: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditPlatform(p => ({ ...p, endLength: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="オフセット (m)"
-          type="number"
           size="small"
-          value={editPlatform.offset}
-          onChange={e => setEditPlatform({ ...editPlatform, offset: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.offset))}
+          value={form.offset}
+          onChange={e => {
+            setForm(f => ({ ...f, offset: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditPlatform(p => ({ ...p, offset: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
         <TextField
           label="高さ (m)"
-          type="number"
           size="small"
-          value={editPlatform.height}
-          onChange={e => setEditPlatform({ ...editPlatform, height: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.height))}
+          value={form.height}
+          onChange={e => {
+            setForm(f => ({ ...f, height: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditPlatform(p => ({ ...p, height: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
@@ -131,10 +191,15 @@ function PlatformEditor({ platform, onSave, onCancel }: {
         />
         <TextField
           label="車両偏倚量 (m)"
-          type="number"
           size="small"
-          value={editPlatform.vehicleOverhang}
-          onChange={e => setEditPlatform({ ...editPlatform, vehicleOverhang: Number(e.target.value) })}
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.vehicleOverhang))}
+          value={form.vehicleOverhang}
+          onChange={e => {
+            setForm(f => ({ ...f, vehicleOverhang: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) setEditPlatform(p => ({ ...p, vehicleOverhang: v }));
+          }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
@@ -184,20 +249,45 @@ function PlatformEditor({ platform, onSave, onCancel }: {
               </FormControl>
               <TextField
                 label="位置比率 (0-1)"
-                type="number"
                 size="small"
-                value={vertex.lengthRatio}
-                onChange={e => handleUpdateBoundaryVertex(index, { ...vertex, lengthRatio: Number(e.target.value) })}
+                inputMode="decimal"
+                error={Number.isNaN(parseFloat(form.boundaryVertices[index].lengthRatio))}
+                value={form.boundaryVertices[index].lengthRatio}
+                onChange={e => {
+                  setForm(f => {
+                    const bv = [...f.boundaryVertices];
+                    bv[index] = { ...bv[index], lengthRatio: e.target.value };
+                    return { ...f, boundaryVertices: bv };
+                  });
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v)) setEditPlatform(p => {
+                    const bv = [...p.boundaryVertices];
+                    bv[index] = { ...bv[index], lengthRatio: Math.max(0, Math.min(1, v)) };
+                    return { ...p, boundaryVertices: bv };
+                  });
+                }}
                 fullWidth
                 sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
-                inputProps={{ min: 0, max: 1, step: 0.01 }}
               />
               <TextField
                 label="オフセット (m)"
-                type="number"
                 size="small"
-                value={vertex.offset}
-                onChange={e => handleUpdateBoundaryVertex(index, { ...vertex, offset: Number(e.target.value) })}
+                inputMode="decimal"
+                error={Number.isNaN(parseFloat(form.boundaryVertices[index].offset))}
+                value={form.boundaryVertices[index].offset}
+                onChange={e => {
+                  setForm(f => {
+                    const bv = [...f.boundaryVertices];
+                    bv[index] = { ...bv[index], offset: e.target.value };
+                    return { ...f, boundaryVertices: bv };
+                  });
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v)) setEditPlatform(p => {
+                    const bv = [...p.boundaryVertices];
+                    bv[index] = { ...bv[index], offset: v };
+                    return { ...p, boundaryVertices: bv };
+                  });
+                }}
                 fullWidth
                 sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
               />
@@ -240,6 +330,17 @@ function WorldModelEditor({ model, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const [editModel, setEditModel] = useState<WorldModel>({ ...model });
+  const [form, setForm] = useState<WorldModelForm>({
+    positionX: String(model.position.x),
+    positionY: String(model.position.y),
+    positionZ: String(model.position.z),
+    rotationX: String(model.rotation.x),
+    rotationY: String(model.rotation.y),
+    rotationZ: String(model.rotation.z),
+    scaleX: String(model.scale.x),
+    scaleY: String(model.scale.y),
+    scaleZ: String(model.scale.z),
+  });
 
   const handlePositionChange = (axis: 'x' | 'y' | 'z', value: number) => {
     const newPosition = editModel.position.clone();
@@ -280,28 +381,43 @@ function WorldModelEditor({ model, onSave, onCancel }: {
         <Stack direction="row" spacing={1}>
           <TextField
             label="X"
-            type="number"
             size="small"
-            value={editModel.position.x}
-            onChange={e => handlePositionChange('x', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.positionX))}
+            value={form.positionX}
+            onChange={e => {
+              setForm(f => ({ ...f, positionX: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handlePositionChange('x', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Y"
-            type="number"
             size="small"
-            value={editModel.position.y}
-            onChange={e => handlePositionChange('y', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.positionY))}
+            value={form.positionY}
+            onChange={e => {
+              setForm(f => ({ ...f, positionY: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handlePositionChange('y', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Z"
-            type="number"
             size="small"
-            value={editModel.position.z}
-            onChange={e => handlePositionChange('z', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.positionZ))}
+            value={form.positionZ}
+            onChange={e => {
+              setForm(f => ({ ...f, positionZ: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handlePositionChange('z', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
@@ -313,28 +429,43 @@ function WorldModelEditor({ model, onSave, onCancel }: {
         <Stack direction="row" spacing={1}>
           <TextField
             label="X"
-            type="number"
             size="small"
-            value={editModel.rotation.x}
-            onChange={e => handleRotationChange('x', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.rotationX))}
+            value={form.rotationX}
+            onChange={e => {
+              setForm(f => ({ ...f, rotationX: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleRotationChange('x', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Y"
-            type="number"
             size="small"
-            value={editModel.rotation.y}
-            onChange={e => handleRotationChange('y', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.rotationY))}
+            value={form.rotationY}
+            onChange={e => {
+              setForm(f => ({ ...f, rotationY: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleRotationChange('y', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Z"
-            type="number"
             size="small"
-            value={editModel.rotation.z}
-            onChange={e => handleRotationChange('z', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.rotationZ))}
+            value={form.rotationZ}
+            onChange={e => {
+              setForm(f => ({ ...f, rotationZ: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleRotationChange('z', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
@@ -346,28 +477,43 @@ function WorldModelEditor({ model, onSave, onCancel }: {
         <Stack direction="row" spacing={1}>
           <TextField
             label="X"
-            type="number"
             size="small"
-            value={editModel.scale.x}
-            onChange={e => handleScaleChange('x', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.scaleX))}
+            value={form.scaleX}
+            onChange={e => {
+              setForm(f => ({ ...f, scaleX: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleScaleChange('x', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Y"
-            type="number"
             size="small"
-            value={editModel.scale.y}
-            onChange={e => handleScaleChange('y', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.scaleY))}
+            value={form.scaleY}
+            onChange={e => {
+              setForm(f => ({ ...f, scaleY: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleScaleChange('y', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
           <TextField
             label="Z"
-            type="number"
             size="small"
-            value={editModel.scale.z}
-            onChange={e => handleScaleChange('z', Number(e.target.value))}
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.scaleZ))}
+            value={form.scaleZ}
+            onChange={e => {
+              setForm(f => ({ ...f, scaleZ: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) handleScaleChange('z', v);
+            }}
             fullWidth
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />

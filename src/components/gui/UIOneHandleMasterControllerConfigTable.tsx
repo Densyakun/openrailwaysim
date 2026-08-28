@@ -72,6 +72,18 @@ function Controllers({
 
   const [markLabel, setMarkLabel] = useState("");
 
+  const [maxValueText, setMaxValueText] = useState(String(values.maxValue));
+  const maxValueWatch = form.watch("maxValue");
+  useEffect(() => {
+    const cur = parseFloat(maxValueText);
+    if (Number.isNaN(cur) || cur !== maxValueWatch)
+      setMaxValueText(String(maxValueWatch));
+  }, [maxValueWatch]); // eslint-disable-line react-hooks/exhaustive-deps
+  const maxValueInvalid = (() => {
+    const v = parseFloat(maxValueText);
+    return Number.isNaN(v) || v < 0;
+  })();
+
   useEffect(() => {
     setValueText(String(value));
     setMarkLabel(values.marks.find(mark => mark.value === value)?.label || "");
@@ -98,25 +110,23 @@ function Controllers({
     }}>
       Keisei AE Series
     </Button>
-    <Controller
-      name="maxValue"
-      control={control}
-      rules={{
-        required: true,
-        validate: value => 0 <= value
+    <TextField
+      label="Max value"
+      variant="outlined"
+      inputMode="decimal"
+      error={maxValueInvalid}
+      helperText={maxValueInvalid && "Incorrect entry."}
+      value={maxValueText}
+      onChange={event => {
+        setMaxValueText(event.target.value);
+        const v = parseFloat(event.target.value);
+        if (Number.isNaN(v) || v < 0) return;
+        form.setValue("maxValue", v);
       }}
-      render={({ field }) => <TextField
-        label="Max value"
-        type="number"
-        variant="outlined"
-        error={errors.maxValue !== undefined}
-        helperText={errors.maxValue && "Incorrect entry."}
-        {...field}
-      />}
     />
 
     <MasterControllerSlider value={value} uiOneHandleMasterControllerConfig={values} setValue={setValue} />
-    <TextField label="Value" type="number" variant="outlined" error={valueError} value={valueText} onChange={event => {
+    <TextField label="Value" variant="outlined" inputMode="decimal" error={valueError} value={valueText} onChange={event => {
       setValueText(event.target.value);
       try {
         const newValue = parseFloat(event.target.value);

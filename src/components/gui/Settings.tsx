@@ -110,6 +110,12 @@ export default function Settings() {
               size="small"
               value={adminPassword}
               onChange={e => setAdminPassword(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAdminLogin();
+                }
+              }}
               sx={{ flexGrow: 1 }}
             />
             <Button variant="contained" startIcon={<AdminPanelSettingsIcon />} onClick={handleAdminLogin}>
@@ -132,78 +138,80 @@ export default function Settings() {
         <Chip label="Admin mode (no password)" color="success" size="small" />
       )}
 
-      <Typography variant="h5" component="h1">Save Data</Typography>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <TextField
-          label="Save name"
-          size="small"
-          value={saveName}
-          onChange={e => setSaveName(e.target.value)}
-          sx={{ flexGrow: 1 }}
-          disabled={!isAdmin}
-        />
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={!isAdmin || !saveName}>
-          Save
-        </Button>
-      </Stack>
-      {currentSave && (
-        <Typography variant="body2" color="text.secondary">
-          Current save: {currentSave}
-        </Typography>
-      )}
-      <Accordion expanded={saveListExpanded} onChange={(_, v) => setSaveListExpanded(v)} disableGutters sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.04)' }}>
-        <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />} sx={{ color: 'white' }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexGrow: 1 }}>
-            <Typography variant="subtitle2">セーブデータ一覧 ({saves.length})</Typography>
-            {loadName && (
-              <Chip label={`選択: ${loadName}`} size="small" color="primary" sx={{ ml: 1 }} />
+      {isAdmin && <>
+        <Typography variant="h5" component="h1">Save Data</Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            label="Save name"
+            size="small"
+            value={saveName}
+            onChange={e => setSaveName(e.target.value)}
+            sx={{ flexGrow: 1 }}
+            disabled={!isAdmin}
+          />
+          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={!isAdmin || !saveName}>
+            Save
+          </Button>
+        </Stack>
+        {currentSave && (
+          <Typography variant="body2" color="text.secondary">
+            Current save: {currentSave}
+          </Typography>
+        )}
+        <Accordion expanded={saveListExpanded} onChange={(_, v) => setSaveListExpanded(v)} disableGutters sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.04)' }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />} sx={{ color: 'white' }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ flexGrow: 1 }}>
+              <Typography variant="subtitle2">セーブデータ一覧 ({saves.length})</Typography>
+              {loadName && (
+                <Chip label={`選択: ${loadName}`} size="small" color="primary" sx={{ ml: 1 }} />
+              )}
+            </Stack>
+            <Tooltip title="更新">
+              <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleListSaves(); }} disabled={!isAdmin} sx={{ color: 'white', mr: 1 }}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 0 }}>
+            {saves.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>セーブデータがありません</Typography>
+            ) : (
+              <List dense disablePadding sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                {saves.map(name => {
+                  const isSelected = loadName === name;
+                  const isCurrent = currentSave === name;
+                  return (
+                    <ListItem key={name} disablePadding secondaryAction={
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="読み込む">
+                          <IconButton edge="end" size="small" onClick={() => { setLoadName(name); send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE, name); clientState.currentSave = name; }} disabled={!isAdmin} sx={{ color: isSelected ? 'primary.main' : 'white' }}>
+                            <FolderOpenIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="削除">
+                          <IconButton edge="end" size="small" onClick={() => handleDelete(name)} disabled={!isAdmin} sx={{ color: 'error.main' }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    }>
+                      <ListItemButton selected={isSelected} onClick={() => setLoadName(name)} sx={{ color: 'white', '&.Mui-selected': { bgcolor: 'rgba(25,118,210,0.24)' }, '&.Mui-selected:hover': { bgcolor: 'rgba(25,118,210,0.32)' } }}>
+                        <ListItemText primary={name} secondary={isCurrent ? 'current' : undefined} primaryTypographyProps={{ variant: 'body2', noWrap: true }} secondaryTypographyProps={{ variant: 'caption' }} />
+                        {isCurrent && <Chip label="current" size="small" color="success" sx={{ ml: 1, height: 18, fontSize: 10 }} />}
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
             )}
-          </Stack>
-          <Tooltip title="更新">
-            <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleListSaves(); }} disabled={!isAdmin} sx={{ color: 'white', mr: 1 }}>
-              <RefreshIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </AccordionSummary>
-        <AccordionDetails sx={{ p: 0 }}>
-          {saves.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>セーブデータがありません</Typography>
-          ) : (
-            <List dense disablePadding sx={{ maxHeight: 200, overflowY: 'auto' }}>
-              {saves.map(name => {
-                const isSelected = loadName === name;
-                const isCurrent = currentSave === name;
-                return (
-                  <ListItem key={name} disablePadding secondaryAction={
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="読み込む">
-                        <IconButton edge="end" size="small" onClick={() => { setLoadName(name); send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE, name); clientState.currentSave = name; }} disabled={!isAdmin} sx={{ color: isSelected ? 'primary.main' : 'white' }}>
-                          <FolderOpenIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="削除">
-                        <IconButton edge="end" size="small" onClick={() => handleDelete(name)} disabled={!isAdmin} sx={{ color: 'error.main' }}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
-                  }>
-                    <ListItemButton selected={isSelected} onClick={() => setLoadName(name)} sx={{ color: 'white', '&.Mui-selected': { bgcolor: 'rgba(25,118,210,0.24)' }, '&.Mui-selected:hover': { bgcolor: 'rgba(25,118,210,0.32)' } }}>
-                      <ListItemText primary={name} secondary={isCurrent ? 'current' : undefined} primaryTypographyProps={{ variant: 'body2', noWrap: true }} secondaryTypographyProps={{ variant: 'caption' }} />
-                      {isCurrent && <Chip label="current" size="small" color="success" sx={{ ml: 1, height: 18, fontSize: 10 }} />}
-                    </ListItemButton>
-                  </ListItem>
-                );
-              })}
-            </List>
-          )}
-          <Stack direction="row" spacing={1} sx={{ p: 1, justifyContent: 'flex-end' }}>
-            <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleLoad} disabled={!isAdmin || !loadName}>
-              選択を読み込む
-            </Button>
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+            <Stack direction="row" spacing={1} sx={{ p: 1, justifyContent: 'flex-end' }}>
+              <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={handleLoad} disabled={!isAdmin || !loadName}>
+                選択を読み込む
+              </Button>
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
+      </>}
     </Stack>
     <Dialog open={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)}>
       <DialogTitle>Delete save</DialogTitle>

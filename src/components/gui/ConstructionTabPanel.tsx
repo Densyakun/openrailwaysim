@@ -1,5 +1,5 @@
 // 造成/トンネル編集GUI
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import {
   Paper, Stack, Button, TextField, Typography, IconButton,
@@ -13,7 +13,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import TunnelIcon from '@mui/icons-material/Directions';
 import { store } from '@/lib/game';
 import { constructionState } from '@/lib/client/construction';
-import { ConstructionZone } from '@/lib/construction';
+import { ConstructionZone, ConstructionCrossSection, ConstructionCrossSectionShape } from '@/lib/construction';
 import { Tunnel, TunnelCrossSectionShape } from '@/lib/tunnel';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,6 +27,8 @@ type ConstructionZoneForm = {
   wallThickness: string;
   slopeGradient: string;
   slopeTopWidth: string;
+  crossSectionDivisions: string;
+  crossSectionHeight: string;
 };
 
 type TunnelForm = {
@@ -41,7 +43,6 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
   onSave: (zone: ConstructionZone) => void;
   onCancel: () => void;
 }) {
-  const [editZone, setEditZone] = useState<ConstructionZone>({ ...zone });
   const [form, setForm] = useState<ConstructionZoneForm>({
     startLength: String(zone.startLength),
     endLength: String(zone.endLength),
@@ -52,8 +53,43 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
     wallThickness: String(zone.retainingWall?.thickness ?? 0.5),
     slopeGradient: String(zone.slope?.gradient ?? 1.5),
     slopeTopWidth: String(zone.slope?.topWidth ?? 0.5),
+    crossSectionDivisions: String(zone.crossSection?.divisions ?? 5),
+    crossSectionHeight: String(zone.crossSection?.height ?? 3),
   });
-  const { tracks } = useSnapshot(store.data);
+
+  // 3Dビューでのトラック選択など、ストア側から変更された値をフォームへ反映する
+  useEffect(() => {
+    setForm(f => ({
+      ...f,
+      startLength: String(zone.startLength),
+      endLength: String(zone.endLength),
+      offsetLeft: String(zone.offsetLeft),
+      offsetRight: String(zone.offsetRight),
+      groundHeight: String(zone.ground.height),
+      wallHeight: String(zone.retainingWall?.height ?? 3),
+      wallThickness: String(zone.retainingWall?.thickness ?? 0.5),
+      slopeGradient: String(zone.slope?.gradient ?? 1.5),
+      slopeTopWidth: String(zone.slope?.topWidth ?? 0.5),
+      crossSectionDivisions: String(zone.crossSection?.divisions ?? 5),
+      crossSectionHeight: String(zone.crossSection?.height ?? 3),
+    }));
+  }, [zone]);
+
+  // 編集中の値をリアルタイムにストアへ反映し、3Dビューへ即時表示させる
+  const updateZone = (patch: Partial<ConstructionZone>) => {
+    const current = store.data.constructionZones[zone.id];
+    if (!current) return;
+    store.data.constructionZones[zone.id] = { ...current, ...patch };
+  };
+
+  const updateCrossSection = (patch: Partial<ConstructionCrossSection>) => {
+    const current = zone.crossSection ?? {
+      shape: 'trapezoid' as ConstructionCrossSectionShape,
+      divisions: 5,
+      height: 3,
+    };
+    updateZone({ crossSection: { ...current, ...patch } });
+  };
 
   return (
     <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
@@ -64,24 +100,37 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
         <TextField
           label="名前"
           size="small"
-          value={editZone.name}
-          onChange={e => setEditZone({ ...editZone, name: e.target.value })}
+          value={zone.name}
+          onChange={e => updateZone({ name: e.target.value })}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
-        <FormControl size="small" fullWidth>
-          <InputLabel sx={{ color: '#aaa' }}>トラック</InputLabel>
-          <Select
-            value={editZone.trackId}
-            label="トラック"
-            onChange={e => setEditZone({ ...editZone, trackId: e.target.value })}
-            sx={{ color: 'white' }}
+
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">トラック</Typography>
+        <Typography variant="caption" color="#aaa">
+          3Dビューで軌道をクリックすると選択できます。
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography
+            variant="body2"
+            sx={{ flexGrow: 1, wordBreak: 'break-all', color: zone.trackId ? '#7cf' : '#f66' }}
           >
-            {Object.keys(tracks).map(id => (
-              <MenuItem key={id} value={id}>{id}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            {zone.trackId || '未選択'}
+          </Typography>
+          {zone.trackId && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              sx={{ color: '#f88', borderColor: 'rgba(255,255,255,0.4)', minWidth: 'auto' }}
+              onClick={() => updateZone({ trackId: '' })}
+            >
+              解除
+            </Button>
+          )}
+        </Stack>
+
         <TextField
           label="開始位置 (m)"
           size="small"
@@ -91,7 +140,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, startLength: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, startLength: v }));
+            if (!Number.isNaN(v)) updateZone({ startLength: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -105,7 +154,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, endLength: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, endLength: v }));
+            if (!Number.isNaN(v)) updateZone({ endLength: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -119,7 +168,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, offsetLeft: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, offsetLeft: v }));
+            if (!Number.isNaN(v)) updateZone({ offsetLeft: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -133,7 +182,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, offsetRight: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, offsetRight: v }));
+            if (!Number.isNaN(v)) updateZone({ offsetRight: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -151,7 +200,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, groundHeight: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditZone(z => ({ ...z, ground: { ...z.ground, height: v } }));
+            if (!Number.isNaN(v)) updateZone({ ground: { ...zone.ground, height: v } });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -160,11 +209,8 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={editZone.ground.isAbsolute}
-              onChange={e => setEditZone({
-                ...editZone,
-                ground: { ...editZone.ground, isAbsolute: e.target.checked },
-              })}
+              checked={zone.ground.isAbsolute}
+              onChange={e => updateZone({ ground: { ...zone.ground, isAbsolute: e.target.checked } })}
             />
           }
           label={<Typography variant="caption">絶対高さ</Typography>}
@@ -177,9 +223,8 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={!!editZone.retainingWall}
-              onChange={e => setEditZone({
-                ...editZone,
+              checked={!!zone.retainingWall}
+              onChange={e => updateZone({
                 retainingWall: e.target.checked
                   ? { height: 3, thickness: 0.5, leftSide: true, rightSide: false }
                   : undefined,
@@ -188,7 +233,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }
           label={<Typography variant="caption">擁壁を追加</Typography>}
         />
-        {editZone.retainingWall && (
+        {zone.retainingWall && (
           <>
             <TextField
               label="壁高 (m)"
@@ -199,10 +244,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               onChange={e => {
                 setForm(f => ({ ...f, wallHeight: e.target.value }));
                 const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) setEditZone(z => ({
-                  ...z,
-                  retainingWall: z.retainingWall ? { ...z.retainingWall, height: v } : z.retainingWall,
-                }));
+                if (!Number.isNaN(v)) updateZone({ retainingWall: { ...zone.retainingWall!, height: v } });
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -216,10 +258,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               onChange={e => {
                 setForm(f => ({ ...f, wallThickness: e.target.value }));
                 const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) setEditZone(z => ({
-                  ...z,
-                  retainingWall: z.retainingWall ? { ...z.retainingWall, thickness: v } : z.retainingWall,
-                }));
+                if (!Number.isNaN(v)) updateZone({ retainingWall: { ...zone.retainingWall!, thickness: v } });
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -228,10 +267,9 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               control={
                 <Switch
                   size="small"
-                  checked={editZone.retainingWall.leftSide}
-                  onChange={e => setEditZone({
-                    ...editZone,
-                    retainingWall: { ...editZone.retainingWall!, leftSide: e.target.checked },
+                  checked={zone.retainingWall.leftSide}
+                  onChange={e => updateZone({
+                    retainingWall: { ...zone.retainingWall!, leftSide: e.target.checked },
                   })}
                 />
               }
@@ -241,10 +279,9 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               control={
                 <Switch
                   size="small"
-                  checked={editZone.retainingWall.rightSide}
-                  onChange={e => setEditZone({
-                    ...editZone,
-                    retainingWall: { ...editZone.retainingWall!, rightSide: e.target.checked },
+                  checked={zone.retainingWall.rightSide}
+                  onChange={e => updateZone({
+                    retainingWall: { ...zone.retainingWall!, rightSide: e.target.checked },
                   })}
                 />
               }
@@ -260,9 +297,8 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={!!editZone.slope}
-              onChange={e => setEditZone({
-                ...editZone,
+              checked={!!zone.slope}
+              onChange={e => updateZone({
                 slope: e.target.checked
                   ? { gradient: 1.5, topWidth: 0.5 }
                   : undefined,
@@ -271,7 +307,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }
           label={<Typography variant="caption">法面を追加</Typography>}
         />
-        {editZone.slope && (
+        {zone.slope && (
           <>
             <TextField
               label="勾配 (例: 1.5 = 1:1.5)"
@@ -282,10 +318,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               onChange={e => {
                 setForm(f => ({ ...f, slopeGradient: e.target.value }));
                 const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) setEditZone(z => ({
-                  ...z,
-                  slope: z.slope ? { ...z.slope, gradient: v } : z.slope,
-                }));
+                if (!Number.isNaN(v)) updateZone({ slope: { ...zone.slope!, gradient: v } });
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -299,10 +332,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               onChange={e => {
                 setForm(f => ({ ...f, slopeTopWidth: e.target.value }));
                 const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) setEditZone(z => ({
-                  ...z,
-                  slope: z.slope ? { ...z.slope, topWidth: v } : z.slope,
-                }));
+                if (!Number.isNaN(v)) updateZone({ slope: { ...zone.slope!, topWidth: v } });
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
@@ -310,8 +340,56 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           </>
         )}
 
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">断面プレビュー</Typography>
+
+        <FormControl size="small" fullWidth>
+          <InputLabel sx={{ color: '#aaa' }}>断面形状</InputLabel>
+          <Select
+            value={zone.crossSection?.shape ?? 'trapezoid'}
+            label="断面形状"
+            onChange={e => updateCrossSection({ shape: e.target.value as ConstructionCrossSectionShape })}
+            sx={{ color: 'white' }}
+          >
+            <MenuItem value="trapezoid">台形</MenuItem>
+            <MenuItem value="ellipse">楕円</MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          label="分割数"
+          size="small"
+          inputMode="numeric"
+          error={Number.isNaN(parseFloat(form.crossSectionDivisions)) || parseFloat(form.crossSectionDivisions) < 1}
+          value={form.crossSectionDivisions}
+          onChange={e => {
+            setForm(f => ({ ...f, crossSectionDivisions: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v) && v >= 1) updateCrossSection({ divisions: Math.round(v) });
+          }}
+          fullWidth
+          helperText="造成区間(開始〜終了位置)を分割する数。この数で区切った各位置に断面を配置します。"
+          sx={{ input: { color: 'white' }, label: { color: '#aaa' }, '& .MuiFormHelperText-root': { color: '#aaa' } }}
+        />
+        <TextField
+          label="高さ (m)"
+          size="small"
+          inputMode="decimal"
+          error={Number.isNaN(parseFloat(form.crossSectionHeight))}
+          value={form.crossSectionHeight}
+          onChange={e => {
+            setForm(f => ({ ...f, crossSectionHeight: e.target.value }));
+            const v = parseFloat(e.target.value);
+            if (!Number.isNaN(v)) updateCrossSection({ height: v });
+          }}
+          fullWidth
+          sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+        />
+        <Typography variant="caption" color="#aaa">
+          台形は左右オフセットと法面の勾配・天端幅、楕円は左右オフセットで形状が決まります。
+        </Typography>
+
         <Stack direction="row" spacing={1}>
-          <Button variant="contained" size="small" onClick={() => onSave(editZone)}>
+          <Button variant="contained" size="small" onClick={() => onSave(zone)}>
             保存
           </Button>
           <Button variant="outlined" size="small" onClick={onCancel} sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>
@@ -510,6 +588,7 @@ export default function ConstructionTabPanel() {
       ground: { height: 0, isAbsolute: false },
     };
     store.data.constructionZones[id] = newZone;
+    constructionState.originalZone = { ...newZone };
     constructionState.selectedZoneId = id;
     constructionState.isEditingZone = true;
   };
@@ -534,6 +613,7 @@ export default function ConstructionTabPanel() {
 
   const handleSaveZone = (zone: ConstructionZone) => {
     store.data.constructionZones[zone.id] = zone;
+    constructionState.originalZone = undefined;
     constructionState.isEditingZone = false;
   };
 
@@ -542,8 +622,19 @@ export default function ConstructionTabPanel() {
     constructionState.isEditingTunnel = false;
   };
 
+  // 編集中の変更を破棄して、編集開始時点のデータに戻す
+  const handleCancelZone = () => {
+    const original = constructionState.originalZone;
+    if (original) {
+      store.data.constructionZones[original.id] = original;
+    }
+    constructionState.originalZone = undefined;
+    constructionState.isEditingZone = false;
+  };
+
   const handleDeleteZone = (id: string) => {
     delete store.data.constructionZones[id];
+    if (constructionState.originalZone?.id === id) constructionState.originalZone = undefined;
     if (constructionState.selectedZoneId === id) {
       constructionState.selectedZoneId = '';
       constructionState.isEditingZone = false;
@@ -572,7 +663,7 @@ export default function ConstructionTabPanel() {
         <ConstructionZoneEditor
           zone={editingZone}
           onSave={handleSaveZone}
-          onCancel={() => { constructionState.isEditingZone = false; }}
+          onCancel={handleCancelZone}
         />
       ) : editingTunnel ? (
         <TunnelEditor
@@ -611,6 +702,7 @@ export default function ConstructionTabPanel() {
                   <Typography variant="caption">{zone.name}</Typography>
                   <Stack direction="row" spacing={0.5}>
                     <IconButton size="small" onClick={() => {
+                      constructionState.originalZone = { ...store.data.constructionZones[zone.id] };
                       constructionState.selectedZoneId = zone.id;
                       constructionState.isEditingZone = true;
                     }}>

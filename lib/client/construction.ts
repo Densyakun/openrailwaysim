@@ -1,5 +1,6 @@
 // 造成・トンネルのクライアント状態
 import { proxy } from 'valtio';
+import type { ConstructionZone } from '@/lib/construction';
 
 export const constructionState = proxy<{
   selectedZoneId: string;
@@ -8,6 +9,7 @@ export const constructionState = proxy<{
   isEditingTunnel: boolean;
   previewZoneId: string;
   previewTunnelId: string;
+  originalZone: ConstructionZone | undefined;
 }>({
   selectedZoneId: '',
   selectedTunnelId: '',
@@ -15,4 +17,5 @@ export const constructionState = proxy<{
   isEditingTunnel: false,
   previewZoneId: '',
   previewTunnelId: '',
+  originalZone: undefined,
 });

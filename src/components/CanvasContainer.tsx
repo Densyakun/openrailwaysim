@@ -9,6 +9,7 @@ import Trains from './Trains'
 import Terrains from './Terrains'
 import TerrainGenerator from './TerrainGenerator'
 import ConstructionZones from './ConstructionZoneMesh'
+import ConstructionCrossSections from './ConstructionCrossSectionMesh'
 import Tunnels from './TunnelMesh'
 import Platforms from './PlatformMesh'
 import WorldModels from './WorldModels'
@@ -51,6 +52,7 @@ export default function CanvasContainer() {
           <Tracks />
           <Trains />
           <ConstructionZones />
+          <ConstructionCrossSections />
           <Tunnels />
           <Platforms />
           <WorldModels />

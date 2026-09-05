@@ -10,6 +10,7 @@ import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints } from "@/lib/client/tracks/index"
 import { tracksState, offsetTrackState } from "@/lib/client/tracks/store"
+import { constructionState } from '@/lib/client/construction'
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
@@ -459,6 +460,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrainFormatId, isAddingTrainFormat, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
+  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId } = useSnapshot(constructionState);
   const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
   const { isPlacing: isSwitchPlacing } = useSnapshot(switchPlacementState);
@@ -538,10 +540,12 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     || T
     || D
     || tracksIsEditing
-    || isOffsetting;
+    || isOffsetting
+    || constructionEditing;
   const isSelectable =
     (selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing && !isOffsetting)
-    || (selectedTab === "switches" && isSwitchPlacing);
+    || (selectedTab === "switches" && isSwitchPlacing)
+    || constructionEditing;
   let isHoverable = isSelectable;
   let isPointableOnTrack = T || (selectedTab === "switches" && isSwitchPlacing);
 
@@ -687,6 +691,19 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           tracksState.pointingOnTrack = undefined;
       }}
       onClick={() => {
+        // 造成ゾーン編集中: クリックした軌道をゾーンへ割り当てる
+        if (constructionEditing && constructionEditingZoneId) {
+          const zone = store.data.constructionZones[constructionEditingZoneId];
+          if (!zone) return;
+
+          const isFirstAssignment = !zone.trackId;
+          const assignedTrack = store.data.tracks[trackId];
+          store.data.constructionZones[constructionEditingZoneId] = isFirstAssignment && assignedTrack
+            ? { ...zone, trackId, startLength: 0, endLength: assignedTrack.length }
+            : { ...zone, trackId };
+          return;
+        }
+
         if (isSelectable) {
           const index = tracksState.selectedTrackIds.findIndex(value => value === trackId);
 
@@ -1032,8 +1049,22 @@ function useTrackColorOnTrackMode(trackId: string) {
   const { tracks } = useSnapshot(store.data);
   const { switches } = useSnapshot(store.data);
   const { isPlacing: isSwitchPlacing, mainTrackId } = useSnapshot(switchPlacementState);
+  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId } = useSnapshot(constructionState);
+  const { constructionZones } = useSnapshot(store.data);
 
   if (isAddingCurve) return "#888";
+
+  // 造成ゾーン編集中: 選択中の軌道を水色で強調表示する
+  if (constructionEditing) {
+    const editingZone = constructionEditingZoneId ? constructionZones[constructionEditingZoneId] : undefined;
+    if (editingZone && trackId === editingZone.trackId) return "#0ff";
+    if (
+      0 <= hoveredTracks.findIndex(value => value === trackId)
+      || pointingOnTrack?.trackId === trackId
+    )
+      return "#ff0";
+    return undefined;
+  }
 
   // 分岐器敷設モード
   if (selectedTab === "switches" && isSwitchPlacing) {

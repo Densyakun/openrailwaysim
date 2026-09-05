@@ -1,7 +1,7 @@
 // 造成ゾーン、法面、擁壁のメッシュ生成
 import * as THREE from 'three';
 import { store } from './game';
-import { getPosition, getRotation } from './tracks';
+import { getPosition, getRotation, Track, TransitionCurve } from './tracks';
 
 export type ConstructionZone = {
   id: string;
@@ -14,6 +14,11 @@ export type ConstructionZone = {
   retainingWall?: RetainingWall;
   slope?: Slope;
   ground: ConstructionGround;
+  /**
+   * 編集時の断面プレビュー用の設定。
+   * 軌道に沿って等間隔に配置する断面の形状・分割数・高さを指定する。
+   */
+  crossSection?: ConstructionCrossSection;
 };
 
 export type RetainingWall = {
@@ -33,6 +38,20 @@ export type Slope = {
 export type ConstructionGround = {
   height: number;
   isAbsolute: boolean;
+};
+
+export type ConstructionCrossSectionShape = 'trapezoid' | 'ellipse';
+
+export type ConstructionCrossSection = {
+  shape: ConstructionCrossSectionShape;
+  /**
+   * 軌道（造成区間）を分割する数。この数で区切った各位置に断面を配置する。
+   */
+  divisions: number;
+  /**
+   * 断面の高さ (m)。台形なら天端と法面の下端の高低差、楕円なら高さになる。
+   */
+  height: number;
 };
 
 export const CONSTRUCTION_STEP = 2;
@@ -81,6 +100,116 @@ export function getGroundHeight(
 
   const pos = getPosition(track, length);
   return pos.y + ground.height;
+}
+
+export function getCrossSection(zone: ConstructionZone): ConstructionCrossSection {
+  return {
+    shape: zone.crossSection?.shape ?? 'trapezoid',
+    divisions: zone.crossSection?.divisions ?? 5,
+    height: zone.crossSection?.height ?? 3,
+  };
+}
+
+/**
+ * 断面の2D座標（x: 軌道中心からの左右方向, y: 高さ方向）を生成する。
+ * 台形: 天端の幅が左/右オフセット（+天端幅）、法面勾配で下端が外側に広がる
+ * 楕円: 左/右オフセットの間を底辺とする半楕円（盛土のマウンド形状）
+ */
+export function getCrossSectionPoints(
+  zone: ConstructionZone,
+  crossSection?: ConstructionCrossSection,
+): THREE.Vector2[] {
+  const cs = crossSection || getCrossSection(zone);
+  const height = Math.max(0.1, cs.height);
+
+  if (cs.shape === 'ellipse') {
+    const xLeft = -zone.offsetLeft;
+    const xRight = zone.offsetRight;
+    const width = Math.max(0.1, xRight - xLeft);
+    const segments = 32;
+    const points: THREE.Vector2[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      points.push(new THREE.Vector2(xLeft + width * t, height * Math.sin(Math.PI * t)));
+    }
+    return points;
+  }
+
+  // 台形
+  const gradient = Math.max(0.01, zone.slope?.gradient ?? 1.5);
+  const topWidth = Math.max(0, zone.slope?.topWidth ?? 0);
+  const leftTopX = -(zone.offsetLeft + topWidth);
+  const rightTopX = zone.offsetRight + topWidth;
+  const run = height * gradient;
+
+  return [
+    new THREE.Vector2(leftTopX - run, 0),
+    new THREE.Vector2(leftTopX, height),
+    new THREE.Vector2(rightTopX, height),
+    new THREE.Vector2(rightTopX + run, 0),
+  ];
+}
+
+export type CrossSectionFrame = {
+  length: number;
+  position: THREE.Vector3;
+  right: THREE.Vector3;
+  baseY: number;
+  points: THREE.Vector3[];
+};
+
+/**
+ * 軌道に沿って断面を等間隔に配置したときの、各断面の3D座標を生成する。
+ * 断面は軌道（造成区間）を divisions 分割した各位置に、
+ * 軌道に直交する垂直面として配置される。天端（断面の上端）は造成地面の高さに合わせる。
+ */
+export function getCrossSectionFrames(
+  track: Track | TransitionCurve,
+  zone: ConstructionZone,
+  crossSection?: ConstructionCrossSection,
+): CrossSectionFrame[] {
+  const cs = crossSection || getCrossSection(zone);
+  const points2D = getCrossSectionPoints(zone, cs);
+
+  const start = Math.min(zone.startLength, zone.endLength);
+  const end = Math.max(zone.startLength, zone.endLength);
+  const span = end - start;
+  const divisions = Math.max(1, Math.round(cs.divisions));
+  const trackLength = Math.max(0, track.length);
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const frames: CrossSectionFrame[] = [];
+
+  for (let i = 0; i <= divisions; i++) {
+    const t = divisions === 0 ? 0 : i / divisions;
+    const length = Math.min(Math.max(0, start + span * t), trackLength);
+    const position = getPosition(track, length);
+
+    // 水平な接線方向（勾配を無視して平面状の軌道方向を求める）
+    const eps = Math.min(0.5, Math.max(trackLength * 0.001, 0.05));
+    const lBefore = Math.max(0, length - eps);
+    const lAfter = Math.min(trackLength, length + eps);
+    const tangent = getPosition(track, lAfter).sub(getPosition(track, lBefore));
+    tangent.y = 0;
+    if (tangent.lengthSq() < 1e-9) tangent.set(1, 0, 0);
+    tangent.normalize();
+
+    const right = new THREE.Vector3().crossVectors(tangent, up).normalize();
+
+    // 造成地面（断面の上端）の高さ。法面の下端はそこから断面の高さ分だけ下げる
+    const groundY = zone.ground.isAbsolute ? zone.ground.height : position.y + zone.ground.height;
+    const baseY = groundY - cs.height;
+
+    const points = points2D.map(p =>
+      position.clone()
+        .add(right.clone().multiplyScalar(p.x))
+        .add(new THREE.Vector3(0, baseY + p.y, 0)),
+    );
+
+    frames.push({ length, position: position.clone(), right: right.clone(), baseY, points });
+  }
+
+  return frames;
 }
 
 export function createRetainingWallMesh(

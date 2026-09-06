@@ -1,6 +1,7 @@
 // 造成・トンネルのクライアント状態
 import { proxy } from 'valtio';
 import type { ConstructionZone } from '@/lib/construction';
+import type { Tunnel } from '@/lib/tunnel';
 
 export const constructionState = proxy<{
   selectedZoneId: string;
@@ -10,6 +11,7 @@ export const constructionState = proxy<{
   previewZoneId: string;
   previewTunnelId: string;
   originalZone: ConstructionZone | undefined;
+  originalTunnel: Tunnel | undefined;
 }>({
   selectedZoneId: '',
   selectedTunnelId: '',
@@ -18,4 +20,5 @@ export const constructionState = proxy<{
   previewZoneId: '',
   previewTunnelId: '',
   originalZone: undefined,
+  originalTunnel: undefined,
 });

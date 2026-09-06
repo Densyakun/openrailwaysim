@@ -13,7 +13,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import TunnelIcon from '@mui/icons-material/Directions';
 import { store } from '@/lib/game';
 import { constructionState } from '@/lib/client/construction';
-import { ConstructionZone, ConstructionCrossSection, ConstructionCrossSectionShape } from '@/lib/construction';
+import { ConstructionZone, ConstructionCrossSection } from '@/lib/construction';
 import { Tunnel, TunnelCrossSectionShape } from '@/lib/tunnel';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -38,6 +38,19 @@ type TunnelForm = {
   height: string;
 };
 
+// 現在フォーカス中の数値入力フィールドを追跡する。
+// フォーカス中のフィールドはストアからの同期対象から除外し、途中入力を維持する。
+function useFocusedField() {
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const bind = (name: string) => ({
+    onFocus: () => setFocusedField(name),
+    onBlur: () => setFocusedField(null),
+  });
+
+  return { focusedField, bind };
+}
+
 function ConstructionZoneEditor({ zone, onSave, onCancel }: {
   zone: ConstructionZone;
   onSave: (zone: ConstructionZone) => void;
@@ -56,11 +69,12 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
     crossSectionDivisions: String(zone.crossSection?.divisions ?? 5),
     crossSectionHeight: String(zone.crossSection?.height ?? 3),
   });
+  const { focusedField, bind } = useFocusedField();
 
-  // 3Dビューでのトラック選択など、ストア側から変更された値をフォームへ反映する
+  // 3Dビューでのトラック選択など、ストア側から変更された値をフォームへ反映する。
+  // 編集中（フォーカス中）のフィールドは上書きしない（途中入力を維持するため）。
   useEffect(() => {
-    setForm(f => ({
-      ...f,
+    const values: ConstructionZoneForm = {
       startLength: String(zone.startLength),
       endLength: String(zone.endLength),
       offsetLeft: String(zone.offsetLeft),
@@ -72,8 +86,15 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
       slopeTopWidth: String(zone.slope?.topWidth ?? 0.5),
       crossSectionDivisions: String(zone.crossSection?.divisions ?? 5),
       crossSectionHeight: String(zone.crossSection?.height ?? 3),
-    }));
-  }, [zone]);
+    };
+    setForm(f => {
+      const next = { ...f };
+      (Object.keys(values) as (keyof ConstructionZoneForm)[]).forEach(key => {
+        if (key !== focusedField) next[key] = values[key];
+      });
+      return next;
+    });
+  }, [zone, focusedField]);
 
   // 編集中の値をリアルタイムにストアへ反映し、3Dビューへ即時表示させる
   const updateZone = (patch: Partial<ConstructionZone>) => {
@@ -84,7 +105,6 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
 
   const updateCrossSection = (patch: Partial<ConstructionCrossSection>) => {
     const current = zone.crossSection ?? {
-      shape: 'trapezoid' as ConstructionCrossSectionShape,
       divisions: 5,
       height: 3,
     };
@@ -144,6 +164,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('startLength')}
         />
         <TextField
           label="終了位置 (m)"
@@ -158,6 +179,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('endLength')}
         />
         <TextField
           label="左オフセット (m)"
@@ -172,6 +194,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('offsetLeft')}
         />
         <TextField
           label="右オフセット (m)"
@@ -186,6 +209,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('offsetRight')}
         />
 
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
@@ -204,6 +228,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('groundHeight')}
         />
         <FormControlLabel
           control={
@@ -248,6 +273,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+              {...bind('wallHeight')}
             />
             <TextField
               label="壁厚 (m)"
@@ -262,6 +288,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+              {...bind('wallThickness')}
             />
             <FormControlLabel
               control={
@@ -322,6 +349,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+              {...bind('slopeGradient')}
             />
             <TextField
               label="天端幅 (m)"
@@ -336,6 +364,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
               }}
               fullWidth
               sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+              {...bind('slopeTopWidth')}
             />
           </>
         )}
@@ -343,18 +372,6 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
         <Typography variant="caption" color="primary">断面プレビュー</Typography>
 
-        <FormControl size="small" fullWidth>
-          <InputLabel sx={{ color: '#aaa' }}>断面形状</InputLabel>
-          <Select
-            value={zone.crossSection?.shape ?? 'trapezoid'}
-            label="断面形状"
-            onChange={e => updateCrossSection({ shape: e.target.value as ConstructionCrossSectionShape })}
-            sx={{ color: 'white' }}
-          >
-            <MenuItem value="trapezoid">台形</MenuItem>
-            <MenuItem value="ellipse">楕円</MenuItem>
-          </Select>
-        </FormControl>
         <TextField
           label="分割数"
           size="small"
@@ -369,6 +386,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           fullWidth
           helperText="造成区間(開始〜終了位置)を分割する数。この数で区切った各位置に断面を配置します。"
           sx={{ input: { color: 'white' }, label: { color: '#aaa' }, '& .MuiFormHelperText-root': { color: '#aaa' } }}
+          {...bind('crossSectionDivisions')}
         />
         <TextField
           label="高さ (m)"
@@ -383,9 +401,10 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('crossSectionHeight')}
         />
         <Typography variant="caption" color="#aaa">
-          台形は左右オフセットと法面の勾配・天端幅、楕円は左右オフセットで形状が決まります。
+          台形は左右オフセットと法面の勾配・天端幅で形状が決まります。
         </Typography>
 
         <Stack direction="row" spacing={1}>
@@ -406,14 +425,38 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
   onSave: (tunnel: Tunnel) => void;
   onCancel: () => void;
 }) {
-  const [editTunnel, setEditTunnel] = useState<Tunnel>({ ...tunnel });
   const [form, setForm] = useState<TunnelForm>({
     startLength: String(tunnel.startLength),
     endLength: String(tunnel.endLength),
     width: String(tunnel.crossSection.width),
     height: String(tunnel.crossSection.height),
   });
-  const { tracks } = useSnapshot(store.data);
+  const { focusedField, bind } = useFocusedField();
+
+  // 編集中の値をリアルタイムにストアへ反映し、3Dビューへ即時表示させる
+  const updateTunnel = (patch: Partial<Tunnel>) => {
+    const current = store.data.tunnels[tunnel.id];
+    if (!current) return;
+    store.data.tunnels[tunnel.id] = { ...current, ...patch };
+  };
+
+  // 3Dビューでのトラック選択など、ストア側から変更された値をフォームへ反映する。
+  // 編集中（フォーカス中）のフィールドは上書きしない（途中入力を維持するため）。
+  useEffect(() => {
+    const values: TunnelForm = {
+      startLength: String(tunnel.startLength),
+      endLength: String(tunnel.endLength),
+      width: String(tunnel.crossSection.width),
+      height: String(tunnel.crossSection.height),
+    };
+    setForm(f => {
+      const next = { ...f };
+      (Object.keys(values) as (keyof TunnelForm)[]).forEach(key => {
+        if (key !== focusedField) next[key] = values[key];
+      });
+      return next;
+    });
+  }, [tunnel, focusedField]);
 
   return (
     <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
@@ -424,24 +467,37 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
         <TextField
           label="名前"
           size="small"
-          value={editTunnel.name}
-          onChange={e => setEditTunnel({ ...editTunnel, name: e.target.value })}
+          value={tunnel.name}
+          onChange={e => updateTunnel({ name: e.target.value })}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
         />
-        <FormControl size="small" fullWidth>
-          <InputLabel sx={{ color: '#aaa' }}>トラック</InputLabel>
-          <Select
-            value={editTunnel.trackId}
-            label="トラック"
-            onChange={e => setEditTunnel({ ...editTunnel, trackId: e.target.value })}
-            sx={{ color: 'white' }}
+
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">トラック</Typography>
+        <Typography variant="caption" color="#aaa">
+          3Dビューで軌道をクリックすると選択できます。
+        </Typography>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Typography
+            variant="body2"
+            sx={{ flexGrow: 1, wordBreak: 'break-all', color: tunnel.trackId ? '#7cf' : '#f66' }}
           >
-            {Object.keys(tracks).map(id => (
-              <MenuItem key={id} value={id}>{id}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            {tunnel.trackId || '未選択'}
+          </Typography>
+          {tunnel.trackId && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              sx={{ color: '#f88', borderColor: 'rgba(255,255,255,0.4)', minWidth: 'auto' }}
+              onClick={() => updateTunnel({ trackId: '' })}
+            >
+              解除
+            </Button>
+          )}
+        </Stack>
+
         <TextField
           label="開始位置 (m)"
           size="small"
@@ -451,10 +507,11 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, startLength: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditTunnel(t => ({ ...t, startLength: v }));
+            if (!Number.isNaN(v)) updateTunnel({ startLength: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('startLength')}
         />
         <TextField
           label="終了位置 (m)"
@@ -465,10 +522,11 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, endLength: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditTunnel(t => ({ ...t, endLength: v }));
+            if (!Number.isNaN(v)) updateTunnel({ endLength: v });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('endLength')}
         />
 
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
@@ -477,11 +535,10 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
         <FormControl size="small" fullWidth>
           <InputLabel sx={{ color: '#aaa' }}>形状</InputLabel>
           <Select
-            value={editTunnel.crossSection.shape}
+            value={tunnel.crossSection.shape}
             label="形状"
-            onChange={e => setEditTunnel({
-              ...editTunnel,
-              crossSection: { ...editTunnel.crossSection, shape: e.target.value as TunnelCrossSectionShape },
+            onChange={e => updateTunnel({
+              crossSection: { ...tunnel.crossSection, shape: e.target.value as TunnelCrossSectionShape },
             })}
             sx={{ color: 'white' }}
           >
@@ -498,13 +555,11 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, width: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditTunnel(t => ({
-              ...t,
-              crossSection: { ...t.crossSection, width: v },
-            }));
+            if (!Number.isNaN(v)) updateTunnel({ crossSection: { ...tunnel.crossSection, width: v } });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('width')}
         />
         <TextField
           label="高さ (m)"
@@ -515,13 +570,11 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           onChange={e => {
             setForm(f => ({ ...f, height: e.target.value }));
             const v = parseFloat(e.target.value);
-            if (!Number.isNaN(v)) setEditTunnel(t => ({
-              ...t,
-              crossSection: { ...t.crossSection, height: v },
-            }));
+            if (!Number.isNaN(v)) updateTunnel({ crossSection: { ...tunnel.crossSection, height: v } });
           }}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          {...bind('height')}
         />
 
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
@@ -530,8 +583,8 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={editTunnel.applyToTerrain}
-              onChange={e => setEditTunnel({ ...editTunnel, applyToTerrain: e.target.checked })}
+              checked={tunnel.applyToTerrain}
+              onChange={e => updateTunnel({ applyToTerrain: e.target.checked })}
             />
           }
           label={<Typography variant="caption">地形にCSG適用</Typography>}
@@ -540,8 +593,8 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={editTunnel.extendSides}
-              onChange={e => setEditTunnel({ ...editTunnel, extendSides: e.target.checked })}
+              checked={tunnel.extendSides}
+              onChange={e => updateTunnel({ extendSides: e.target.checked })}
             />
           }
           label={<Typography variant="caption">側面を追加</Typography>}
@@ -550,15 +603,15 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
           control={
             <Switch
               size="small"
-              checked={editTunnel.extendBottom}
-              onChange={e => setEditTunnel({ ...editTunnel, extendBottom: e.target.checked })}
+              checked={tunnel.extendBottom}
+              onChange={e => updateTunnel({ extendBottom: e.target.checked })}
             />
           }
           label={<Typography variant="caption">底面を追加</Typography>}
         />
 
         <Stack direction="row" spacing={1}>
-          <Button variant="contained" size="small" onClick={() => onSave(editTunnel)}>
+          <Button variant="contained" size="small" onClick={() => onSave(tunnel)}>
             保存
           </Button>
           <Button variant="outlined" size="small" onClick={onCancel} sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)' }}>
@@ -607,6 +660,7 @@ export default function ConstructionTabPanel() {
       extendBottom: false,
     };
     store.data.tunnels[id] = newTunnel;
+    constructionState.originalTunnel = { ...newTunnel };
     constructionState.selectedTunnelId = id;
     constructionState.isEditingTunnel = true;
   };
@@ -619,6 +673,7 @@ export default function ConstructionTabPanel() {
 
   const handleSaveTunnel = (tunnel: Tunnel) => {
     store.data.tunnels[tunnel.id] = tunnel;
+    constructionState.originalTunnel = undefined;
     constructionState.isEditingTunnel = false;
   };
 
@@ -632,6 +687,15 @@ export default function ConstructionTabPanel() {
     constructionState.isEditingZone = false;
   };
 
+  const handleCancelTunnel = () => {
+    const original = constructionState.originalTunnel;
+    if (original) {
+      store.data.tunnels[original.id] = original;
+    }
+    constructionState.originalTunnel = undefined;
+    constructionState.isEditingTunnel = false;
+  };
+
   const handleDeleteZone = (id: string) => {
     delete store.data.constructionZones[id];
     if (constructionState.originalZone?.id === id) constructionState.originalZone = undefined;
@@ -643,6 +707,7 @@ export default function ConstructionTabPanel() {
 
   const handleDeleteTunnel = (id: string) => {
     delete store.data.tunnels[id];
+    if (constructionState.originalTunnel?.id === id) constructionState.originalTunnel = undefined;
     if (constructionState.selectedTunnelId === id) {
       constructionState.selectedTunnelId = '';
       constructionState.isEditingTunnel = false;
@@ -669,7 +734,7 @@ export default function ConstructionTabPanel() {
         <TunnelEditor
           tunnel={editingTunnel}
           onSave={handleSaveTunnel}
-          onCancel={() => { constructionState.isEditingTunnel = false; }}
+          onCancel={handleCancelTunnel}
         />
       ) : (
         <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
@@ -725,6 +790,7 @@ export default function ConstructionTabPanel() {
                   <Typography variant="caption">{tunnel.name}</Typography>
                   <Stack direction="row" spacing={0.5}>
                     <IconButton size="small" onClick={() => {
+                      constructionState.originalTunnel = { ...store.data.tunnels[tunnel.id] };
                       constructionState.selectedTunnelId = tunnel.id;
                       constructionState.isEditingTunnel = true;
                     }}>

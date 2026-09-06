@@ -16,7 +16,7 @@ export type ConstructionZone = {
   ground: ConstructionGround;
   /**
    * 編集時の断面プレビュー用の設定。
-   * 軌道に沿って等間隔に配置する断面の形状・分割数・高さを指定する。
+   * 軌道に沿って等間隔に配置する断面の分割数・高さを指定する。
    */
   crossSection?: ConstructionCrossSection;
 };
@@ -40,16 +40,13 @@ export type ConstructionGround = {
   isAbsolute: boolean;
 };
 
-export type ConstructionCrossSectionShape = 'trapezoid' | 'ellipse';
-
 export type ConstructionCrossSection = {
-  shape: ConstructionCrossSectionShape;
   /**
    * 軌道（造成区間）を分割する数。この数で区切った各位置に断面を配置する。
    */
   divisions: number;
   /**
-   * 断面の高さ (m)。台形なら天端と法面の下端の高低差、楕円なら高さになる。
+   * 断面の高さ (m)。天端と法面の下端の高低差。
    */
   height: number;
 };
@@ -104,7 +101,6 @@ export function getGroundHeight(
 
 export function getCrossSection(zone: ConstructionZone): ConstructionCrossSection {
   return {
-    shape: zone.crossSection?.shape ?? 'trapezoid',
     divisions: zone.crossSection?.divisions ?? 5,
     height: zone.crossSection?.height ?? 3,
   };
@@ -113,7 +109,6 @@ export function getCrossSection(zone: ConstructionZone): ConstructionCrossSectio
 /**
  * 断面の2D座標（x: 軌道中心からの左右方向, y: 高さ方向）を生成する。
  * 台形: 天端の幅が左/右オフセット（+天端幅）、法面勾配で下端が外側に広がる
- * 楕円: 左/右オフセットの間を底辺とする半楕円（盛土のマウンド形状）
  */
 export function getCrossSectionPoints(
   zone: ConstructionZone,
@@ -121,19 +116,6 @@ export function getCrossSectionPoints(
 ): THREE.Vector2[] {
   const cs = crossSection || getCrossSection(zone);
   const height = Math.max(0.1, cs.height);
-
-  if (cs.shape === 'ellipse') {
-    const xLeft = -zone.offsetLeft;
-    const xRight = zone.offsetRight;
-    const width = Math.max(0.1, xRight - xLeft);
-    const segments = 32;
-    const points: THREE.Vector2[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      points.push(new THREE.Vector2(xLeft + width * t, height * Math.sin(Math.PI * t)));
-    }
-    return points;
-  }
 
   // 台形
   const gradient = Math.max(0.01, zone.slope?.gradient ?? 1.5);

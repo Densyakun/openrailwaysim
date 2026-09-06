@@ -460,7 +460,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { editingTrainFormatId, isAddingTrainFormat, isAddingTrain, pointOnTrack: pointOnTrackOfTrainsTab } = useSnapshot(trainsTabPanelState);
   const { editingSectionsInDiagramId, selectingDiagramSectionIndex, sections, selectingRouteIndex, tracksIsEditing: diagramTracksIsEditing } = useSnapshot(diagramsTabPanelState);
   const { editingTrackId, beginCant, endCant, tracksIsEditing, editingTrackIds, isOffsetting } = useSnapshot(tracksSubMenuState);
-  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId } = useSnapshot(constructionState);
+  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId, isEditingTunnel: tunnelEditing, selectedTunnelId: tunnelEditingId } = useSnapshot(constructionState);
   const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
   const { isPlacing: isSwitchPlacing } = useSnapshot(switchPlacementState);
@@ -541,11 +541,13 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
     || D
     || tracksIsEditing
     || isOffsetting
-    || constructionEditing;
+    || constructionEditing
+    || tunnelEditing;
   const isSelectable =
     (selectedTab === "tracks" && !tracksSubMenuState.isAddingCurve && !tracksIsEditing && !isOffsetting)
     || (selectedTab === "switches" && isSwitchPlacing)
-    || constructionEditing;
+    || constructionEditing
+    || tunnelEditing;
   let isHoverable = isSelectable;
   let isPointableOnTrack = T || (selectedTab === "switches" && isSwitchPlacing);
 
@@ -701,6 +703,19 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
           store.data.constructionZones[constructionEditingZoneId] = isFirstAssignment && assignedTrack
             ? { ...zone, trackId, startLength: 0, endLength: assignedTrack.length }
             : { ...zone, trackId };
+          return;
+        }
+
+        // トンネル編集中: クリックした軌道をトンネルへ割り当てる
+        if (tunnelEditing && tunnelEditingId) {
+          const tunnel = store.data.tunnels[tunnelEditingId];
+          if (!tunnel) return;
+
+          const isFirstAssignment = !tunnel.trackId;
+          const assignedTrack = store.data.tracks[trackId];
+          store.data.tunnels[tunnelEditingId] = isFirstAssignment && assignedTrack
+            ? { ...tunnel, trackId, startLength: 0, endLength: assignedTrack.length }
+            : { ...tunnel, trackId };
           return;
         }
 
@@ -1049,8 +1064,9 @@ function useTrackColorOnTrackMode(trackId: string) {
   const { tracks } = useSnapshot(store.data);
   const { switches } = useSnapshot(store.data);
   const { isPlacing: isSwitchPlacing, mainTrackId } = useSnapshot(switchPlacementState);
-  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId } = useSnapshot(constructionState);
+  const { isEditingZone: constructionEditing, selectedZoneId: constructionEditingZoneId, isEditingTunnel: tunnelEditing, selectedTunnelId: tunnelEditingId } = useSnapshot(constructionState);
   const { constructionZones } = useSnapshot(store.data);
+  const { tunnels } = useSnapshot(store.data);
 
   if (isAddingCurve) return "#888";
 
@@ -1058,6 +1074,18 @@ function useTrackColorOnTrackMode(trackId: string) {
   if (constructionEditing) {
     const editingZone = constructionEditingZoneId ? constructionZones[constructionEditingZoneId] : undefined;
     if (editingZone && trackId === editingZone.trackId) return "#0ff";
+    if (
+      0 <= hoveredTracks.findIndex(value => value === trackId)
+      || pointingOnTrack?.trackId === trackId
+    )
+      return "#ff0";
+    return undefined;
+  }
+
+  // トンネル編集中: 選択中の軌道をオレンジ色で強調表示する
+  if (tunnelEditing) {
+    const editingTunnel = tunnelEditingId ? tunnels[tunnelEditingId] : undefined;
+    if (editingTunnel && trackId === editingTunnel.trackId) return "#f90";
     if (
       0 <= hoveredTracks.findIndex(value => value === trackId)
       || pointingOnTrack?.trackId === trackId

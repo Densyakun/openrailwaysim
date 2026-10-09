@@ -1082,9 +1082,28 @@ function AxlesEditor() {
     formState.hasMotor = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].hasMotor;
     formState.axleModelPath = editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].modelPath || "";
     focusCamera();
-  }, [selectedAxleIndex]);
+  }, [selectedCarBodyIndex, selectedAxleIndex]);
 
   if (!editingTrainFormat) return null;
+
+  // 輪軸の前後ボタンで、異なるボギーの輪軸にも移動できるようにする (#27)
+  const bogies = editingTrainFormat.bogies;
+  const totalAxles = bogies.reduce((sum, bogie) => sum + bogie.axles.length, 0);
+  const currentFlatIndex = bogies.slice(0, selectedCarBodyIndex).reduce((sum, bogie) => sum + bogie.axles.length, 0) + selectedAxleIndex;
+
+  const goToAxle = (flatIndex: number) => {
+    if (totalAxles <= 0) return;
+    let remaining = ((flatIndex % totalAxles) + totalAxles) % totalAxles;
+    for (let bogieIndex = 0; bogieIndex < bogies.length; bogieIndex++) {
+      const axleCount = bogies[bogieIndex].axles.length;
+      if (remaining < axleCount) {
+        trainsTabPanelState.selectedCarBodyIndex = bogieIndex;
+        trainsTabPanelState.selectedAxleIndex = remaining;
+        return;
+      }
+      remaining -= axleCount;
+    }
+  };
 
   return <Stack spacing={1}>
     <Stack direction="row" spacing={1} alignItems="center">
@@ -1093,20 +1112,12 @@ function AxlesEditor() {
       }>
         Back
       </Button>
-      <Typography variant="h6" gutterBottom>Editing axle {selectedAxleIndex + 1} / {editingTrainFormat.bogies[selectedCarBodyIndex].axles.length} in bogie {selectedCarBodyIndex + 1}</Typography>
+      <Typography variant="h6" gutterBottom>Editing axle {currentFlatIndex + 1} / {totalAxles} (bogie {selectedCarBodyIndex + 1}, axle {selectedAxleIndex + 1})</Typography>
       <ButtonGroup variant="contained">
-        <Button variant='contained' onClick={() =>
-          trainsTabPanelState.selectedAxleIndex = selectedAxleIndex === 0
-            ? editingTrainFormat.bogies[selectedCarBodyIndex].axles.length - 1
-            : selectedAxleIndex - 1
-        }>
+        <Button variant='contained' onClick={() => goToAxle(currentFlatIndex - 1)}>
           {"<"}
         </Button>
-        <Button variant='contained' onClick={() =>
-          trainsTabPanelState.selectedAxleIndex = selectedAxleIndex === editingTrainFormat.bogies[selectedCarBodyIndex].axles.length - 1
-            ? 0
-            : selectedAxleIndex + 1
-        }>
+        <Button variant='contained' onClick={() => goToAxle(currentFlatIndex + 1)}>
           {">"}
         </Button>
       </ButtonGroup>

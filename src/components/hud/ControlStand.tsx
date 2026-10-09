@@ -2,14 +2,14 @@ import { useSnapshot } from 'valtio';
 import { CabFormatType, getDistanceToNextStop, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
-import { Box, Button, Paper, Stack, SxProps, ToggleButton } from '@mui/material';
+import { Box, Button, Paper, Stack, SxProps, ToggleButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { socket } from '../Client';
 import { store } from '@/lib/game';
 import Reverser from './Reverser';
 import { trainsState } from '@/lib/client/trains';
-import { DiagramTrackRoute, getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
+import { DEFAULT_STOP_RANGE, DiagramTrackRoute, getTimeText, ROUTE_NOT_VIA, TIME_IS_NOT_SET } from '@/lib/diagram';
 import { MessageCode, send } from '@/lib/ws';
 
 const Box_ = Box as (props: {
@@ -18,6 +18,27 @@ const Box_ = Box as (props: {
   ref?: React.Ref<unknown>;
   sx?: SxProps;
 }) => JSX.Element;
+
+// 停止位置までの距離を、判定結果に応じて色付けする (#34)
+function StopDistanceText({ distance, train, cabFormat }: { distance: number; train: Train; cabFormat?: CabFormatType }) {
+  const signedDistance = distance
+    * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1)
+    * (cabFormat?.directionIsReversed ? -1 : 1);
+  const absolute = Math.abs(signedDistance);
+
+  // 許容範囲内なら緑、やや離れていると黄、大きく離れていると赤
+  const color = absolute <= DEFAULT_STOP_RANGE
+    ? '#4caf50'
+    : absolute <= DEFAULT_STOP_RANGE * 10
+      ? '#ffb300'
+      : '#f44336';
+
+  const rounded = (Math.ceil(signedDistance * 10) / 10).toFixed(1);
+
+  return <Typography component="span" sx={{ color, fontWeight: 'bold' }}>
+    {`あと ${rounded} m`}
+  </Typography>;
+}
 
 function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: CabFormatType }) {
   const { diagrams } = useSnapshot(store.data);
@@ -33,13 +54,19 @@ function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: Cab
   const distance = getDistanceToNextStop(train, trackRoute as DiagramTrackRoute);
 
   // TODO 夏時間に対応するため、getTimeTextに渡すDateに日付を追加する
-  if (train.isStopping)
+  if (train.isStopping) {
+    // 停車中は到着時刻と発車時刻を区別して表示する (#35)
+    const stopTime = diagramCurve.stopTime[train.currentDiagramSectionIndex];
+    const passTime = diagramCurve.passTime[train.currentDiagramSectionIndex];
     return <Paper>
-      {
-        `"${section.fromDisplayName}" ${trackRoute.fromPlatformName}`
-        + (diagramCurve.passTime[train.currentDiagramSectionIndex] !== TIME_IS_NOT_SET ? ` 発車 ${getTimeText(new Date(diagramCurve.passTime[train.currentDiagramSectionIndex]), section.fromTimezone)}` : "")
-      }
+      <Typography component="span">
+        {`"${section.fromDisplayName}" ${trackRoute.fromPlatformName} 停車中`}
+        {stopTime !== TIME_IS_NOT_SET && stopTime !== ROUTE_NOT_VIA ? ` 着 ${getTimeText(new Date(stopTime), section.fromTimezone)}` : ""}
+        {passTime !== TIME_IS_NOT_SET && passTime !== ROUTE_NOT_VIA ? ` 発 ${getTimeText(new Date(passTime), section.fromTimezone)}` : ""}
+      </Typography>
+      {distance !== undefined && <>{" "}<StopDistanceText distance={distance} train={train} cabFormat={cabFormat} /></>}
     </Paper>;
+  }
 
   // 通過の場合、次のルートから通過時刻を求める
   let nextSectionIndex = -1;
@@ -51,14 +78,14 @@ function TrainDiagramCurve({ train, cabFormat }: { train: Train, cabFormat?: Cab
       }
 
   return <Paper>
-    {
-      `次 "${section.toDisplayName}" ${trackRoute.toPlatformName}`
-      + ` ${diagramCurve.isPasses[train.currentDiagramSectionIndex]
+    <Typography component="span">
+      {`次 "${section.toDisplayName}" ${trackRoute.toPlatformName}`}
+      {` ${diagramCurve.isPasses[train.currentDiagramSectionIndex]
         ? `通過${diagramCurve.passTime[nextSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.passTime[nextSectionIndex]), section.toTimezone)}` : ""}`
         : `停車${diagramCurve.stopTime[train.currentDiagramSectionIndex] !== TIME_IS_NOT_SET ? ` ${getTimeText(new Date(diagramCurve.stopTime[train.currentDiagramSectionIndex]), section.toTimezone)}` : ""}`
-      }`
-      + (distance === undefined ? "" : ` あと ${(Math.ceil(distance * (train.bogies[0].axles[0].rotationIsReversed ? -1 : 1) * (cabFormat?.directionIsReversed ? -1 : 1) * 10) / 10).toFixed(1)} m`)
-    }
+      }`}
+    </Typography>
+    {distance !== undefined && <>{" "}<StopDistanceText distance={distance} train={train} cabFormat={cabFormat} /></>}
   </Paper>;
 }
 

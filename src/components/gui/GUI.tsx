@@ -127,6 +127,7 @@ export default function GUI() {
     if (activeTrainId && !trains[activeTrainId]) {
       trainsState.activeTrainId = "";
       trainsState.activeBodyIndex = -1;
+      trainsState.isCabView = false;
     }
   }, [activeTrainId, trains]);
 

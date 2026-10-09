@@ -794,6 +794,62 @@ export function onFrame() {
   const camera = camerasState.cameraRefs[camerasState.mainCameraKey];
   const mainControls = cameraControlsState.controlsRefs[cameraControlsState.mainControlsKey];
 
+  // 0. 運転席視点 (cab view): 運転台の車体から進行方向を向く
+  const cabViewActive = !!(trainsState.isCabView && trainsState.activeTrainId && trainsState.activeBodyIndex !== -1);
+  if (mainControls) mainControls.enabled = !cabViewActive;
+
+  if (cabViewActive) {
+    const activeTrain = store.data.trains[trainsState.activeTrainId];
+    const bogiesLength = activeTrain?.bogies?.length ?? 0;
+    const cabBody = activeTrain && trainsState.activeBodyIndex >= bogiesLength
+      ? activeTrain.otherBodies[trainsState.activeBodyIndex - bogiesLength]
+      : undefined;
+
+    if (camera && cabBody) {
+      // 列車の中心（全輪軸の平均位置）を求め、運転台から外側へ向かう方向を進行方向とする
+      const center = new THREE.Vector3();
+      let count = 0;
+      activeTrain.bogies.forEach(bogie => bogie.axles.forEach(axle => {
+        center.add(axle.position);
+        count++;
+      }));
+      if (count > 0) center.divideScalar(count);
+      else center.copy(cabBody.position);
+
+      const forward = new THREE.Vector3().subVectors(cabBody.position, center);
+      forward.y = 0;
+      if (forward.lengthSq() < 1e-6) {
+        // フォールバック: 車体の向きから前方向を求める
+        forward.set(0, 0, 1).applyEuler(cabBody.rotation);
+        forward.y = 0;
+      }
+      if (forward.lengthSq() < 1e-6) forward.set(0, 0, -1);
+      forward.normalize();
+
+      const eyeHeight = 2.6;   // 運転士の目線の高さ
+      const eyeForward = 2.0;  // 車体中心から前方へのオフセット
+
+      camera.position.copy(cabBody.position).addScaledVector(forward, eyeForward);
+      camera.position.y = cabBody.position.y + eyeHeight;
+
+      const lookTarget = camera.position.clone().addScaledVector(forward, 100);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(lookTarget);
+      camera.updateMatrixWorld();
+
+      if (mainControls) {
+        mainControls.target.copy(camera.position).addScaledVector(forward, 10);
+        mainControls.target.y = camera.position.y - 1;
+      }
+
+      // 追従状態のキャッシュをクリアしておく
+      isFollowingActive = false;
+      lastSelectedTrainId = "";
+      lastTargetBodyIndex = -2;
+      return;
+    }
+  }
+
   // 1. 選択された列車へのカメラ追従 (カメラの角度を変えないフォーカス & OrbitControls 競合なしの完全並走)
   // 運転中であっても、自動追従が有効ならカメラの不連続な切り替えを避けるためにこちらを最優先します！
   if (trainsState.isCameraFollowing && trainsState.selectedTrainId) {

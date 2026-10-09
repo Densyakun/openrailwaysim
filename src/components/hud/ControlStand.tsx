@@ -2,8 +2,9 @@ import { useSnapshot } from 'valtio';
 import { CabFormatType, getDistanceToNextStop, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
-import { Box, Button, Paper, Stack, SxProps } from '@mui/material';
+import { Box, Button, Paper, Stack, SxProps, ToggleButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { socket } from '../Client';
 import { store } from '@/lib/game';
 import Reverser from './Reverser';
@@ -106,10 +107,23 @@ export default function ControlStand() {
           <MasterController cabFormat={cabFormat} cabState={cabState} />
         </>}
         <Speed />
+        {cabFormat && cabState && (
+          <ToggleButton
+            value="cabView"
+            selected={trainsState.isCabView}
+            onChange={() => { trainsState.isCabView = !trainsState.isCabView; }}
+            size="small"
+            sx={{ pointerEvents: 'auto', color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
+            title="運転席視点"
+          >
+            <VisibilityIcon fontSize="small" />
+          </ToggleButton>
+        )}
         <TrainDiagramCurve train={train as Train} cabFormat={cabFormat || undefined} />
         <Button variant='contained' startIcon={<CloseIcon />} onClick={() => {
           trainsState.activeBodyIndex = -1
           trainsState.activeTrainId = ""
+          trainsState.isCabView = false
         }}>
           Back
         </Button>

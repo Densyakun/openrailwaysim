@@ -11,6 +11,7 @@ export const trainsState = proxy<{
   selectedTrainId: string;
   selectedBodyIndex: number;
   isCameraFollowing: boolean;
+  isCabView: boolean;
   cameraOffset: { x: number; y: number; z: number };
 }>({
   hoveredTrainId: "",
@@ -21,6 +22,7 @@ export const trainsState = proxy<{
   selectedTrainId: "",
   selectedBodyIndex: -1,
   isCameraFollowing: false,
+  isCabView: false,
   cameraOffset: { x: 0, y: 5, z: 12 }, // デフォルトオフセット (やや高め、後方から見下ろす視角)
 });
 
@@ -109,5 +111,6 @@ export function resetSelectedTrainState() {
   trainsState.selectedTrainId = "";
   trainsState.selectedBodyIndex = -1;
   trainsState.isCameraFollowing = false;
+  trainsState.isCabView = false;
   trainsState.cameraOffset = { x: 0, y: 5, z: 12 };
 }

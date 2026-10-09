@@ -28,6 +28,7 @@ export enum MessageCode {
   FROM_CLIENT_LOAD_SAVE,
   FROM_SERVER_LOAD_COMPLETED,
   FROM_CLIENT_DELETE_SAVE,
+  FROM_SERVER_CURRENT_SAVE,
 }
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
@@ -54,6 +55,7 @@ export type MessageValueMap = {
   [MessageCode.FROM_CLIENT_LOAD_SAVE]: string;
   [MessageCode.FROM_SERVER_LOAD_COMPLETED]: undefined;
   [MessageCode.FROM_CLIENT_DELETE_SAVE]: string;
+  [MessageCode.FROM_SERVER_CURRENT_SAVE]: string;
 };
 
 // valueの子の型パラメータを使って型推論を行う場合のメッセージコードのオーバーロード

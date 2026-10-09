@@ -100,7 +100,11 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_LOAD_COMPLETED:
-      clientState.showSaveSuccess = true
+      clientState.showSaveSuccess = true;
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_CURRENT_SAVE:
+      clientState.currentSave = value as string;
       messageEmitter.isInvalidMessage = false
       break
     default:

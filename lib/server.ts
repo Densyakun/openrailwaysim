@@ -14,6 +14,9 @@ import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
 
 export const savesDir = "./saves";
 
+// 前回使用したセーブデータの名前を保存するファイル（サーバー再起動時の自動読み込みに使用）
+const currentSaveFileName = ".current-save";
+
 function ensureSavesDir() {
   if (!existsSync(savesDir)) {
     mkdirSync(savesDir, { recursive: true });
@@ -36,6 +39,26 @@ function listSaves(): string[] {
       .map(f => f.slice(0, -5));
   } catch {
     return [];
+  }
+}
+
+function readCurrentSave(): string {
+  try {
+    const filePath = path.join(savesDir, currentSaveFileName);
+    if (existsSync(filePath))
+      return readFileSync(filePath, "utf8").trim();
+  } catch (e) {
+    console.error(e);
+  }
+  return "";
+}
+
+function writeCurrentSave(name: string) {
+  ensureSavesDir();
+  try {
+    writeFileSync(path.join(savesDir, currentSaveFileName), name, "utf8");
+  } catch (e) {
+    console.error(e);
   }
 }
 
@@ -122,14 +145,18 @@ export function setupServer(wss: WebSocketServer) {
     }
   }
 
-  // サーバー起動時にdefault.jsonを読み込む
+  // サーバー起動時に前回使用したセーブデータを読み込む（無ければdefault.json）
   ensureSavesDir();
-  if (existsSync(saveFilePath("default"))) {
-    const loaded = loadData("default");
+  let currentSaveName = readCurrentSave();
+  if (!currentSaveName || !existsSync(saveFilePath(currentSaveName)))
+    currentSaveName = "default";
+  if (existsSync(saveFilePath(currentSaveName))) {
+    const loaded = loadData(currentSaveName);
     if (loaded) {
-      console.log("Loaded save data from saves/default.json");
+      writeCurrentSave(currentSaveName);
+      console.log(`Loaded save data from ${saveFilePath(currentSaveName)}`);
     } else {
-      console.error("Failed to load saves/default.json");
+      console.error(`Failed to load ${saveFilePath(currentSaveName)}`);
     }
   }
 
@@ -151,6 +178,12 @@ export function setupServer(wss: WebSocketServer) {
       .map(ws => ({ id: (ws as any).__id || "", username: clientUsernames.get(ws) || "Anonymous" }));
     wss.clients.forEach(client =>
       send(client, MessageCode.FROM_SERVER_USER_LIST, users)
+    );
+  }
+
+  function broadcastCurrentSave() {
+    wss.clients.forEach(client =>
+      send(client, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName)
     );
   }
 
@@ -386,6 +419,8 @@ export function setupServer(wss: WebSocketServer) {
     const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
 
+    send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+
     broadcastUserList();
 
     ws.on('close', () => {
@@ -452,7 +487,11 @@ export function setupServer(wss: WebSocketServer) {
           if (!isAdmin(ws as WSWebSocket)) break;
           const saveName = value as string;
           if (!saveName) break;
-          saveData(saveName);
+          if (saveData(saveName)) {
+            currentSaveName = saveName;
+            writeCurrentSave(currentSaveName);
+            broadcastCurrentSave();
+          }
           send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
 
           messageEmitter.isInvalidMessage = false;
@@ -485,6 +524,9 @@ export function setupServer(wss: WebSocketServer) {
           if (!loadName) break;
           const ok = loadData(loadName);
           if (ok) {
+            currentSaveName = loadName;
+            writeCurrentSave(currentSaveName);
+            broadcastCurrentSave();
             send(ws, MessageCode.FROM_SERVER_LOAD_COMPLETED);
             const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
             wss.clients.forEach(client =>
@@ -501,6 +543,11 @@ export function setupServer(wss: WebSocketServer) {
           const deleteName = value as string;
           if (!deleteName) break;
           deleteSave(deleteName);
+          if (deleteName === currentSaveName) {
+            currentSaveName = "";
+            writeCurrentSave("");
+            broadcastCurrentSave();
+          }
 
           messageEmitter.isInvalidMessage = false;
           break;

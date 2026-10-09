@@ -40,6 +40,8 @@ export default function TrainAddPanel() {
   });
   
   const [directionReversed, setDirectionReversed] = React.useState(panelState.directionIsReversed || false);
+  // 連続して設置するかどうか (#69)
+  const [continuousPlacement, setContinuousPlacement] = React.useState(false);
 
   // 同期用
   React.useEffect(() => {
@@ -71,18 +73,28 @@ export default function TrainAddPanel() {
     }
   }, [panelState.trainFormatId]);
 
+  // IDは省略可能。省略した場合は自動生成する (#69)
+  const isIdEmpty = trainIdInput.trim().length === 0;
+
   // ID重複チェック
   const isDuplicateId = React.useMemo(() => {
-    return !!trains[trainIdInput] || trainIdInput.startsWith('__') || trainIdInput === 'preview';
-  }, [trains, trainIdInput]);
+    return !isIdEmpty && (!!trains[trainIdInput] || trainIdInput.startsWith('__') || trainIdInput === 'preview');
+  }, [trains, trainIdInput, isIdEmpty]);
 
   const isValidId = React.useMemo(() => {
-    return trainIdInput.trim().length > 0 && /^[a-zA-Z0-9_-]+$/.test(trainIdInput);
-  }, [trainIdInput]);
+    return isIdEmpty || /^[a-zA-Z0-9_-]+$/.test(trainIdInput);
+  }, [trainIdInput, isIdEmpty]);
 
   const canPlace = React.useMemo(() => {
     return isValidId && !isDuplicateId && !!formatId && !!panelState.pointOnTrack && !!selectedGroup.trim();
   }, [isValidId, isDuplicateId, formatId, panelState.pointOnTrack, selectedGroup]);
+
+  // 未使用の train{N} 形式のIDを自動生成する
+  const generateTrainId = () => {
+    let index = 1;
+    while (store.data.trains[`train${index}`]) index++;
+    return `train${index}`;
+  };
 
   const handlePlace = () => {
     const groupToUse = selectedGroup.trim();
@@ -94,8 +106,10 @@ export default function TrainAddPanel() {
     const rawPoint = trainsTabPanelState.pointOnTrack;
     if (!rawPoint) return;
 
+    const trainId = trainIdInput.trim() || generateTrainId();
+
     try {
-      const { train, isDeadEnd } = placeTrain(
+      const { train } = placeTrain(
         targetFormat,
         { trackId: rawPoint.trackId, length: rawPoint.length },
         directionReversed
@@ -105,14 +119,21 @@ export default function TrainAddPanel() {
         train.trainFormatId = formatId;
 
         const currentGroupTrains = store.data.trainGroups[groupToUse] || [];
-        const newGroupTrains = [...currentGroupTrains, trainIdInput];
+        const newGroupTrains = [...currentGroupTrains, trainId];
 
         send(socket, MessageCode.FROM_CLIENT_MESSAGES, [
-          [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainIdInput], train]],
+          [MessageCode.FROM_CLIENT_SET_PROP, [["trains", trainId], train]],
           [MessageCode.FROM_CLIENT_SET_PROP, [["trainGroups", groupToUse], newGroupTrains]]
         ]);
 
-        resetEditingTrainState();
+        if (continuousPlacement) {
+          // 連続設置: 入力と位置だけリセットしてパネルを開いたままにする
+          setTrainIdInput('');
+          trainsTabPanelState.newTrainId = '';
+          trainsTabPanelState.pointOnTrack = undefined;
+        } else {
+          resetEditingTrainState();
+        }
       }
     } catch (e) {
       console.error("Failed to place train:", e);
@@ -173,7 +194,7 @@ export default function TrainAddPanel() {
               ? "This ID is already in use."
               : (trainIdInput.trim().length > 0 && !isValidId)
               ? "Only alphanumeric characters, dashes, and underscores are allowed."
-              : "Enter a unique ID for this train."
+              : "Enter a unique ID for this train. Leave empty to auto-generate."
           }
           sx={{
             '& .MuiOutlinedInput-root': {
@@ -263,6 +284,25 @@ export default function TrainAddPanel() {
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
                   Flip train orientation on track
+                </Typography>
+              </Box>
+            }
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={continuousPlacement}
+                onChange={(e) => setContinuousPlacement(e.target.checked)}
+                color="primary"
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body2" sx={{ color: '#fff', fontWeight: 500 }}>
+                  Continuous placement
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                  Keep this panel open to place trains one after another
                 </Typography>
               </Box>
             }

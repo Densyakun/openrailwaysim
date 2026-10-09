@@ -2,9 +2,12 @@ import { clientState, messageEmitter, updateClientOnTime } from "@/lib/client/cl
 import { OnMessageInClient, Path, SerializableORSAppDataType, deserialize, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
+import { useSnapshot } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
 import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode, send } from "@/lib/ws"
+
+export const SERVER_URL_STORAGE_KEY = "ors.serverUrl";
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
   const data = store.data;
@@ -180,5 +183,15 @@ function Subscription({ address }: { address: string }) {
 }
 
 export default function Client() {
-  return <Subscription address={`ws://${location.hostname}:8080/ws`} />;
+  const { serverUrl } = useSnapshot(clientState);
+
+  // 保存されたサーバーURLを読み込む (#58)
+  useEffect(() => {
+    const stored = localStorage.getItem(SERVER_URL_STORAGE_KEY);
+    if (stored) clientState.serverUrl = stored;
+  }, []);
+
+  const address = serverUrl || `ws://${location.hostname}:8080/ws`;
+
+  return <Subscription address={address} />;
 }

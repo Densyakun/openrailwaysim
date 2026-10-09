@@ -18,6 +18,7 @@ export const clientState = proxy<{
   saves: string[];
   currentSave: string;
   users: { id: string; username: string }[];
+  serverUrl: string;
   enableBloom: boolean;
   bloomStrength: number;
   bloomRadius: number;
@@ -37,6 +38,7 @@ export const clientState = proxy<{
   saves: [],
   currentSave: "",
   users: [],
+  serverUrl: "",
   enableBloom: false,
   bloomStrength: 0.6,
   bloomRadius: 0.4,

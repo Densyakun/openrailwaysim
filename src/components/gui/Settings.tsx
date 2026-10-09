@@ -9,7 +9,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
 import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip, Switch, FormControlLabel, Slider } from '@mui/material';
-import { socket } from '../Client';
+import { socket, SERVER_URL_STORAGE_KEY } from '../Client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
 import { clientState } from '@/lib/client/client';
@@ -21,13 +21,27 @@ export default function Settings() {
   const [loadName, setLoadName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveListExpanded, setSaveListExpanded] = useState(false);
-  const { isAdmin, adminPasswordRequired, saves, currentSave, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
+  const [serverUrlInput, setServerUrlInput] = useState("");
+  const { isAdmin, adminPasswordRequired, saves, currentSave, serverUrl, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
 
   useEffect(() => {
     if (isAdmin) {
       send(socket, MessageCode.FROM_CLIENT_LIST_SAVES);
     }
   }, [isAdmin]);
+
+  // サーバーURLをローカル入力に同期する
+  useEffect(() => {
+    setServerUrlInput(serverUrl);
+  }, [serverUrl]);
+
+  // サーバーURLを確定して再接続する
+  const commitServerUrl = () => {
+    const url = serverUrlInput.trim();
+    clientState.serverUrl = url;
+    if (url) localStorage.setItem(SERVER_URL_STORAGE_KEY, url);
+    else localStorage.removeItem(SERVER_URL_STORAGE_KEY);
+  };
 
   const handleAdminLogin = () => {
     send(socket, MessageCode.FROM_CLIENT_ADMIN_AUTH, adminPassword);
@@ -91,6 +105,21 @@ export default function Settings() {
           clientState.username = name;
           if (socket && clientState.isAuthenticated) {
             send(socket, MessageCode.FROM_CLIENT_SET_USERNAME, name);
+          }
+        }}
+      />
+      <TextField
+        label="Server URL"
+        size="small"
+        placeholder={`ws://${location.hostname}:8080/ws`}
+        value={serverUrlInput}
+        helperText="空欄の場合はこのページのホストに接続します。確定すると再接続します。"
+        onChange={e => setServerUrlInput(e.target.value)}
+        onBlur={commitServerUrl}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitServerUrl();
           }
         }}
       />

@@ -4,12 +4,20 @@ import RouteIcon from '@mui/icons-material/Route';
 import TrainIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
-import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Button, IconButton, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Controller } from 'react-hook-form';
 import { socket } from '../Client';
 import { diagramsTabPanelState, resetEditingDiagramState } from '@/lib/client/diagrams';
 import { Diagram, DiagramSection } from '@/lib/diagram';
 import { MessageCode, send } from '@/lib/ws';
 import { store } from '@/lib/game';
+
+type DiagramForm = {
+  id: string;
+  country: string;
+  state: string;
+  region: string;
+};
 
 export default function DiagramTable() {
   const { diagrams } = useSnapshot(store.data);
@@ -23,9 +31,14 @@ export default function DiagramTable() {
     overflow: 'auto',
     backgroundColor: '#000b',
   }}>
-    <DataMenu
-      defaultValues={{ id: '' }}
-      getValueOnEdit={(newId: string) => ({ id: newId })}
+    <DataMenu<DiagramForm>
+      defaultValues={{ id: '', country: '', state: '', region: '' }}
+      getValueOnEdit={(newId: string) => ({
+        id: newId,
+        country: store.data.diagrams[newId]?.country ?? '',
+        state: store.data.diagrams[newId]?.state ?? '',
+        region: store.data.diagrams[newId]?.region ?? '',
+      })}
       titleElement={(adding: boolean, editingId: string) => (
         <Stack spacing={1} direction={'row'} alignItems={'center'}>
           <Button variant="contained" startIcon={<ArrowBackIcon />} onClick={() =>
@@ -39,6 +52,26 @@ export default function DiagramTable() {
         </Stack>
       )}
       objects={diagrams}
+      // 祝日を求めるための国・州・郡の入力欄 (#86, #83)
+      valueControllers={control => (
+        <>
+          <Controller
+            name="country"
+            control={control}
+            render={({ field }) => <TextField label="Country" size="small" helperText="e.g., US" {...field} />}
+          />
+          <Controller
+            name="state"
+            control={control}
+            render={({ field }) => <TextField label="State" size="small" helperText="e.g., la" {...field} />}
+          />
+          <Controller
+            name="region"
+            control={control}
+            render={({ field }) => <TextField label="Region" size="small" helperText="e.g., no" {...field} />}
+          />
+        </>
+      )}
       listItemButtons={id => <>
         <Tooltip title="Edit route maps" disableInteractive>
           <IconButton edge="end" onClick={() => {
@@ -78,20 +111,23 @@ export default function DiagramTable() {
         </Tooltip>
       </>}
       handleSubmit={((inputs, editingId) => {
+        const base = editingId ? store.data.diagrams[editingId] : undefined;
+        const diagram: Diagram = {
+          sections: base?.sections ?? [],
+          trainGroups: base?.trainGroups ?? [],
+          diagramCurves: base?.diagramCurves ?? [],
+          country: inputs.country,
+          state: inputs.state,
+          region: inputs.region,
+        };
+
         send(socket, MessageCode.FROM_CLIENT_SET_PROP, editingId && editingId !== inputs.id ? [
           ["diagrams", inputs.id],
-          store.data.diagrams[editingId],
+          diagram,
           ["diagrams", editingId],
         ] : [
           ["diagrams", inputs.id],
-          store.data.diagrams[inputs.id] || {
-            sections: [],
-            trainGroups: [],
-            diagramCurves: [],
-            country: "",
-            state: "",
-            region: "",
-          } as Diagram,
+          diagram,
         ]);
       })}
       handleDelete={(id =>

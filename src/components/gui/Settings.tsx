@@ -8,7 +8,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
-import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip } from '@mui/material';
+import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip, Switch, FormControlLabel, Slider } from '@mui/material';
 import { socket } from '../Client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
@@ -21,7 +21,7 @@ export default function Settings() {
   const [loadName, setLoadName] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveListExpanded, setSaveListExpanded] = useState(false);
-  const { isAdmin, adminPasswordRequired, saves, currentSave } = useSnapshot(clientState);
+  const { isAdmin, adminPasswordRequired, saves, currentSave, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
 
   useEffect(() => {
     if (isAdmin) {
@@ -99,6 +99,23 @@ export default function Settings() {
       <CameraFarTextField />
       <Typography variant="h5" component="h1">Controls settings</Typography>
       <CameraControlsSwitch />
+
+      <Typography variant="h5" component="h1">Graphics</Typography>
+      <FormControlLabel
+        control={<Switch checked={enableBloom} onChange={e => { clientState.enableBloom = e.target.checked; }} />}
+        label="Bloom"
+      />
+      {enableBloom && <>
+        <Typography variant="body2">Strength: {bloomStrength.toFixed(2)}</Typography>
+        <Slider size="small" min={0} max={2} step={0.05} value={bloomStrength}
+          onChange={(_e, v) => { clientState.bloomStrength = v as number; }} />
+        <Typography variant="body2">Radius: {bloomRadius.toFixed(2)}</Typography>
+        <Slider size="small" min={0} max={1} step={0.05} value={bloomRadius}
+          onChange={(_e, v) => { clientState.bloomRadius = v as number; }} />
+        <Typography variant="body2">Threshold: {bloomThreshold.toFixed(2)}</Typography>
+        <Slider size="small" min={0} max={1} step={0.01} value={bloomThreshold}
+          onChange={(_e, v) => { clientState.bloomThreshold = v as number; }} />
+      </>}
 
       <Typography variant="h5" component="h1" sx={{ mt: 1 }}>Admin</Typography>
       {!isAdmin ? (

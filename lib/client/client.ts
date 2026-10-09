@@ -18,6 +18,10 @@ export const clientState = proxy<{
   saves: string[];
   currentSave: string;
   users: { id: string; username: string }[];
+  enableBloom: boolean;
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
 }>({
   readyState: WebSocket.CONNECTING,
   isSynced: false,
@@ -33,6 +37,10 @@ export const clientState = proxy<{
   saves: [],
   currentSave: "",
   users: [],
+  enableBloom: false,
+  bloomStrength: 0.6,
+  bloomRadius: 0.4,
+  bloomThreshold: 0.85,
 });
 
 export const messageEmitter = new MessageEmitter();

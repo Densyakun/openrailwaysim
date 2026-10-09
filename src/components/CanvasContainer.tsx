@@ -21,10 +21,13 @@ import { guiState } from '@/lib/client/gui'
 import TrainFormatPreview from './TrainFormatPreview'
 import { TrainFormat } from '@/lib/trains'
 import ErrorFallback from './ErrorFallback'
+import PostProcessing from './PostProcessing'
+import { clientState } from '@/lib/client/client'
 
 export default function CanvasContainer() {
   const { editingTrainFormat } = useSnapshot(trainsTabPanelState);
   const { selectedTab } = useSnapshot(guiState);
+  const { enableBloom } = useSnapshot(clientState);
 
   const isPreviewMode = !!editingTrainFormat && selectedTab === "trains";
 
@@ -60,6 +63,7 @@ export default function CanvasContainer() {
           <TerrainGenerator />
         </>
       )}
+      {enableBloom && <PostProcessing />}
     </Canvas>
   </ErrorBoundary>;
 }

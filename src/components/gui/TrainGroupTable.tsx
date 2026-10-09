@@ -3,7 +3,8 @@ import ListIcon from '@mui/icons-material/List';
 import TrainIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import DataMenu from './DataMenu';
-import { Button, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { useState } from 'react';
 import { socket } from '../Client';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { MessageCode, send } from '@/lib/ws';
@@ -11,6 +12,7 @@ import { store } from '@/lib/game';
 
 export default function TrainGroupTable() {
   const { trainGroups } = useSnapshot(store.data);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   return <Paper square sx={{
     width: "100%",
@@ -38,6 +40,8 @@ export default function TrainGroupTable() {
         </Stack>
       )}
       objects={trainGroups}
+      // 列車グループに属する列車数を表示する (#63)
+      getSecondaryText={(_id, obj) => `${Array.isArray(obj) ? obj.length : 0} 列車`}
       listItemButtons={id => <>
         <Tooltip title="Open train list" disableInteractive>
           <IconButton edge="end" onClick={() => trainsTabPanelState.selectedTrainGroup = id}>
@@ -55,9 +59,24 @@ export default function TrainGroupTable() {
           store.data.trainGroups[inputs.id] || [],
         ])
       )}
-      handleDelete={(id =>
-        send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["trainGroups", id])
-      )}
+      // 削除時は確認ダイアログを表示する (#62)
+      handleDelete={(id => setDeleteConfirmId(id))}
     />
+    <Dialog open={deleteConfirmId !== null} onClose={() => setDeleteConfirmId(null)}>
+      <DialogTitle>列車グループを削除</DialogTitle>
+      <DialogContent>
+        <DialogContentText>
+          "{deleteConfirmId}" を削除します。このグループに属する列車（{deleteConfirmId ? (trainGroups[deleteConfirmId]?.length ?? 0) : 0} 列車）も削除されます。元に戻せません。
+        </DialogContentText>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setDeleteConfirmId(null)}>Cancel</Button>
+        <Button color="error" variant="contained" onClick={() => {
+          if (deleteConfirmId)
+            send(socket, MessageCode.FROM_CLIENT_DELETE_PROP, ["trainGroups", deleteConfirmId]);
+          setDeleteConfirmId(null);
+        }}>Delete</Button>
+      </DialogActions>
+    </Dialog>
   </Paper>;
 }

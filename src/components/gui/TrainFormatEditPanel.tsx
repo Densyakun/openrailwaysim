@@ -15,6 +15,7 @@ import { MessageCode, send, MessageValueMap } from "@/lib/ws";
 import { TrainFormat, Train, placeTrain, getAxlePosition, getAxleRotation, bogieToAxles, calcJointsToRotateBody, syncOtherBodies, getBodyFromBodyIndex } from "@/lib/trains";
 import { cameraControlsState } from "../cameras-and-controls/CameraControls";
 import { createStandardTrainFormat, StandardCarFormat, getJNR103SeriesStandardData, convertTrainFormatToStandard, twoAxlesTestCar, twoAxlesTestCarWithBogies, twoBogiesTestCar, twoTestCarsWithJacobsBogies, malletLocomotiveTest, shikiSeries700Test } from "@/lib/trainExamples";
+import ModelPathAutocomplete from "./ModelPathAutocomplete";
 
 function formatFloat(value: number): string {
   if (value === undefined || value === null || Number.isNaN(value)) return "";
@@ -1041,14 +1042,15 @@ function BogiesEditor() {
           triggerPreviewUpdate();
         }}
       />
-      <TextField
+      <ModelPathAutocomplete
         label="Model path"
         value={bogieModelPath}
-        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-          formState.bogieModelPath = event.target.value;
+        fullWidth
+        onChange={(value) => {
+          formState.bogieModelPath = value;
           if (!trainsTabPanelState.editingTrainFormat) return;
 
-          trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].modelPath = event.target.value;
+          trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].modelPath = value;
           triggerPreviewUpdate();
         }}
       />
@@ -1144,14 +1146,15 @@ function AxlesEditor() {
         formState.hasMotor = event.target.checked;
       triggerPreviewUpdate();
     }} />} label="has motor" />
-    <TextField
+    <ModelPathAutocomplete
       label="Model path"
       value={axleModelPath}
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-        formState.axleModelPath = event.target.value;
+      fullWidth
+      onChange={(value) => {
+        formState.axleModelPath = value;
         if (!trainsTabPanelState.editingTrainFormat) return;
 
-        trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].modelPath = event.target.value;
+        trainsTabPanelState.editingTrainFormat.bogies[selectedCarBodyIndex].axles[selectedAxleIndex].modelPath = value;
         triggerPreviewUpdate();
       }}
     />
@@ -1289,18 +1292,19 @@ function OtherBodiesEditor() {
         triggerPreviewUpdate();
       }}
     />
-    <TextField
+    <ModelPathAutocomplete
       label="Model path"
       value={otherBodyModelPath}
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-        formState.otherBodyModelPath = event.target.value;
+      fullWidth
+      onChange={(value) => {
+        formState.otherBodyModelPath = value;
         if (!trainsTabPanelState.editingTrainFormat) return;
 
         const indexInOtherBodies = selectedCarBodyIndex - editingTrainFormat.bogies.length;
         if (!trainsTabPanelState.editingTrainFormat.otherBodyModelPaths) {
           trainsTabPanelState.editingTrainFormat.otherBodyModelPaths = [];
         }
-        trainsTabPanelState.editingTrainFormat.otherBodyModelPaths[indexInOtherBodies] = event.target.value;
+        trainsTabPanelState.editingTrainFormat.otherBodyModelPaths[indexInOtherBodies] = value;
         triggerPreviewUpdate();
       }}
     />

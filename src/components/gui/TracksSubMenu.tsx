@@ -22,6 +22,7 @@ import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit';
 import { offsetTrackRoute, VEHICLE_OFFSET_CONSTANT } from '@/lib/tracks';
 import { getTerrainHeightAt } from '@/lib/terrain';
 import { v4 as uuidv4 } from 'uuid';
+import ModelPathAutocomplete from './ModelPathAutocomplete';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -121,12 +122,13 @@ function TrackModelSettings() {
                 {index + 1}
               </TableCell>
               <TableCell align="right">
-                <TextField
+                <ModelPathAutocomplete
+                  label="Path"
                   sx={{ width: 128 }}
                   value={trackModel.modelPath}
                   size="small"
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    tracksSubMenuState.trackModels[index].modelPath = event.target.value
+                  onChange={(value) =>
+                    tracksSubMenuState.trackModels[index].modelPath = value
                   }
                 />
               </TableCell>

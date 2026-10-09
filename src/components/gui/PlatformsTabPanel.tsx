@@ -18,6 +18,7 @@ import { platformsState } from '@/lib/client/platforms';
 import { Platform, BoundaryVertex, WorldModel, exportPlatformAsGLTF, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
+import ModelPathAutocomplete from './ModelPathAutocomplete';
 
 type PlatformForm = {
   startLength: string;
@@ -373,6 +374,14 @@ function WorldModelEditor({ model, onSave, onCancel }: {
           onChange={e => setEditModel({ ...editModel, name: e.target.value })}
           fullWidth
           sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+        />
+
+        <ModelPathAutocomplete
+          label="モデルパス"
+          value={editModel.modelPath}
+          fullWidth
+          textFieldSx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          onChange={value => setEditModel({ ...editModel, modelPath: value })}
         />
 
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />

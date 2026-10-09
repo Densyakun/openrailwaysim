@@ -15,7 +15,7 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { store } from '@/lib/game';
 import { platformsState } from '@/lib/client/platforms';
-import { Platform, BoundaryVertex, WorldModel, exportPlatformAsGLTF, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
+import { Platform, BoundaryVertex, WorldModel, WorldModelMaterialType, exportPlatformAsGLTF, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
 import ModelPathAutocomplete from './ModelPathAutocomplete';
@@ -39,6 +39,8 @@ type WorldModelForm = {
   scaleX: string;
   scaleY: string;
   scaleZ: string;
+  emissiveIntensity: string;
+  opacity: string;
 };
 
 function PlatformEditor({ platform, onSave, onCancel }: {
@@ -341,6 +343,8 @@ function WorldModelEditor({ model, onSave, onCancel }: {
     scaleX: String(model.scale.x),
     scaleY: String(model.scale.y),
     scaleZ: String(model.scale.z),
+    emissiveIntensity: String(model.emissiveIntensity ?? 1),
+    opacity: String(model.opacity ?? 1),
   });
 
   const handlePositionChange = (axis: 'x' | 'y' | 'z', value: number) => {
@@ -527,6 +531,81 @@ function WorldModelEditor({ model, onSave, onCancel }: {
             sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
           />
         </Stack>
+
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">マテリアル</Typography>
+
+        <FormControl fullWidth size="small">
+          <InputLabel sx={{ color: '#aaa' }}>マテリアル</InputLabel>
+          <Select
+            value={editModel.materialType ?? 'inherit'}
+            label="マテリアル"
+            onChange={e => setEditModel({ ...editModel, materialType: e.target.value as WorldModelMaterialType })}
+            sx={{ color: 'white' }}
+          >
+            <MenuItem value="inherit">モデル原本</MenuItem>
+            <MenuItem value="basic">単色（ライティングなし）</MenuItem>
+            <MenuItem value="standard">単色（PBR）</MenuItem>
+            <MenuItem value="emissive">発光</MenuItem>
+          </Select>
+        </FormControl>
+
+        {(editModel.materialType ?? 'inherit') !== 'inherit' && (
+          <TextField
+            label="色"
+            type="color"
+            size="small"
+            value={editModel.color ?? '#ffffff'}
+            onChange={e => setEditModel({ ...editModel, color: e.target.value })}
+            fullWidth
+            sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          />
+        )}
+
+        {editModel.materialType === 'emissive' && (
+          <>
+            <TextField
+              label="発光色"
+              type="color"
+              size="small"
+              value={editModel.emissiveColor ?? editModel.color ?? '#ffffff'}
+              onChange={e => setEditModel({ ...editModel, emissiveColor: e.target.value })}
+              fullWidth
+              sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+            />
+            <TextField
+              label="発光の強さ"
+              size="small"
+              inputMode="decimal"
+              error={Number.isNaN(parseFloat(form.emissiveIntensity))}
+              value={form.emissiveIntensity}
+              onChange={e => {
+                setForm(f => ({ ...f, emissiveIntensity: e.target.value }));
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) setEditModel(m => ({ ...m, emissiveIntensity: v }));
+              }}
+              fullWidth
+              sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+            />
+          </>
+        )}
+
+        {(editModel.materialType ?? 'inherit') !== 'inherit' && (
+          <TextField
+            label="不透明度"
+            size="small"
+            inputMode="decimal"
+            error={Number.isNaN(parseFloat(form.opacity))}
+            value={form.opacity}
+            onChange={e => {
+              setForm(f => ({ ...f, opacity: e.target.value }));
+              const v = parseFloat(e.target.value);
+              if (!Number.isNaN(v)) setEditModel(m => ({ ...m, opacity: v }));
+            }}
+            fullWidth
+            sx={{ input: { color: 'white' }, label: { color: '#aaa' } }}
+          />
+        )}
 
         <Stack direction="row" spacing={1}>
           <Button variant="contained" size="small" onClick={() => onSave(editModel)}>

@@ -37,7 +37,7 @@ function WorldModelMesh({ model }: { model: WorldModel }) {
       rotation={model.rotation}
       scale={model.scale}
     >
-      <GLTFModelLoader modelPath={model.modelPath} />
+      <GLTFModelLoader model={model} />
       {isSelected && (
         <mesh>
           <boxGeometry args={[1.1, 1.1, 1.1]} />
@@ -53,10 +53,57 @@ function WorldModelMesh({ model }: { model: WorldModel }) {
   );
 }
 
-function GLTFModelLoader({ modelPath }: { modelPath: string }) {
+// ワールドモデルのマテリアルをORS側で上書きする (#24)
+function applyMaterialOverrides(object: THREE.Object3D, model: WorldModel) {
+  const materialType = model.materialType ?? 'inherit';
+  if (materialType === 'inherit') return;
+
+  const baseColor = new THREE.Color(model.color || '#ffffff');
+  const emissiveColor = new THREE.Color(model.emissiveColor || model.color || '#ffffff');
+  const emissiveIntensity = model.emissiveIntensity ?? 1;
+  const opacity = model.opacity ?? 1;
+  const transparent = opacity < 1;
+
+  object.traverse(child => {
+    if (!(child as THREE.Mesh).isMesh) return;
+    const mesh = child as THREE.Mesh;
+
+    const toOverride = (material: THREE.Material): THREE.Material => {
+      switch (materialType) {
+        case 'basic':
+          return new THREE.MeshBasicMaterial({ color: baseColor, transparent, opacity });
+        case 'standard': {
+          const standard = new THREE.MeshStandardMaterial({ color: baseColor, transparent, opacity });
+          return standard;
+        }
+        case 'emissive': {
+          const emissive = new THREE.MeshStandardMaterial({
+            color: baseColor,
+            emissive: emissiveColor,
+            emissiveIntensity,
+            transparent,
+            opacity,
+          });
+          return emissive;
+        }
+        default:
+          return material;
+      }
+    };
+
+    if (Array.isArray(mesh.material))
+      mesh.material = mesh.material.map(toOverride);
+    else if (mesh.material)
+      mesh.material = toOverride(mesh.material);
+  });
+}
+
+function GLTFModelLoader({ model }: { model: WorldModel }) {
   try {
-    const { scene } = useGLTF(modelPath);
-    return <primitive object={scene.clone()} />;
+    const { scene } = useGLTF(model.modelPath);
+    const clone = scene.clone();
+    applyMaterialOverrides(clone, model);
+    return <primitive object={clone} />;
   } catch (error) {
     console.error('Failed to load GLTF model:', error);
     return (

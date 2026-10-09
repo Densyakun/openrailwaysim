@@ -44,6 +44,15 @@ export type BoundaryVertex = {
 };
 
 /**
+ * ワールドモデルのマテリアルの種類。
+ * inherit: モデル本来のマテリアルをそのまま使用する
+ * basic: ライティングの影響を受けない単色（信号機の灯火などに使う）
+ * standard: 単色のPBRマテリアル
+ * emissive: 発光するマテリアル
+ */
+export type WorldModelMaterialType = 'inherit' | 'basic' | 'standard' | 'emissive';
+
+/**
  * 3Dモデルをワールド上に配置するための定義
  */
 export type WorldModel = {
@@ -57,6 +66,16 @@ export type WorldModel = {
   rotation: THREE.Euler;
   /** スケール */
   scale: THREE.Vector3;
+  /** ORS側でマテリアルを上書きする種類 */
+  materialType?: WorldModelMaterialType;
+  /** ベースカラー (#rrggbb) */
+  color?: string;
+  /** 発光色 (#rrggbb)。materialTypeがemissiveのときに使用する */
+  emissiveColor?: string;
+  /** 発光の強さ。materialTypeがemissiveのときに使用する */
+  emissiveIntensity?: number;
+  /** 不透明度 (0〜1) */
+  opacity?: number;
 };
 
 /**

@@ -2,6 +2,7 @@ import { useSnapshot } from 'valtio';
 import { CabFormatType, getDistanceToNextStop, Train } from '@/lib/trains';
 import MasterController from './MasterController';
 import Speed from './Speed';
+import AnalogSpeedometer from './AnalogSpeedometer';
 import { Box, Button, Paper, Stack, SxProps, ToggleButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -134,6 +135,7 @@ export default function ControlStand() {
           <MasterController cabFormat={cabFormat} cabState={cabState} />
         </>}
         <Speed />
+        <AnalogSpeedometer />
         {cabFormat && cabState && (
           <ToggleButton
             value="cabView"

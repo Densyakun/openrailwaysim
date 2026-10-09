@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import * as THREE from 'three';
 import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
-import { createPlatformMesh, getPlatformBoundaryPoints } from '@/lib/platforms';
+import { Platform, createPlatformMesh, getPlatformBoundaryPoints } from '@/lib/platforms';
 import { platformsState } from '@/lib/client/platforms';
 
 function PlatformMesh({ platformId }: { platformId: string }) {
@@ -13,7 +13,7 @@ function PlatformMesh({ platformId }: { platformId: string }) {
 
   const geometry = useMemo(() => {
     if (!platform) return null;
-    return createPlatformMesh(platform);
+    return createPlatformMesh(platform as unknown as Platform);
   }, [platform]);
 
   const isSelected = selectedPlatformId === platformId;
@@ -46,20 +46,19 @@ function PlatformBoundaryLine({ platformId }: { platformId: string }) {
   const { platforms } = useSnapshot(store.data);
   const platform = platforms[platformId];
 
-  const points = useMemo(() => {
-    if (!platform) return [];
-    return getPlatformBoundaryPoints(platform);
+  const line = useMemo(() => {
+    if (!platform) return null;
+    const points = getPlatformBoundaryPoints(platform as unknown as Platform);
+    if (points.length < 2) return null;
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: '#ffff00' });
+    return new THREE.Line(geometry, material);
   }, [platform]);
 
-  if (points.length < 2) return null;
+  if (!line) return null;
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-  return (
-    <line geometry={geometry}>
-      <lineBasicMaterial color="#ffff00" linewidth={2} />
-    </line>
-  );
+  return <primitive object={line} />;
 }
 
 export default function Platforms() {

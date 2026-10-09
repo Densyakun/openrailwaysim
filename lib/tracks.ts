@@ -1336,7 +1336,7 @@ export function createSwitchTracks(
   const mainRotationY = mainTrack.rotationY;
 
   // 本線の傾き（勾配）を取得
-  const gradient = getGradient(mainTrack, mainTrackLength);
+  const gradient = getGradient(mainTrackLength, mainTrack.gradients);
 
   // 本線を分岐点で分割
   const mainTrackBefore: SerializableTrack = {
@@ -1376,11 +1376,11 @@ export function createSwitchTracks(
       for (const [pos, grad] of Object.entries(mainTrack.gradients)) {
         const newPos = parseFloat(pos) - mainTrackLength;
         if (newPos >= 0) {
-          newGradients[newPos.toString()] = grad;
+          newGradients[newPos] = grad;
         }
       }
       if (Object.keys(newGradients).length === 0) {
-        newGradients["0"] = getGradient(mainTrack, mainTrackLength);
+        newGradients[0] = getGradient(mainTrackLength, mainTrack.gradients);
       }
       return newGradients;
     })(),

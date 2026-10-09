@@ -1,8 +1,6 @@
 // ワールド上に設置された3Dモデルのレンダリング
-import { useRef } from 'react';
 import * as THREE from 'three';
 import { useSnapshot } from 'valtio';
-import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { store } from '@/lib/game';
 import { platformsState } from '@/lib/client/platforms';

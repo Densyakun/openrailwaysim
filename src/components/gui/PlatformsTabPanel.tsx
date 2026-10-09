@@ -4,7 +4,7 @@ import { useSnapshot } from 'valtio';
 import {
   Paper, Stack, Button, TextField, Typography, IconButton,
   FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch,
-  Divider, Chip, Box,
+  Divider, Chip,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -15,7 +15,7 @@ import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { store } from '@/lib/game';
 import { platformsState } from '@/lib/client/platforms';
-import { Platform, BoundaryVertex, WorldModel, WorldModelMaterialType, exportPlatformAsGLTF, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
+import { Platform, BoundaryVertex, WorldModel, WorldModelMaterialType, exportPlatformsAsGLTF, downloadBlob } from '@/lib/platforms';
 import { v4 as uuidv4 } from 'uuid';
 import * as THREE from 'three';
 import ModelPathAutocomplete from './ModelPathAutocomplete';
@@ -689,7 +689,7 @@ export default function PlatformsTabPanel() {
   };
 
   const handleExportGLTF = async () => {
-    const platformList = Object.values(platforms);
+    const platformList = Object.values(platforms) as unknown as Platform[];
     if (platformList.length === 0) {
       alert('エクスポートするプラットフォームがありません');
       return;

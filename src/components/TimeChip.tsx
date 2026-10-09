@@ -73,7 +73,7 @@ export default function TimeChip() {
   const handleSetTime = () => {
     if (!editDate || !socket || socket.readyState !== 1) return;
 
-    const [y, mo, d, h, mi, s = "0"] = editDate.split(/[-T:]/).map(Number);
+    const [y, mo, d, h, mi, s = 0] = editDate.split(/[-T:]/).map(Number);
     const newNowDate = Date.UTC(y, mo - 1, d, h, mi, s) - state.timeZoneOffset;
 
     send(socket, MessageCode.FROM_CLIENT_SET_TIME, newNowDate as any);

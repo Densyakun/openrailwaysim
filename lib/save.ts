@@ -96,7 +96,8 @@ export function storeSaveData(saveData: ORSAppSaveDataType) {
   }) as ORSAppDataType;
 
   Object.keys(newData).forEach(key =>
-    store.data[key as keyof ORSAppDataType] = newData[key]
+    (store.data as unknown as Record<string, unknown>)[key] =
+      (newData as unknown as Record<string, unknown>)[key]
   );
 
   Object.keys(saveData.trains).forEach(trainId => {

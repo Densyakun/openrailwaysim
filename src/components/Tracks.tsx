@@ -1156,7 +1156,7 @@ function useTrackColorOnTrackMode(trackId: string) {
     if (showTrackTypes && !tracksIsEditing && !isOffsetting && selectedTrackIds.length === 0) {
       const track = tracks[trackId];
       if (track) {
-        return getTrackTypeColor(track);
+        return getTrackTypeColor(track as unknown as Track);
       }
     }
 

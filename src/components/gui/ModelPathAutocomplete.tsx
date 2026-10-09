@@ -4,7 +4,7 @@ import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 
 // ストア内に存在する3Dモデルのパスをすべて収集する
-export function useModelPathOptions(): string[] {
+function useModelPathOptions(): string[] {
   const { tracks, trainFormats, worldModels } = useSnapshot(store.data);
   const paths = new Set<string>();
 

@@ -14,7 +14,7 @@ export default function TerrainsTabPanel() {
     pointerEvents: 'auto',
     userSelect: 'none',
     maxWidth: 'min(420px,90vw)',
-    maxHeight: 'calc(100vh - 140px)',
+    maxHeight: 'calc(100dvh - 140px)',
     overflowY: 'auto',
     overflowX: 'hidden',
     boxSizing: 'border-box',

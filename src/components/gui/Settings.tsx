@@ -86,7 +86,7 @@ export default function Settings() {
 
   return <Paper square sx={{
     width: "min(520px, 90vw)",
-    maxHeight: 'calc(100vh - 140px)',
+    maxHeight: 'calc(100dvh - 140px)',
     pointerEvents: 'auto',
     userSelect: 'none',
     p: 1,

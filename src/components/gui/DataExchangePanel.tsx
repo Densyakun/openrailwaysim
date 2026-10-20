@@ -136,7 +136,7 @@ export default function DataExchangePanel() {
   };
 
   return (
-    <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', width: 'min(320px, 90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+    <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', width: 'min(320px, 90vw)', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
         データ管理
       </Typography>

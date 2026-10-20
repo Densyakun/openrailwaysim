@@ -112,7 +112,7 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
   };
 
   return (
-    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         造成ゾーン編集
       </Typography>
@@ -459,7 +459,7 @@ function TunnelEditor({ tunnel, onSave, onCancel }: {
   }, [tunnel, focusedField]);
 
   return (
-    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+    <Paper sx={{ p: 2, pointerEvents: 'auto', width: 'min(320px,90vw)', maxWidth: 'min(320px,90vw)', bgcolor: 'rgba(0,0,0,0.85)', color: 'white', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
         トンネル編集
       </Typography>
@@ -737,7 +737,7 @@ export default function ConstructionTabPanel() {
           onCancel={handleCancelTunnel}
         />
       ) : (
-        <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+        <Paper sx={{ p: 1.5, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
           <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
             <Button
               variant={activeTab === 'zones' ? 'contained' : 'outlined'}

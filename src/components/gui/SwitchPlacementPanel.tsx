@@ -24,7 +24,7 @@ export default function SwitchPlacementPanel() {
 }
 
 function SwitchPlacementStart() {
-  return <Paper sx={{ p: 1, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+  return <Paper sx={{ p: 1, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
     <Stack direction="column" spacing={1}>
       <Typography variant="subtitle1">分岐器を敷設</Typography>
       <Alert severity="info">
@@ -187,7 +187,7 @@ function SwitchPlacementEditor() {
     tracksState.selectedTrackIds.splice(0);
   };
 
-  return <Paper sx={{ p: 1, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100vh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
+  return <Paper sx={{ p: 1, pointerEvents: 'auto', userSelect: 'none', maxWidth: 'min(420px,90vw)', maxHeight: 'calc(100dvh - 140px)', overflowY: 'auto', overflowX: 'hidden', boxSizing: 'border-box' }}>
     <Stack direction="column" spacing={1}>
       <Stack direction="row" spacing={1} alignItems="center">
         <div>分岐器敷設</div>

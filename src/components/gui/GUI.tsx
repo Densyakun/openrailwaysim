@@ -31,14 +31,25 @@ import TerrainsTabPanel from './TerrainsTabPanel';
 import SwitchPlacementPanel from './SwitchPlacementPanel';
 import { store } from '@/lib/game';
 
+const horizontalScrollSx = {
+  overflowX: 'auto',
+  overflowY: 'hidden',
+  WebkitOverflowScrolling: 'touch',
+  scrollbarWidth: 'none',
+  '&::-webkit-scrollbar': { display: 'none' },
+} as const;
+
 function TopInfo() {
   return <Box sx={{
     width: "100%",
-    display: "flex",
-    justifyContent: 'center',
+    maxWidth: "100%",
+    flexShrink: 0,
+    pointerEvents: 'auto',
+    ...horizontalScrollSx,
+    pt: 'env(safe-area-inset-top)',
   }}>
     <Stack
-      sx={{ p: 0.5 }}
+      sx={{ p: 0.5, width: 'fit-content', mx: 'auto', flexWrap: 'nowrap' }}
       direction={'row'}
       spacing={1}
     >
@@ -160,8 +171,9 @@ export default function GUI() {
       sx={{
         width: '100%',
         flexGrow: 1,
+        flexShrink: 1,
         minHeight: 0,
-        maxHeight: 'calc(100vh - 96px)',
+        maxHeight: 'calc(100dvh - 96px)',
         p: 1,
         boxSizing: 'border-box',
       }}
@@ -183,10 +195,15 @@ export default function GUI() {
     {(selectedTab !== "trains" || !activeTrainId) &&
       <Paper elevation={0} sx={{
         m: 0.5,
+        mb: 'calc(4px + env(safe-area-inset-bottom))',
+        maxWidth: 'calc(100% - 8px)',
+        flexShrink: 0,
         pointerEvents: 'auto',
         userSelect: 'none',
+        ...horizontalScrollSx,
       }}>
         <ToggleButtonGroup
+          sx={{ width: 'fit-content', mx: 'auto' }}
           value={selectedTab}
           exclusive
           onChange={(

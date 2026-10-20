@@ -9,10 +9,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
 import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip, Switch, FormControlLabel, Slider } from '@mui/material';
-import { socket, SERVER_URL_STORAGE_KEY } from '../Client';
+import { socket } from '../Client';
+import { SERVER_URL_STORAGE_KEY } from '@/lib/client/client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
-import { clientState } from '@/lib/client/client';
+import { clientState, getDefaultServerUrl } from '@/lib/client/client';
 import { useSnapshot } from 'valtio';
 
 export default function Settings() {
@@ -22,7 +23,7 @@ export default function Settings() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveListExpanded, setSaveListExpanded] = useState(false);
   const [serverUrlInput, setServerUrlInput] = useState("");
-  const { isAdmin, adminPasswordRequired, saves, currentSave, serverUrl, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
+  const { isAdmin, adminPasswordRequired, saves, currentSave, serverUrl, localMode, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
 
   useEffect(() => {
     if (isAdmin) {
@@ -108,21 +109,25 @@ export default function Settings() {
           }
         }}
       />
-      <TextField
-        label="Server URL"
-        size="small"
-        placeholder={`ws://${location.hostname}:8080/ws`}
-        value={serverUrlInput}
-        helperText="空欄の場合はこのページのホストに接続します。確定すると再接続します。"
-        onChange={e => setServerUrlInput(e.target.value)}
-        onBlur={commitServerUrl}
-        onKeyDown={e => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commitServerUrl();
-          }
-        }}
-      />
+      {localMode ? (
+        <Chip label="Local mode (no WebSocket server)" color="info" size="small" />
+      ) : (
+        <TextField
+          label="Server URL"
+          size="small"
+          placeholder={getDefaultServerUrl()}
+          value={serverUrlInput}
+          helperText="空欄の場合はこのページのホストに接続します。確定すると再接続します。"
+          onChange={e => setServerUrlInput(e.target.value)}
+          onBlur={commitServerUrl}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitServerUrl();
+            }
+          }}
+        />
+      )}
       <Typography variant="h5" component="h1">Camera settings</Typography>
       <CameraSwitch />
       <CameraFarTextField />

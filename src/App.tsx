@@ -5,7 +5,9 @@ import CanvasContainer from './components/CanvasContainer'
 import GUI from './components/gui/GUI'
 import { ErrorBoundary } from 'react-error-boundary'
 import ErrorFallback from './components/ErrorFallback'
-import ConnectDialog from './components/ConnectDialog'
+import LoginScreen from './components/LoginScreen'
+import { useSnapshot } from 'valtio'
+import { clientState } from '@/lib/client/client'
 
 const darkTheme = createTheme({
   palette: {
@@ -14,15 +16,17 @@ const darkTheme = createTheme({
 })
 
 function App() {
+  const { isStarted } = useSnapshot(clientState);
+
   return (
     <>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
         <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <CanvasContainer />
-          <GUI />
-          <ConnectDialog />
+          {isStarted && <CanvasContainer />}
+          {isStarted && <GUI />}
         </ErrorBoundary>
+        <LoginScreen />
       </ThemeProvider>
     </>
   )

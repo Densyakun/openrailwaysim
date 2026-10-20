@@ -1,5 +1,5 @@
 import { subscribe } from "valtio";
-import { MessageEmitter, OnMessageInServer, deserialize, serialize, updateTime, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
+import { MessageEmitter, OnMessageInServer, serialize, updateTime, orsAppDataTypeId, SerializableORSAppDataType, getTypeIdByPath, Path, store } from "./game";
 import { WebSocketServer, WebSocket as WSWebSocket } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
@@ -10,7 +10,8 @@ import "dotenv/config";
 import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
 import { relocateTrainsForTimeChange } from "./diagram";
-import { getSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
+import { getSaveData, normalizeSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
+import { cleanupDependentData, deleteProp, setProp } from "./storeDependencies";
 
 export const savesDir = "./saves";
 
@@ -67,29 +68,7 @@ function loadData(name: string): boolean {
   if (!existsSync(filePath)) return false;
 
   try {
-    const saveData: ORSAppSaveDataType = JSON.parse(readFileSync(filePath, 'utf8'));
-
-    // 古いセーブデータに存在しないフィールドを補完する
-    const defaultEmptyMap = () => ({});
-    saveData.terrains = saveData.terrains || defaultEmptyMap();
-    saveData.featureCollections = saveData.featureCollections || defaultEmptyMap();
-    saveData.tracks = saveData.tracks || defaultEmptyMap();
-    saveData.switches = saveData.switches || defaultEmptyMap();
-    saveData.trainFormats = saveData.trainFormats || defaultEmptyMap();
-    saveData.trains = saveData.trains || defaultEmptyMap();
-    saveData.trainGroups = saveData.trainGroups || defaultEmptyMap();
-    saveData.oneHandleMasterControllerUIConfigs = saveData.oneHandleMasterControllerUIConfigs || defaultEmptyMap();
-    saveData.diagrams = saveData.diagrams || defaultEmptyMap();
-    saveData.constructionZones = saveData.constructionZones || defaultEmptyMap();
-    saveData.tunnels = saveData.tunnels || defaultEmptyMap();
-    saveData.platforms = saveData.platforms || defaultEmptyMap();
-    saveData.worldModels = saveData.worldModels || defaultEmptyMap();
-    if (typeof saveData.originCoordinate === "undefined" || !Array.isArray(saveData.originCoordinate)) {
-      saveData.originCoordinate = [139.7, 35.691];
-    }
-    if (typeof saveData.nowDate !== "number") {
-      saveData.nowDate = Date.now();
-    }
+    const saveData: ORSAppSaveDataType = normalizeSaveData(JSON.parse(readFileSync(filePath, 'utf8')));
 
     storeSaveData(saveData);
     return true;
@@ -197,79 +176,8 @@ export function setupServer(wss: WebSocketServer) {
       const path = path_ as Path<SerializableORSAppDataType>;
 
       // 削除するデータに依存するデータを変更する
-      if (op_ === 'delete') {
-        if (path.length == 2) {
-          if (path[0] === "tracks") {
-            const trackId = path[1] as string;
-            Object.keys(store.data.switches).forEach(switchId => {
-              const trackSwitch = store.data.switches[switchId];
-              const index = trackSwitch.connectedTrackIds.indexOf(trackId);
-              if (index !== -1) {
-                if (trackSwitch.currentConnected === index) trackSwitch.currentConnected = -1;
-                trackSwitch.connectedTrackIds.splice(index, 1);
-                trackSwitch.isConnectedToEnd.splice(index, 1);
-
-                if (trackSwitch.connectedTrackIds.length === 1) {
-                  // Delete switch
-                  Object.values(store.data.tracks).forEach(track => {
-                    if (track.idOfTrackOrSwitchConnectedFromStart === switchId) {
-                      track.idOfTrackOrSwitchConnectedFromStart = trackSwitch.connectedTrackIds[0];
-                      track.connectedFromStartIsTrack = true;
-                      track.connectedFromStartIsToEnd = trackSwitch.isConnectedToEnd[0];
-                    } else if (track.idOfTrackOrSwitchConnectedFromEnd === switchId) {
-                      track.idOfTrackOrSwitchConnectedFromEnd = trackSwitch.connectedTrackIds[0];
-                      track.connectedFromEndIsTrack = true;
-                      track.connectedFromEndIsToEnd = trackSwitch.isConnectedToEnd[0];
-                    }
-                  })
-                  delete store.data.switches[switchId];
-                }
-              }
-            });
-            Object.keys(store.data.trains).forEach(trainId => {
-              const train = store.data.trains[trainId];
-              if (train.bogies.some(bogie => bogie.axles.some(axle => axle.pointOnTrack.trackId === trackId)))
-                delete store.data.trains[trainId];
-            });
-            Object.keys(store.data.tracks).forEach(trackId => {
-              const track = store.data.tracks[trackId];
-              if (track.connectedFromStartIsTrack && track.idOfTrackOrSwitchConnectedFromStart === trackId)
-                track.idOfTrackOrSwitchConnectedFromStart = "";
-              else if (track.connectedFromEndIsTrack && track.idOfTrackOrSwitchConnectedFromEnd === trackId)
-                track.idOfTrackOrSwitchConnectedFromEnd = "";
-            });
-          } else if (path[0] === "trains") {
-            const trainId = path[1] as string;
-            for (const trainGroupId of Object.keys(store.data["trainGroups"])) {
-              const index = store.data["trainGroups"][trainGroupId].indexOf(trainId);
-              if (index !== -1)
-                store.data["trainGroups"][trainGroupId].splice(index, 1);
-            }
-          } else if (path[0] === "trainGroups") {
-            const trainGroupId = path[1] as string;
-
-            for (const trainId of Object.keys(store.data["trains"])) {
-              const trainIds = store.data["trainGroups"][trainGroupId];
-              if (trainIds.includes(trainId))
-                delete store.data["trains"][trainId];
-            }
-
-            for (const diagramId of Object.keys(store.data["diagrams"])) {
-              const index = store.data["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
-              if (index !== -1)
-                store.data["diagrams"][diagramId].trainGroups.splice(index, 1);
-            }
-          } else if (path[0] === "oneHandleMasterControllerUIConfigs") {
-            const uiOptionId = path[1] as string;
-            for (const trainFormatId of Object.keys(store.data["trainFormats"])) {
-              for (const cabFormat of store.data["trainFormats"][trainFormatId].cabFormats) {
-                if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
-                  cabFormat.oneHandleMasterControllerUIConfigId = "";
-              }
-            }
-          }
-        }
-      }
+      if (op_ === 'delete')
+        cleanupDependentData(path);
 
       // 変更されたステートをクライアントに同期する
       const push = function () {
@@ -414,7 +322,10 @@ export function setupServer(wss: WebSocketServer) {
     });
 
     send(ws, MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED, !!adminPassword);
-    send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, !connectionPassword);
+    // パスワードが不要な場合のみ接続時に認証成功を通知する。
+    // パスワードが必要な場合は、クライアントからの認証要求を待つ。
+    if (!connectionPassword)
+      send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, true);
 
     const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
     send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
@@ -577,46 +488,7 @@ export function setupServer(wss: WebSocketServer) {
         case MessageCode.FROM_CLIENT_SET_PROP: {
           const [propPath, newValue, oldPath] = value as [Path<SerializableORSAppDataType>, any, Path<SerializableORSAppDataType> | undefined];
 
-          // 新しいキーを設定
-          let object = store.data;
-          for (let n = 0; n < propPath.length - 1; n++)
-            object = (object as any)[propPath[n]];
-          (object as any)[propPath[propPath.length - 1]] = deserialize(getTypeIdByPath(propPath), newValue);
-
-          // 依存するデータの参照を新しくする
-          if (oldPath) {
-            if (oldPath[0] === "trains") {
-              const trainId = oldPath[1] as string;
-              for (const trainGroupId of Object.keys(store.data["trainGroups"])) {
-                const index = store.data["trainGroups"][trainGroupId].indexOf(trainId);
-                if (index !== -1)
-                  store.data["trainGroups"][trainGroupId].splice(index, 1, propPath[1] as string);
-              }
-            } else if (oldPath[0] === "trainGroups") {
-              const trainGroupId = oldPath[1] as string;
-              for (const diagramId of Object.keys(store.data["diagrams"])) {
-                const index = store.data["diagrams"][diagramId].trainGroups.indexOf(trainGroupId);
-                if (index !== -1)
-                  store.data["diagrams"][diagramId].trainGroups.splice(index, 1, propPath[1] as string);
-              }
-            } else if (oldPath[0] === "oneHandleMasterControllerUIConfigs") {
-              const uiOptionId = oldPath[1] as string;
-              for (const trainFormatId of Object.keys(store.data["trainFormats"])) {
-                for (const cabFormat of store.data["trainFormats"][trainFormatId].cabFormats) {
-                  if (cabFormat?.oneHandleMasterControllerUIConfigId === uiOptionId)
-                    cabFormat.oneHandleMasterControllerUIConfigId = propPath[1] as string;
-                }
-              }
-            }
-          }
-
-          // 古いキーを削除
-          if (oldPath) {
-            object = store.data;
-            for (let n = 0; n < oldPath.length - 1; n++)
-              object = (object as any)[oldPath[n]];
-            delete (object as any)[oldPath[oldPath.length - 1]];
-          }
+          setProp(propPath, newValue, oldPath);
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -624,10 +496,7 @@ export function setupServer(wss: WebSocketServer) {
         case MessageCode.FROM_CLIENT_DELETE_PROP: {
           const propPath = value as string[];
 
-          let object = store.data;
-          for (let n = 0; n < propPath.length - 1; n++)
-            object = (object as any)[propPath[n]];
-          delete (object as any)[propPath[propPath.length - 1]];
+          deleteProp(propPath as Path<SerializableORSAppDataType>);
 
           messageEmitter.isInvalidMessage = false;
           break;

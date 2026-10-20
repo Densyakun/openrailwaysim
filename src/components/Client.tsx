@@ -1,4 +1,4 @@
-import { clientState, messageEmitter, updateClientOnTime } from "@/lib/client/client"
+import { clientState, messageEmitter, getDefaultServerUrl, SERVER_URL_STORAGE_KEY } from "@/lib/client/client"
 import { OnMessageInClient, Path, SerializableORSAppDataType, deserialize, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
@@ -6,8 +6,7 @@ import { useSnapshot } from "valtio"
 import { onFrame as onFrameTrains } from "./Trains"
 import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode, send } from "@/lib/ws"
-
-export const SERVER_URL_STORAGE_KEY = "ors.serverUrl";
+import { LocalSocket } from "@/lib/client/localSocket"
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
   const data = store.data;
@@ -74,12 +73,20 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
     case MessageCode.FROM_SERVER_AUTH_RESULT:
       if (value) {
         clientState.isAuthenticated = true;
+        clientState.passwordRequired = false;
+        clientState.loginOpen = false;
+        clientState.loginStatus = "connected";
+        clientState.loginError = "";
         if (!clientState.adminPasswordRequired) {
           clientState.isAdmin = true;
         }
         send(ws, MessageCode.FROM_CLIENT_SET_USERNAME, clientState.username || "Anonymous");
       } else {
+        clientState.isAuthenticated = false;
         clientState.passwordRequired = true;
+        clientState.loginOpen = true;
+        clientState.loginStatus = "failed";
+        clientState.loginError = "パスワードが正しくありません。";
       }
       messageEmitter.isInvalidMessage = false
       break
@@ -119,42 +126,112 @@ export let socket: WebSocket;
 
 const reconnectTimeoutMilliseconds = 3000;
 
-function Subscription({ address }: { address: string }) {
+function Subscription({
+  address,
+  started,
+  localMode,
+  connectionAttempt,
+}: {
+  address: string;
+  started: boolean;
+  localMode: boolean;
+  connectionAttempt: number;
+}) {
   useEffect(() => {
-    let reconnectTimeout: NodeJS.Timeout;
+    if (!started) return;
+
+    let reconnectTimeout: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+
+    const dispatchMessage = (data: string) => {
+      const [id, parsed] = JSON.parse(data)
+
+      messageEmitter.emit("message", id, parsed, socket)
+    }
+
+    if (localMode) {
+      const localSocket = new LocalSocket()
+      socket = localSocket as unknown as WebSocket
+
+      clientState.readyState = WebSocket.OPEN
+      clientState.isAuthenticated = true
+      clientState.isAdmin = true
+      clientState.passwordRequired = false
+      clientState.adminPasswordRequired = false
+      clientState.isSynced = true
+      clientState.loginOpen = false
+      clientState.loginStatus = "connected"
+      clientState.loginError = ""
+
+      messageEmitter.on('message', onMessage)
+      localSocket.addEventListener("message", event => {
+        if (event.data) dispatchMessage(event.data)
+      })
+      localSocket.connect()
+
+      return () => {
+        disposed = true
+        messageEmitter.off('message', onMessage)
+        localSocket.close()
+        clientState.readyState = WebSocket.CLOSED
+      }
+    }
+
     const connect = () => {
-      socket = new WebSocket(address)
+      if (disposed) return;
+
+      try {
+        socket = new WebSocket(address)
+      } catch {
+        clientState.readyState = WebSocket.CLOSED
+        clientState.loginOpen = true
+        clientState.loginStatus = "failed"
+        clientState.loginError = "WebSocket の URL が正しくありません。"
+        return
+      }
+
       clientState.readyState = socket.readyState as 0
       clientState.isAuthenticated = false
 
+      messageEmitter.off('message', onMessage)
       messageEmitter.on('message', onMessage)
 
       socket.addEventListener("open", () => {
         clientState.readyState = socket.readyState as 1
+        clientState.loginStatus = "authenticating"
+
+        // ログイン画面で入力されたパスワードで認証する
+        send(socket, MessageCode.FROM_CLIENT_AUTH, clientState.connectionPassword)
       })
 
       socket.addEventListener("message", event => {
-        const [id, data] = JSON.parse(event.data.toString())
-
-        messageEmitter.emit("message", id, data, socket)
+        dispatchMessage(event.data.toString())
       })
 
       socket.addEventListener("error", () => {
-        clientState.readyState = socket.readyState as 3
+        if (disposed) return;
 
-        clearTimeout(reconnectTimeout);
-        reconnectTimeout = setTimeout(connect, reconnectTimeoutMilliseconds);
+        clientState.readyState = socket.readyState as 3
       })
 
       socket.addEventListener("close", () => {
+        if (disposed) return;
+
         clientState.readyState = socket.readyState as 3
         clientState.isSynced = false
         clientState.isAuthenticated = false
         clientState.isAdmin = false
-        clientState.passwordRequired = false
         messageEmitter.off('message', onMessage)
 
         clearTimeout(reconnectTimeout);
+
+        // ログイン前は自動再接続せず、ログイン画面からやり直してもらう
+        if (clientState.loginOpen) {
+          clientState.loginStatus = "failed"
+          clientState.loginError = "サーバーに接続できません。URLを確認してください。"
+          return;
+        }
+
         reconnectTimeout = setTimeout(connect, reconnectTimeoutMilliseconds);
       })
     }
@@ -162,16 +239,17 @@ function Subscription({ address }: { address: string }) {
     connect();
 
     return () => {
-      clientState.readyState = socket.readyState as 1
+      disposed = true
+      clearTimeout(reconnectTimeout)
+      messageEmitter.off('message', onMessage)
       socket.close()
-      clientState.readyState = socket.readyState as 2
+      clientState.readyState = WebSocket.CLOSED
     }
-  }, [address]);
+  }, [address, started, localMode, connectionAttempt]);
 
   useFrame(({ }, delta) => {
     try {
       updateTime(delta)
-      updateClientOnTime(delta)
 
       onFrameTrains()
     } catch (e) {
@@ -183,15 +261,15 @@ function Subscription({ address }: { address: string }) {
 }
 
 export default function Client() {
-  const { serverUrl } = useSnapshot(clientState);
+  const { serverUrl, isStarted, localMode, connectionAttempt } = useSnapshot(clientState);
 
   // 保存されたサーバーURLを読み込む (#58)
   useEffect(() => {
     const stored = localStorage.getItem(SERVER_URL_STORAGE_KEY);
-    if (stored) clientState.serverUrl = stored;
+    if (stored && !clientState.serverUrl) clientState.serverUrl = stored;
   }, []);
 
-  const address = serverUrl || `ws://${location.hostname}:8080/ws`;
+  const address = serverUrl || getDefaultServerUrl();
 
-  return <Subscription address={address} />;
+  return <Subscription address={address} started={isStarted} localMode={localMode} connectionAttempt={connectionAttempt} />;
 }

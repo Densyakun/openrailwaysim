@@ -47,6 +47,31 @@ export type SavedTrain = {
   directionIsReversed: boolean;
 };
 
+export function normalizeSaveData(saveData: ORSAppSaveDataType): ORSAppSaveDataType {
+  // 古いセーブデータに存在しないフィールドを補完する
+  const defaultEmptyMap = () => ({});
+  saveData.terrains = saveData.terrains || defaultEmptyMap();
+  saveData.featureCollections = saveData.featureCollections || defaultEmptyMap();
+  saveData.tracks = saveData.tracks || defaultEmptyMap();
+  saveData.switches = saveData.switches || defaultEmptyMap();
+  saveData.trainFormats = saveData.trainFormats || defaultEmptyMap();
+  saveData.trains = saveData.trains || defaultEmptyMap();
+  saveData.trainGroups = saveData.trainGroups || defaultEmptyMap();
+  saveData.oneHandleMasterControllerUIConfigs = saveData.oneHandleMasterControllerUIConfigs || defaultEmptyMap();
+  saveData.diagrams = saveData.diagrams || defaultEmptyMap();
+  saveData.constructionZones = saveData.constructionZones || defaultEmptyMap();
+  saveData.tunnels = saveData.tunnels || defaultEmptyMap();
+  saveData.platforms = saveData.platforms || defaultEmptyMap();
+  saveData.worldModels = saveData.worldModels || defaultEmptyMap();
+  if (typeof saveData.originCoordinate === "undefined" || !Array.isArray(saveData.originCoordinate)) {
+    saveData.originCoordinate = [139.7, 35.691];
+  }
+  if (typeof saveData.nowDate !== "number") {
+    saveData.nowDate = Date.now();
+  }
+  return saveData;
+}
+
 export function getSaveData() {
   const savedTrains: ORSAppSaveDataType["trains"] = {};
 

@@ -1,7 +1,18 @@
 import { proxy } from "valtio";
 import { MessageEmitter, store } from "../game";
-import { updateTrainOnTime } from "../trains";
-import { trainsTabPanelState } from "./trains";
+import { isLocalMode } from "./localMode";
+
+export type LoginStatus = "idle" | "connecting" | "authenticating" | "connected" | "failed";
+
+export const SERVER_URL_STORAGE_KEY = "ors.serverUrl";
+
+export function getDefaultServerUrl() {
+  const protocol = typeof location !== "undefined" && location.protocol === "https:" ? "wss:" : "ws:";
+  const hostname = typeof location !== "undefined" ? location.hostname : "localhost";
+  return `${protocol}//${hostname}:8080/ws`;
+}
+
+const startInLocalMode = isLocalMode();
 
 export const clientState = proxy<{
   readyState: 0 | 1 | 2 | 3;
@@ -19,6 +30,12 @@ export const clientState = proxy<{
   currentSave: string;
   users: { id: string; username: string }[];
   serverUrl: string;
+  localMode: boolean;
+  isStarted: boolean;
+  loginOpen: boolean;
+  loginStatus: LoginStatus;
+  loginError: string;
+  connectionAttempt: number;
   enableBloom: boolean;
   bloomStrength: number;
   bloomRadius: number;
@@ -39,6 +56,12 @@ export const clientState = proxy<{
   currentSave: "",
   users: [],
   serverUrl: "",
+  localMode: startInLocalMode,
+  isStarted: startInLocalMode,
+  loginOpen: !startInLocalMode,
+  loginStatus: startInLocalMode ? "connected" : "idle",
+  loginError: "",
+  connectionAttempt: 0,
   enableBloom: false,
   bloomStrength: 0.6,
   bloomRadius: 0.4,
@@ -46,9 +69,6 @@ export const clientState = proxy<{
 });
 
 export const messageEmitter = new MessageEmitter();
-
-export function updateClientOnTime(delta: number) {
-}
 
 export function getDate(timeZoneOffset: number) {
   return new Date(store.data.nowDate + timeZoneOffset);

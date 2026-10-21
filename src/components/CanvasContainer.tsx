@@ -2,7 +2,6 @@ import { Canvas } from '@react-three/fiber'
 import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
 import SunAndSky from './SunAndSky'
-import DreiSegments from './DreiSegments'
 import FeatureCollections from './FeatureCollections'
 import Tracks from './Tracks'
 import Trains from './Trains'
@@ -23,6 +22,7 @@ import { TrainFormat } from '@/lib/trains'
 import ErrorFallback from './ErrorFallback'
 import PostProcessing from './PostProcessing'
 import OsmBBox from './OsmBBox'
+import OsmPreview from './OsmPreview'
 import { clientState } from '@/lib/client/client'
 
 export default function CanvasContainer() {
@@ -51,8 +51,8 @@ export default function CanvasContainer() {
         <TrainFormatPreview format={editingTrainFormat as TrainFormat} />
       ) : (
         <>
-          <DreiSegments />
           <OsmBBox />
+          <OsmPreview />
           <FeatureCollections />
           <Tracks />
           <Trains />

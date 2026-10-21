@@ -1,4 +1,3 @@
-import * as React from 'react';
 import * as THREE from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { proxy, useSnapshot } from 'valtio';
@@ -28,6 +27,7 @@ import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
 import { OsmBBox } from '@/lib/osm';
 import OsmImportPanel from './OsmImportPanel';
+import FeatureCollectionFilterControls from './FeatureCollectionFilterControls';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -329,12 +329,6 @@ function OriginCoordinateReadOnlyTextField() {
 }
 
 function MainMenu() {
-  const [open, setOpen] = React.useState(false);
-
-  const toggleDrawer = (newOpen: boolean) => () => {
-    setOpen(newOpen);
-  };
-
   const count: { [key: string]: number } = {};
   gisState.selectedFeatures.forEach(featureAt => {
     if (count[featureAt.featureCollectionId] === undefined)
@@ -363,6 +357,7 @@ function MainMenu() {
         <div>Selected: {gisState.selectedFeatures.length}</div>
         {Object.keys(count).map(key => <div key={key}> {key}: {count[key]}</div>)}
       </Stack>
+      <FeatureCollectionFilterControls />
       <Button variant='contained' startIcon={<DeselectIcon />} disabled={!gisState.selectedFeatures.length} onClick={() => {
         gisState.selectedFeatures.splice(0, gisState.selectedFeatures.length);
       }}>
@@ -387,7 +382,7 @@ function MainMenu() {
         Create continuous tracks （選択された軌道を直線として平面曲線を作成する）
       </Button>
       <Button variant='contained' disabled={!gisState.selectedFeatures.length} onClick={() => {
-        let coordinatePairs: Position[] = [];
+        const coordinatePairs: Position[] = [];
 
         gisState.selectedFeatures
           .forEach(featureAt => {

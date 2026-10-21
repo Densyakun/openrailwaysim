@@ -7,6 +7,7 @@ import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import AddIcon from '@mui/icons-material/Add';
 import { useSnapshot } from 'valtio';
 import { FeatureCollection } from 'geojson';
+import centroid from '@turf/centroid';
 import { socket } from '../Client';
 import { clientState } from '@/lib/client/client';
 import { store } from '@/lib/game';
@@ -16,6 +17,10 @@ import {
   OsmBBox, osmQueryPresets, osmToGeoJSON, overpassEndpoints,
 } from '@/lib/osm';
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel';
+import { setFeatureCollectionPreview } from '@/lib/client/featureCollections';
+import FeatureCollectionFilterControls from './FeatureCollectionFilterControls';
+import { getRelativePosition } from '@/lib/gis';
+import { setCameraTargetPosition } from '@/lib/client/camera';
 
 function parseCoordinate(value: string) {
   const parsed = Number.parseFloat(value);
@@ -101,6 +106,11 @@ export default function OsmImportPanel() {
     };
   }, [south, west, north, east]);
 
+  // パネルを閉じたときはプレビューを消す
+  useEffect(() => () => {
+    setFeatureCollectionPreview(null);
+  }, []);
+
   const handlePresetChange = (id: string) => {
     setPresetId(id);
     setFilter(getOsmQueryPreset(id).filter);
@@ -111,6 +121,7 @@ export default function OsmImportPanel() {
     setMessage('');
     setDownloaded(undefined);
     setUsedEndpointName('');
+    setFeatureCollectionPreview(null);
 
     const southValue = parseCoordinate(south);
     const westValue = parseCoordinate(west);
@@ -164,9 +175,9 @@ export default function OsmImportPanel() {
       if (stats.total === 0) {
         setError('データが 0 件でした。bbox や抽出条件、サーバーの対応地域を確認してください。');
       } else {
+        // 追加する前に 3D シーンで内容を確認できるようにする
+        setFeatureCollectionPreview(featureCollection);
         setMessage(`${result.endpoint.name} から ${stats.total} 件の feature を取得しました（LineString: ${stats.lineStrings}, Point: ${stats.points}${stats.others ? `, その他: ${stats.others}` : ''}）。`);
-        if (targetMode === 'new')
-          setNewId(createFeatureCollectionId(`osm-${presetId}`, Object.keys(featureCollections)));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -207,6 +218,7 @@ export default function OsmImportPanel() {
       if (!clientState.visibleFeatureCollections.includes(id))
         clientState.visibleFeatureCollections.push(id);
       setMessage(`Feature collection "${id}" を追加しました。`);
+      setFeatureCollectionPreview(null);
     } else {
       if (!appendTargetId || !featureCollections[appendTargetId]) {
         setError('追加先の Feature collection を選択してください。');
@@ -219,6 +231,7 @@ export default function OsmImportPanel() {
         { value: merged },
       ]);
       setMessage(`Feature collection "${appendTargetId}" に追加しました（合計 ${merged.features.length} 件）。`);
+      setFeatureCollectionPreview(null);
     }
   };
 
@@ -314,8 +327,23 @@ export default function OsmImportPanel() {
 
       {progress && <Typography variant="caption">{progress}</Typography>}
       {usedEndpointName && <Typography variant="caption" color="text.secondary">取得元: {usedEndpointName}</Typography>}
+      {downloaded && downloaded.features.length
+        ? <Button size="small" variant="outlined" onClick={() => {
+          const target = centroid(downloaded).geometry.coordinates;
+          setCameraTargetPosition(getRelativePosition(target, store.data.originCoordinate));
+        }}>
+          プレビューへ移動
+        </Button>
+        : null}
       {message && <Alert severity="success" onClose={() => setMessage('')}>{message}</Alert>}
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+
+      <Divider />
+
+      <FeatureCollectionFilterControls />
+      <Typography variant="caption" color="text.secondary">
+        ダウンロードしたデータは、追加するまで 3D シーンに線は水色、点はオレンジで表示されます。
+      </Typography>
 
       <Divider />
 
@@ -325,13 +353,23 @@ export default function OsmImportPanel() {
         <MenuItem value="append">既存の Feature collection に追加</MenuItem>
       </Select>
       {targetMode === 'new'
-        ? <TextField
-          size="small"
-          label="新しい Feature collection の ID"
-          value={newId}
-          onChange={e => setNewId(e.target.value)}
-          helperText="英数字・ハイフンなどを使用してください。"
-        />
+        ? <Stack direction="row" spacing={1} alignItems="flex-start">
+          <TextField
+            size="small"
+            label="新しい Feature collection の ID"
+            value={newId}
+            onChange={e => setNewId(e.target.value)}
+            helperText="英数字・ハイフンなどを使用してください。"
+            fullWidth
+          />
+          <Button
+            variant="outlined"
+            sx={{ flexShrink: 0 }}
+            onClick={() => setNewId(createFeatureCollectionId(`osm-${presetId}`, Object.keys(featureCollections)))}
+          >
+            自動生成
+          </Button>
+        </Stack>
         : Object.keys(featureCollections).length
           ? <Select size="small" value={appendTargetId} onChange={e => setAppendTargetId(e.target.value)}>
             {Object.keys(featureCollections).map(id => (

@@ -5,6 +5,7 @@ import { proxy, useSnapshot } from 'valtio';
 import { Button, ButtonGroup, IconButton, Paper, Stack, TextField, Tooltip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
+import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import EditIcon from '@mui/icons-material/Edit';
 import PlaceIcon from '@mui/icons-material/Place';
@@ -25,6 +26,8 @@ import EditOriginCoordinatePanel from './EditOriginCoordinatePanel';
 import { setCameraTargetPosition } from '@/lib/client/camera';
 import { MessageCode, send } from '@/lib/ws';
 import { curveEditMenuState } from '@/lib/client/curveEditMenu';
+import { OsmBBox } from '@/lib/osm';
+import OsmImportPanel from './OsmImportPanel';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -36,6 +39,10 @@ export const featureCollectionsTabPanelState = proxy<{
   lon: number;
   lat: number;
   isShowTable: boolean;
+  isImportingOsm: boolean;
+  /** OSM 取り込みで指定中の bbox。3D シーンに範囲を表示するために使う。 */
+  osmBBox: OsmBBox | null;
+  isOsmBBoxVisible: boolean;
   segmentList: FeatureAt[];
   isStraightList: boolean[];
   nextSegmentList: FeatureAt[];
@@ -53,6 +60,9 @@ export const featureCollectionsTabPanelState = proxy<{
   lon: 0,
   lat: 0,
   isShowTable: false,
+  isImportingOsm: false,
+  osmBBox: null,
+  isOsmBBoxVisible: false,
   segmentList: [],
   isStraightList: [],
   nextSegmentList: [],
@@ -358,6 +368,11 @@ function MainMenu() {
       }}>
         Deselect
       </Button>
+      <Button variant='contained' startIcon={<CloudDownloadIcon />} onClick={() => {
+        featureCollectionsTabPanelState.isImportingOsm = true;
+      }}>
+        OSM データを取り込む (Overpass API)
+      </Button>
       <Button variant='contained' disabled={gisState.selectedFeatures.length !== 1} onClick={() => {
         const startFeatureAt = gisState.selectedFeatures[0];
         const featureCollection = store.data.featureCollections[startFeatureAt.featureCollectionId].value;
@@ -519,13 +534,15 @@ function CreateTrackMenu() {
 
 export default function FeatureCollectionsTabPanel() {
   useSnapshot(gisState);
-  const { isEditingOriginCoordinate, isShowTable, segmentList } = useSnapshot(featureCollectionsTabPanelState);
+  const { isEditingOriginCoordinate, isShowTable, isImportingOsm, segmentList } = useSnapshot(featureCollectionsTabPanelState);
 
   return isEditingOriginCoordinate
     ? <EditOriginCoordinatePanel />
     : isShowTable
       ? <FeatureCollectionTable />
-      : segmentList.length
-        ? <CreateTrackMenu />
-        : <MainMenu />;
+      : isImportingOsm
+        ? <OsmImportPanel />
+        : segmentList.length
+          ? <CreateTrackMenu />
+          : <MainMenu />;
 }

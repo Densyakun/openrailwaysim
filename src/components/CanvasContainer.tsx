@@ -22,6 +22,7 @@ import TrainFormatPreview from './TrainFormatPreview'
 import { TrainFormat } from '@/lib/trains'
 import ErrorFallback from './ErrorFallback'
 import PostProcessing from './PostProcessing'
+import OsmBBox from './OsmBBox'
 import { clientState } from '@/lib/client/client'
 
 export default function CanvasContainer() {
@@ -51,6 +52,7 @@ export default function CanvasContainer() {
       ) : (
         <>
           <DreiSegments />
+          <OsmBBox />
           <FeatureCollections />
           <Tracks />
           <Trains />

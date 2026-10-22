@@ -3,12 +3,13 @@ import { FeatureCollection } from 'geojson'
 import { useSnapshot } from 'valtio'
 import { featureCollectionViewState } from '@/lib/client/featureCollections'
 import GeoJsonFeatureCollection, { GeoJsonFeatureCollectionEntry } from './GeoJsonFeatureCollection'
+import { BuildingMeshes } from './Buildings'
 
 /**
  * OSM 取り込み画面でダウンロードしたデータを、Feature collection に追加する前に 3D シーンへ表示する。
  */
 export default function OsmPreview() {
-  const { preview, isPreviewVisible } = useSnapshot(featureCollectionViewState);
+  const { preview, isPreviewVisible, showBuildings } = useSnapshot(featureCollectionViewState);
 
   const entries = useMemo<GeoJsonFeatureCollectionEntry[]>(
     () => preview && isPreviewVisible ? [{ id: '__osm_preview__', value: preview as FeatureCollection }] : [],
@@ -17,11 +18,14 @@ export default function OsmPreview() {
 
   if (!preview || !isPreviewVisible) return null;
 
-  return <GeoJsonFeatureCollection
-    entries={entries}
-    interactive={false}
-    lineColor="#00e5ff"
-    pointColor="#ffb300"
-    autoLabelLimit={100}
-  />;
+  return <>
+    <GeoJsonFeatureCollection
+      entries={entries}
+      interactive={false}
+      lineColor="#00e5ff"
+      pointColor="#ffb300"
+      autoLabelLimit={100}
+    />
+    {showBuildings ? <BuildingMeshes entries={entries} /> : null}
+  </>;
 }

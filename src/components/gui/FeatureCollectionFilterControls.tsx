@@ -6,7 +6,9 @@ import { featureCollectionViewState } from '@/lib/client/featureCollections'
  * 3D シーン上の Feature collection をジオメトリ種別ごとに表示/非表示するチェックボックス。
  */
 export default function FeatureCollectionFilterControls() {
-  const { showLineStrings, showPoints, showPolygons, showOthers } = useSnapshot(featureCollectionViewState);
+  const {
+    showLineStrings, showPoints, showPolygons, showOthers, showBuildings,
+  } = useSnapshot(featureCollectionViewState);
 
   return <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
     <Typography variant="caption" color="text.secondary">3D 表示:</Typography>
@@ -27,6 +29,12 @@ export default function FeatureCollectionFilterControls() {
         featureCollectionViewState.showPolygons = event.target.checked;
       }} />}
       label={<Typography variant="body2">面</Typography>}
+    />
+    <FormControlLabel
+      control={<Checkbox size="small" checked={showBuildings} onChange={event => {
+        featureCollectionViewState.showBuildings = event.target.checked;
+      }} />}
+      label={<Typography variant="body2">建物</Typography>}
     />
     <FormControlLabel
       control={<Checkbox size="small" checked={showOthers} onChange={event => {

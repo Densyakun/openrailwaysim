@@ -1,5 +1,5 @@
 // OpenStreetMap (Overpass API) からデータを取得し、GeoJSON FeatureCollection に変換する
-import { Feature, FeatureCollection, LineString, Point } from 'geojson'
+import { Feature, FeatureCollection, LineString, Point, Polygon } from 'geojson'
 
 export type OsmBBox = {
   south: number;
@@ -352,6 +352,31 @@ export function osmToGeoJSON(osm: OsmResponse): FeatureCollection {
       if (deduplicated.length < 2) continue;
 
       addedWays.add(element.id);
+
+      const properties = {
+        ...element.tags,
+        '@id': `way/${element.id}`,
+      };
+      const isClosed = deduplicated.length >= 4
+        && deduplicated[0][0] === deduplicated[deduplicated.length - 1][0]
+        && deduplicated[0][1] === deduplicated[deduplicated.length - 1][1];
+      const isBuilding = element.tags?.building !== undefined || element.tags?.['building:part'] !== undefined;
+
+      if (isBuilding && isClosed) {
+        // 建物は押し出し表示できるように Polygon として取り込む
+        const polygon: Polygon = {
+          type: 'Polygon',
+          coordinates: [deduplicated],
+        };
+        pushFeature(features, {
+          type: 'Feature',
+          id: `way/${element.id}`,
+          properties,
+          geometry: polygon,
+        });
+        continue;
+      }
+
       const lineString: LineString = {
         type: 'LineString',
         coordinates: deduplicated,
@@ -359,10 +384,7 @@ export function osmToGeoJSON(osm: OsmResponse): FeatureCollection {
       pushFeature(features, {
         type: 'Feature',
         id: `way/${element.id}`,
-        properties: {
-          ...element.tags,
-          '@id': `way/${element.id}`,
-        },
+        properties,
         geometry: lineString,
       });
     }
@@ -409,18 +431,26 @@ export function osmToGeoJSON(osm: OsmResponse): FeatureCollection {
 export function getOsmGeoJSONStats(featureCollection: FeatureCollection) {
   let lineStrings = 0;
   let points = 0;
+  let polygons = 0;
+  let buildings = 0;
   let others = 0;
 
   for (const feature of featureCollection.features) {
     if (feature.geometry.type === 'LineString') lineStrings++;
     else if (feature.geometry.type === 'Point') points++;
-    else others++;
+    else if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+      polygons++;
+      if (feature.properties?.building !== undefined || feature.properties?.['building:part'] !== undefined)
+        buildings++;
+    } else others++;
   }
 
   return {
     total: featureCollection.features.length,
     lineStrings,
     points,
+    polygons,
+    buildings,
     others,
   };
 }

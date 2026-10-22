@@ -177,7 +177,7 @@ export default function OsmImportPanel() {
       } else {
         // 追加する前に 3D シーンで内容を確認できるようにする
         setFeatureCollectionPreview(featureCollection);
-        setMessage(`${result.endpoint.name} から ${stats.total} 件の feature を取得しました（LineString: ${stats.lineStrings}, Point: ${stats.points}${stats.others ? `, その他: ${stats.others}` : ''}）。`);
+        setMessage(`${result.endpoint.name} から ${stats.total} 件の feature を取得しました（LineString: ${stats.lineStrings}, Point: ${stats.points}, Polygon: ${stats.polygons}${stats.buildings ? ` / 建物: ${stats.buildings}` : ''}${stats.others ? `, その他: ${stats.others}` : ''}）。`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -258,6 +258,7 @@ export default function OsmImportPanel() {
 
       <Typography variant="caption" color="text.secondary">
         Overpass API から bbox 内の OSM データを取得し、GeoJSON の Feature collection として追加します。
+        閉じた建物は Polygon として取り込み、3D メッシュで表示します。
         取得したデータは OpenStreetMap contributors (ODbL) に基づきます。
       </Typography>
 

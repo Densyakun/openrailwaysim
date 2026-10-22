@@ -11,14 +11,17 @@ export const featureCollectionViewState = proxy<{
   showPoints: boolean;
   showPolygons: boolean;
   showOthers: boolean;
+  /** OSM の建物 Polygons から生成した 3D 建物を表示する。 */
+  showBuildings: boolean;
   /** OSM 取り込み画面でダウンロードしたデータ。Feature collection に追加するまで表示する。 */
   preview: FeatureCollection | null;
   isPreviewVisible: boolean;
 }>({
   showLineStrings: true,
   showPoints: true,
-  showPolygons: true,
+  showPolygons: false,
   showOthers: true,
+  showBuildings: true,
   preview: null,
   isPreviewVisible: false,
 });

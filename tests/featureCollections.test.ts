@@ -6,8 +6,9 @@ import {
 beforeEach(() => {
   featureCollectionViewState.showLineStrings = true
   featureCollectionViewState.showPoints = true
-  featureCollectionViewState.showPolygons = true
+  featureCollectionViewState.showPolygons = false
   featureCollectionViewState.showOthers = true
+  featureCollectionViewState.showBuildings = true
   setFeatureCollectionPreview(null)
 })
 
@@ -15,7 +16,7 @@ describe('feature collection view state', () => {
   it('filters geometry types', () => {
     expect(isFeatureGeometryVisible('LineString')).toBe(true)
     expect(isFeatureGeometryVisible('Point')).toBe(true)
-    expect(isFeatureGeometryVisible('Polygon')).toBe(true)
+    expect(isFeatureGeometryVisible('Polygon')).toBe(false)
 
     featureCollectionViewState.showPoints = false
     expect(isFeatureGeometryVisible('Point')).toBe(false)
@@ -25,6 +26,9 @@ describe('feature collection view state', () => {
     featureCollectionViewState.showLineStrings = false
     expect(isFeatureGeometryVisible('LineString')).toBe(false)
     expect(isFeatureGeometryVisible('MultiLineString')).toBe(false)
+
+    featureCollectionViewState.showPolygons = true
+    expect(isFeatureGeometryVisible('Polygon')).toBe(true)
   })
 
   it('stores the downloaded feature collection as a preview', () => {

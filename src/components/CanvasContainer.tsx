@@ -3,6 +3,7 @@ import Cameras from './cameras-and-controls/Cameras'
 import CameraControls from './cameras-and-controls/CameraControls'
 import SunAndSky from './SunAndSky'
 import FeatureCollections from './FeatureCollections'
+import Buildings from './Buildings'
 import Tracks from './Tracks'
 import Trains from './Trains'
 import Terrains from './Terrains'
@@ -54,6 +55,7 @@ export default function CanvasContainer() {
           <OsmBBox />
           <OsmPreview />
           <FeatureCollections />
+          <Buildings />
           <Tracks />
           <Trains />
           <ConstructionZones />

@@ -136,7 +136,7 @@ export function getBuildingMaterials(): BuildingMaterials {
       metalness: 0,
     }),
     foundation: new THREE.MeshStandardMaterial({
-      color: '#6b6a66',
+      color: '#ffffff',
       vertexColors: true,
       roughness: 1,
       metalness: 0,

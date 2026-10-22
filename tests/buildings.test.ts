@@ -4,6 +4,7 @@ import {
   buildBuildingGeometryData, getBuildingColor, getBuildingHeights, isBuildingFeature,
 } from '@/lib/buildings'
 import { getOsmGeoJSONStats, osmToGeoJSON, OsmResponse } from '@/lib/osm'
+import { heightmapSize, merc, terrainZoom } from '@/lib/terrain'
 
 function createBuildingCollection(): FeatureCollection {
   return {
@@ -88,6 +89,54 @@ describe('buildings', () => {
       const dot = outwardX * data.wallNormals[index] + outwardZ * data.wallNormals[index + 2]
       expect(dot).toBeGreaterThanOrEqual(-0.001)
     }
+  })
+
+  it('uses the same variation for the same seed and building', () => {
+    const entries = [{ id: 'buildings', value: createBuildingCollection() }]
+    const first = buildBuildingGeometryData(entries, [0, 0], { seed: 123, variation: true })
+    const second = buildBuildingGeometryData(entries, [0, 0], { seed: 123, variation: true })
+
+    expect(first.roofPositions).toEqual(second.roofPositions)
+    expect(first.wallUvs).toEqual(second.wallUvs)
+    expect(first.wallColors).toEqual(second.wallColors)
+  })
+
+  it('follows terrain height and generates a foundation', () => {
+    const heightmap = Array.from({ length: heightmapSize }, () =>
+      new Array<number | null>(heightmapSize).fill(10)
+    )
+    const pixel = merc.px([0, 0], terrainZoom) as [number, number]
+    const tileX = Math.floor(pixel[0] / 256)
+    const tileY = Math.floor(pixel[1] / 256)
+    const terrains = {
+      [String(tileY)]: {
+        [String(tileX)]: heightmap,
+      },
+    }
+
+    const data = buildBuildingGeometryData(
+      [{ id: 'buildings', value: createBuildingCollection() }],
+      [0, 0],
+      { followTerrain: true, foundationDepth: 2, terrains },
+    )
+
+    let minWallY = Infinity
+    let maxWallY = -Infinity
+    for (let index = 1; index < data.wallPositions.length; index += 3) {
+      minWallY = Math.min(minWallY, data.wallPositions[index])
+      maxWallY = Math.max(maxWallY, data.wallPositions[index])
+    }
+    expect(minWallY).toBeCloseTo(10)
+    expect(maxWallY).toBeCloseTo(22)
+
+    let minFoundationY = Infinity
+    let maxFoundationY = -Infinity
+    for (let index = 1; index < data.foundationPositions.length; index += 3) {
+      minFoundationY = Math.min(minFoundationY, data.foundationPositions[index])
+      maxFoundationY = Math.max(maxFoundationY, data.foundationPositions[index])
+    }
+    expect(minFoundationY).toBeCloseTo(8)
+    expect(maxFoundationY).toBeCloseTo(10)
   })
 
   it('imports closed building ways as polygons', () => {

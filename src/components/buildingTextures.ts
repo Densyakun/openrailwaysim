@@ -3,6 +3,7 @@ import * as THREE from 'three'
 export type BuildingMaterials = {
   wall: THREE.MeshStandardMaterial;
   roof: THREE.MeshStandardMaterial;
+  foundation: THREE.MeshStandardMaterial;
 }
 
 let cachedMaterials: BuildingMaterials | undefined
@@ -132,6 +133,12 @@ export function getBuildingMaterials(): BuildingMaterials {
       map: roofTexture,
       vertexColors: true,
       roughness: 0.95,
+      metalness: 0,
+    }),
+    foundation: new THREE.MeshStandardMaterial({
+      color: '#6b6a66',
+      vertexColors: true,
+      roughness: 1,
       metalness: 0,
     }),
   }

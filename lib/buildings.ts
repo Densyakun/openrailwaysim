@@ -1,10 +1,26 @@
 import * as THREE from 'three'
 import { Feature, FeatureCollection, GeoJsonProperties, MultiPolygon, Polygon, Position } from 'geojson'
 import { getRelativePosition } from './gis'
+import { getTerrainHeightAt, HeightmapType } from './terrain'
 
 export type BuildingSourceEntry = {
   id: string;
   value: FeatureCollection;
+}
+
+export type TerrainHeightmaps = {
+  [tileY: string]: {
+    [tileX: string]: HeightmapType;
+  };
+}
+
+export type BuildingGenerationOptions = {
+  floorHeight?: number;
+  followTerrain?: boolean;
+  foundationDepth?: number;
+  seed?: number;
+  variation?: boolean;
+  terrains?: TerrainHeightmaps;
 }
 
 export type BuildingGeometryData = {
@@ -16,7 +32,18 @@ export type BuildingGeometryData = {
   roofNormals: Float32Array;
   roofUvs: Float32Array;
   roofColors: Float32Array;
+  foundationPositions: Float32Array;
+  foundationNormals: Float32Array;
+  foundationUvs: Float32Array;
+  foundationColors: Float32Array;
   buildingCount: number;
+}
+
+type WallBuffers = {
+  positions: number[];
+  normals: number[];
+  uvs: number[];
+  colors: number[];
 }
 
 type BuildingGeometryBuilder = {
@@ -28,17 +55,34 @@ type BuildingGeometryBuilder = {
   roofNormals: number[];
   roofUvs: number[];
   roofColors: number[];
+  foundationPositions: number[];
+  foundationNormals: number[];
+  foundationUvs: number[];
+  foundationColors: number[];
   buildingCount: number;
 }
 
-/** 生成設定を変更したときにキャッシュを無効化するためのバージョン。 */
-export const buildingGenerationVersion = 1
+type RoofStyle = 'flat' | 'pyramid'
+
+type BuildingVariant = {
+  roof: RoofStyle;
+  facadeWidth: number;
+  tint: [number, number, number];
+}
+
+const facadeWidthVariants = [3.4, 4, 4.6]
+const tintVariants: [number, number, number][] = [
+  [1, 1, 1],
+  [1.04, 1, 0.94],
+  [0.96, 1, 1.05],
+  [1.02, 1.03, 0.98],
+]
 
 export const buildingFloorHeight = 3
-const facadeModuleWidth = 4
 const roofModuleSize = 4
 const maximumBuildingHeight = 300
 const minimumBuildingHeight = 2
+const maximumTerrainSamples = 12
 
 const defaultHeightByType: { [key: string]: number } = {
   house: 7,
@@ -153,6 +197,29 @@ export function isBuildingFeature(feature: Feature) {
   return typeof building === 'string' || typeof buildingPart === 'string';
 }
 
+function getBuildingVariant(id: string, seed: number, variation: boolean): BuildingVariant {
+  if (!variation)
+    return { roof: 'flat', facadeWidth: 4, tint: [1, 1, 1] };
+
+  const hash = hashString(`${id}/${seed}`);
+
+  return {
+    roof: (hash & 1) ? 'pyramid' : 'flat',
+    facadeWidth: facadeWidthVariants[(hash >>> 1) % facadeWidthVariants.length],
+    tint: tintVariants[(hash >>> 3) % tintVariants.length],
+  };
+}
+
+function getRoofStyle(properties: GeoJsonProperties, variant: BuildingVariant): RoofStyle {
+  const shape = properties?.['roof:shape'];
+
+  if (shape === 'flat') return 'flat';
+  if (shape === 'gabled' || shape === 'hipped' || shape === 'pyramidal' || shape === 'half-hipped')
+    return 'pyramid';
+
+  return variant.roof;
+}
+
 function toOpenRing(coordinates: Position[], originCoordinate: Position) {
   const points: THREE.Vector2[] = [];
 
@@ -186,13 +253,55 @@ function ensureOrientation(points: THREE.Vector2[], counterClockwise: boolean) {
   if ((signedArea(points) > 0) !== counterClockwise) points.reverse();
 }
 
+function sampleGroundHeight(
+  points: THREE.Vector2[],
+  originCoordinate: Position,
+  terrains: TerrainHeightmaps,
+) {
+  let minimum = Infinity;
+  let maximum = -Infinity;
+  let sum = 0;
+  let count = 0;
+
+  const step = Math.max(1, Math.ceil(points.length / maximumTerrainSamples));
+  const sample = (x: number, z: number) => {
+    const height = getTerrainHeightAt(new THREE.Vector3(x, 0, z), originCoordinate, terrains);
+    if (height === null) return;
+
+    minimum = Math.min(minimum, height);
+    maximum = Math.max(maximum, height);
+    sum += height;
+    count++;
+  };
+
+  for (let index = 0; index < points.length; index += step)
+    sample(points[index].x, points[index].y);
+
+  let centerX = 0;
+  let centerZ = 0;
+  points.forEach(point => {
+    centerX += point.x;
+    centerZ += point.y;
+  });
+  sample(centerX / points.length, centerZ / points.length);
+
+  if (!count) return undefined;
+
+  return {
+    average: sum / count,
+    minimum,
+    maximum,
+  };
+}
+
 function pushWall(
-  data: BuildingGeometryBuilder,
+  target: WallBuffers,
   ring: THREE.Vector2[],
   base: number,
   top: number,
   color: [number, number, number],
   floorHeight: number,
+  facadeWidth: number,
 ) {
   if (ring.length < 3) return;
 
@@ -200,10 +309,10 @@ function pushWall(
   let distance = 0;
 
   const pushVertex = (point: THREE.Vector3, normal: THREE.Vector3, u: number, v: number) => {
-    data.wallPositions.push(point.x, point.y, point.z);
-    data.wallNormals.push(normal.x, normal.y, normal.z);
-    data.wallUvs.push(u, v);
-    data.wallColors.push(color[0], color[1], color[2]);
+    target.positions.push(point.x, point.y, point.z);
+    target.normals.push(normal.x, normal.y, normal.z);
+    target.uvs.push(u, v);
+    target.colors.push(color[0], color[1], color[2]);
   };
 
   for (let index = 0; index < ring.length; index++) {
@@ -225,8 +334,8 @@ function pushWall(
     const p2 = new THREE.Vector3(next.x, top, next.y);
     const p3 = new THREE.Vector3(current.x, top, current.y);
 
-    const u0 = distance / facadeModuleWidth;
-    const u1 = (distance + length) / facadeModuleWidth;
+    const u0 = distance / facadeWidth;
+    const u1 = (distance + length) / facadeWidth;
     const v0 = base / floorHeight;
     const v1 = top / floorHeight;
 
@@ -252,15 +361,13 @@ function pushWall(
   }
 }
 
-function pushRoof(
+function pushFlatRoof(
   data: BuildingGeometryBuilder,
   outer: THREE.Vector2[],
   holes: THREE.Vector2[][],
   top: number,
   color: [number, number, number],
 ) {
-  if (outer.length < 3) return;
-
   const allPoints = [...outer, ...holes.flat()];
   const faces = THREE.ShapeUtils.triangulateShape(
     outer.map(point => point.clone()),
@@ -299,6 +406,55 @@ function pushRoof(
   });
 }
 
+function pushPyramidRoof(
+  data: BuildingGeometryBuilder,
+  outer: THREE.Vector2[],
+  top: number,
+  color: [number, number, number],
+) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  let centerX = 0;
+  let centerZ = 0;
+
+  outer.forEach(point => {
+    minX = Math.min(minX, point.x);
+    maxX = Math.max(maxX, point.x);
+    minZ = Math.min(minZ, point.y);
+    maxZ = Math.max(maxZ, point.y);
+    centerX += point.x;
+    centerZ += point.y;
+  });
+
+  const roofHeight = Math.min(6, Math.max(1.2, Math.min(maxX - minX, maxZ - minZ) * 0.22));
+  const apex = new THREE.Vector3(centerX / outer.length, top + roofHeight, centerZ / outer.length);
+
+  for (let index = 0; index < outer.length; index++) {
+    const current = outer[index];
+    const next = outer[(index + 1) % outer.length];
+    let p0 = new THREE.Vector3(current.x, top, current.y);
+    let p1 = new THREE.Vector3(next.x, top, next.y);
+
+    const cross = new THREE.Vector3().subVectors(p1, p0).cross(new THREE.Vector3().subVectors(apex, p0));
+    if (cross.y < 0) {
+      const temporary = p0;
+      p0 = p1;
+      p1 = temporary;
+    }
+
+    const normal = new THREE.Vector3().subVectors(p1, p0).cross(new THREE.Vector3().subVectors(apex, p0)).normalize();
+
+    [p0, p1, apex].forEach(point => {
+      data.roofPositions.push(point.x, point.y, point.z);
+      data.roofNormals.push(normal.x, normal.y, normal.z);
+      data.roofUvs.push(point.x / roofModuleSize, point.z / roofModuleSize);
+      data.roofColors.push(color[0] * 0.68, color[1] * 0.68, color[2] * 0.68);
+    });
+  }
+}
+
 function addBuilding(
   data: BuildingGeometryBuilder,
   rings: Position[][],
@@ -306,7 +462,11 @@ function addBuilding(
   base: number,
   top: number,
   color: [number, number, number],
-  floorHeight: number,
+  variant: BuildingVariant,
+  roofStyle: RoofStyle,
+  options: Required<Pick<BuildingGenerationOptions, 'floorHeight' | 'followTerrain' | 'foundationDepth'>> & {
+    terrains?: TerrainHeightmaps;
+  },
 ) {
   if (!rings.length) return false;
 
@@ -321,22 +481,61 @@ function addBuilding(
   ensureOrientation(outer, true);
   holes.forEach(hole => ensureOrientation(hole, false));
 
-  pushWall(data, outer, base, top, color, floorHeight);
-  holes.forEach(hole => pushWall(data, hole, base, top, color, floorHeight));
-  pushRoof(data, outer, holes, top, color);
+  const ground = options.followTerrain && options.terrains
+    ? sampleGroundHeight(outer, originCoordinate, options.terrains)
+    : undefined;
+  const groundHeight = ground?.average ?? 0;
+  const wallBase = groundHeight + base;
+  const wallTop = groundHeight + top;
+  const foundationBottom = ground
+    ? Math.min(ground.minimum, wallBase) - options.foundationDepth
+    : wallBase;
+
+  const wallTarget: WallBuffers = {
+    positions: data.wallPositions,
+    normals: data.wallNormals,
+    uvs: data.wallUvs,
+    colors: data.wallColors,
+  };
+  const foundationTarget: WallBuffers = {
+    positions: data.foundationPositions,
+    normals: data.foundationNormals,
+    uvs: data.foundationUvs,
+    colors: data.foundationColors,
+  };
+
+  if (wallBase - foundationBottom > 0.05) {
+    const foundationColor: [number, number, number] = [0.42, 0.42, 0.39];
+    pushWall(foundationTarget, outer, foundationBottom, wallBase, foundationColor, options.floorHeight, variant.facadeWidth);
+    holes.forEach(hole => pushWall(foundationTarget, hole, foundationBottom, wallBase, foundationColor, options.floorHeight, variant.facadeWidth));
+  }
+
+  pushWall(wallTarget, outer, wallBase, wallTop, color, options.floorHeight, variant.facadeWidth);
+  holes.forEach(hole => pushWall(wallTarget, hole, wallBase, wallTop, color, options.floorHeight, variant.facadeWidth));
+
+  if (roofStyle === 'pyramid' && !holes.length && outer.length <= 16)
+    pushPyramidRoof(data, outer, wallTop, color);
+  else
+    pushFlatRoof(data, outer, holes, wallTop, color);
 
   return true;
 }
 
 /**
- * 建物 Polygon から、壁と屋根の結合済みジオメトリデータを生成する。
+ * 建物 Polygon から、壁・屋根・基礎の結合済みジオメトリデータを生成する。
  * GeoJSON をソース、この戻り値をキャッシュ／派生物として扱う。
  */
 export function buildBuildingGeometryData(
   entries: BuildingSourceEntry[],
   originCoordinate: Position,
-  floorHeight = buildingFloorHeight,
+  options: BuildingGenerationOptions = {},
 ): BuildingGeometryData {
+  const floorHeight = options.floorHeight ?? buildingFloorHeight;
+  const followTerrain = options.followTerrain ?? true;
+  const foundationDepth = options.foundationDepth ?? 2;
+  const seed = options.seed ?? 1;
+  const variation = options.variation ?? true;
+
   const data: BuildingGeometryBuilder = {
     wallPositions: [],
     wallNormals: [],
@@ -346,6 +545,10 @@ export function buildBuildingGeometryData(
     roofNormals: [],
     roofUvs: [],
     roofColors: [],
+    foundationPositions: [],
+    foundationNormals: [],
+    foundationUvs: [],
+    foundationColors: [],
     buildingCount: 0,
   };
 
@@ -365,10 +568,22 @@ export function buildBuildingGeometryData(
 
       const id = String(feature.id ?? feature.properties?.['@id'] ?? `${entry.id}/${data.buildingCount}`);
       const { base, top } = getBuildingHeights(feature.properties, floorHeight);
-      const color = getBuildingColor(feature.properties, id);
+      const variant = getBuildingVariant(id, seed, variation);
+      const roofStyle = getRoofStyle(feature.properties, variant);
+      const baseColor = getBuildingColor(feature.properties, id);
+      const color: [number, number, number] = [
+        Math.min(1, Math.max(0, baseColor[0] * variant.tint[0])),
+        Math.min(1, Math.max(0, baseColor[1] * variant.tint[1])),
+        Math.min(1, Math.max(0, baseColor[2] * variant.tint[2])),
+      ];
 
       polygons.forEach(rings => {
-        if (addBuilding(data, rings, originCoordinate, base, top, color, floorHeight))
+        if (addBuilding(data, rings, originCoordinate, base, top, color, variant, roofStyle, {
+          floorHeight,
+          followTerrain,
+          foundationDepth,
+          terrains: options.terrains,
+        }))
           data.buildingCount++;
       });
     });
@@ -383,6 +598,10 @@ export function buildBuildingGeometryData(
     roofNormals: new Float32Array(data.roofNormals),
     roofUvs: new Float32Array(data.roofUvs),
     roofColors: new Float32Array(data.roofColors),
+    foundationPositions: new Float32Array(data.foundationPositions),
+    foundationNormals: new Float32Array(data.foundationNormals),
+    foundationUvs: new Float32Array(data.foundationUvs),
+    foundationColors: new Float32Array(data.foundationColors),
     buildingCount: data.buildingCount,
   };
 }

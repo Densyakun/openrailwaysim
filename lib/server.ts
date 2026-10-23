@@ -561,9 +561,11 @@ export function setupServer(wss: WebSocketServer) {
                 result = { currentSave: currentSaveName };
                 break;
               }
-              case 'getValue':
-                result = { value: getSaveValue(params.path) };
+              case 'getValue': {
+                const value = getSaveValue(params.path);
+                result = { found: value !== undefined, value: value ?? null };
                 break;
+              }
               case 'setValue':
                 result = setSaveValue(params.path, params.value);
                 broadcastSerializableState();

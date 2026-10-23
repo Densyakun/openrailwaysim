@@ -11,6 +11,7 @@ import { assignSchedulesToTrains } from "./diagram";
 import { MessageCode, send } from "./ws";
 import { relocateTrainsForTimeChange } from "./diagram";
 import { getSaveData, normalizeSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
+import { getSaveSummary, getSaveValue, removeSaveValue, setSaveValue } from "./saveAccess";
 import { cleanupDependentData, deleteProp, setProp } from "./storeDependencies";
 
 export const savesDir = "./saves";
@@ -151,19 +152,33 @@ export function setupServer(wss: WebSocketServer) {
     return adminAuthenticatedClients.has(ws);
   }
 
+  function isMcpClient(ws: WSWebSocket) {
+    return (ws as unknown as { __mcp?: boolean }).__mcp === true;
+  }
+
   function broadcastUserList() {
     const users = Array.from(wss.clients)
       .filter(ws => authenticatedClients.get(ws))
       .map(ws => ({ id: (ws as any).__id || "", username: clientUsernames.get(ws) || "Anonymous" }));
-    wss.clients.forEach(client =>
-      send(client, MessageCode.FROM_SERVER_USER_LIST, users)
-    );
+    wss.clients.forEach(client => {
+      if (isMcpClient(client)) return;
+      send(client, MessageCode.FROM_SERVER_USER_LIST, users);
+    });
   }
 
   function broadcastCurrentSave() {
-    wss.clients.forEach(client =>
-      send(client, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName)
-    );
+    wss.clients.forEach(client => {
+      if (isMcpClient(client)) return;
+      send(client, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+    });
+  }
+
+  function broadcastSerializableState() {
+    const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
+    wss.clients.forEach(client => {
+      if (isMcpClient(client)) return;
+      send(client, MessageCode.FROM_SERVER_STATE, serializableGameState);
+    });
   }
 
   let messageEmitter = new MessageEmitter();
@@ -302,15 +317,19 @@ export function setupServer(wss: WebSocketServer) {
       }
     });
 
-    wss.clients.forEach(client =>
-      send(client, MessageCode.FROM_SERVER_STATE_OPS, ops_)
-    );
+    wss.clients.forEach(client => {
+      if (isMcpClient(client)) return;
+      send(client, MessageCode.FROM_SERVER_STATE_OPS, ops_);
+    });
   });
 
-  wss.on('connection', function connection(ws) {
+  wss.on('connection', function connection(ws, request) {
     ws.on('error', console.error);
 
     (ws as any).__id = crypto.randomUUID();
+
+    const isMcp = request.url ? new URL(request.url, 'ws://localhost').searchParams.get('mcp') === '1' : false;
+    (ws as any).__mcp = isMcp;
 
     let authenticated = !connectionPassword;
     authenticatedClients.set(ws, authenticated);
@@ -327,10 +346,12 @@ export function setupServer(wss: WebSocketServer) {
     if (!connectionPassword)
       send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, true);
 
-    const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
-    send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
+    if (!isMcp) {
+      const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
+      send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
 
-    send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+      send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+    }
 
     broadcastUserList();
 
@@ -439,10 +460,7 @@ export function setupServer(wss: WebSocketServer) {
             writeCurrentSave(currentSaveName);
             broadcastCurrentSave();
             send(ws, MessageCode.FROM_SERVER_LOAD_COMPLETED);
-            const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
-            wss.clients.forEach(client =>
-              send(client, MessageCode.FROM_SERVER_STATE, serializableGameState)
-            );
+            broadcastSerializableState();
           }
 
           messageEmitter.isInvalidMessage = false;
@@ -481,6 +499,87 @@ export function setupServer(wss: WebSocketServer) {
               (store.data.terrains[tileY] || (store.data.terrains[tileY] = {}))
               [tileX] = heightmap
             );
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_SAVE_DATA_REQUEST: {
+          const [requestId, method, rawParams] = value as [number, string, unknown];
+
+          if (typeof requestId !== 'number' || typeof method !== 'string') {
+            messageEmitter.isInvalidMessage = false;
+            break;
+          }
+
+          const respond = (
+            response: { ok: true; result?: unknown } | { ok: false; error: string }
+          ) =>
+            send(ws, MessageCode.FROM_SERVER_SAVE_DATA_RESPONSE, [requestId, response]);
+
+          try {
+            if (!authenticatedClients.get(ws as WSWebSocket))
+              throw new Error('not authenticated');
+
+            const params = rawParams && typeof rawParams === 'object'
+              ? rawParams as Record<string, unknown>
+              : {};
+            let result: unknown;
+
+            switch (method) {
+              case 'getSummary':
+                result = { currentSave: currentSaveName, ...getSaveSummary() };
+                break;
+              case 'listSaves':
+                result = { currentSave: currentSaveName, saves: listSaves() };
+                break;
+              case 'loadSave': {
+                if (!isAdmin(ws as WSWebSocket))
+                  throw new Error('admin authentication required');
+
+                const name = typeof params.name === 'string' ? params.name : '';
+                if (!name) throw new Error('name is required');
+                if (!loadData(name)) throw new Error(`failed to load save: ${name}`);
+
+                currentSaveName = name;
+                writeCurrentSave(currentSaveName);
+                broadcastCurrentSave();
+                broadcastSerializableState();
+                result = { currentSave: currentSaveName, summary: getSaveSummary() };
+                break;
+              }
+              case 'save': {
+                if (!isAdmin(ws as WSWebSocket))
+                  throw new Error('admin authentication required');
+
+                const name = typeof params.name === 'string' ? params.name : '';
+                if (!name) throw new Error('name is required');
+                if (!saveData(name)) throw new Error(`failed to save: ${name}`);
+
+                currentSaveName = name;
+                writeCurrentSave(currentSaveName);
+                broadcastCurrentSave();
+                result = { currentSave: currentSaveName };
+                break;
+              }
+              case 'getValue':
+                result = { value: getSaveValue(params.path) };
+                break;
+              case 'setValue':
+                result = setSaveValue(params.path, params.value);
+                broadcastSerializableState();
+                break;
+              case 'deleteValue':
+                result = removeSaveValue(params.path);
+                broadcastSerializableState();
+                break;
+              default:
+                throw new Error(`unknown method: ${method}`);
+            }
+
+            respond({ ok: true, result });
+          } catch (e) {
+            respond({ ok: false, error: e instanceof Error ? e.message : String(e) });
+          }
 
           messageEmitter.isInvalidMessage = false;
           break;

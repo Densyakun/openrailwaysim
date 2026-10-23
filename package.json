@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "ws": "cross-env HOST=0.0.0.0 PORT=8080 tsx --tsconfig ./tsconfig.server.json server/index.ts"
+    "ws": "cross-env HOST=0.0.0.0 PORT=8080 tsx --tsconfig ./tsconfig.server.json server/index.ts",
+    "mcp": "tsx --tsconfig ./tsconfig.server.json server/mcp.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

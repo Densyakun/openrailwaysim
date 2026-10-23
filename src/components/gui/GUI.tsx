@@ -5,6 +5,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import RouteIcon from '@mui/icons-material/Route';
 import PlaceIcon from '@mui/icons-material/Place';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ImportExportIcon from '@mui/icons-material/ImportExport';
 import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
 import BuildIcon from '@mui/icons-material/Build';
@@ -114,7 +115,7 @@ const menuComponents: {
   },
   'dataExchange': {
     title: 'Data',
-    icon: <SettingsIcon />,
+    icon: <ImportExportIcon />,
     component: <DataExchangePanel />,
   },
   'settings': {

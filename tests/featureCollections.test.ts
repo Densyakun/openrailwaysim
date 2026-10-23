@@ -9,6 +9,7 @@ beforeEach(() => {
   featureCollectionViewState.showPolygons = false
   featureCollectionViewState.showOthers = true
   featureCollectionViewState.showBuildings = true
+  featureCollectionViewState.pointLabelMode = 'auto'
   setFeatureCollectionPreview(null)
 })
 
@@ -29,6 +30,16 @@ describe('feature collection view state', () => {
 
     featureCollectionViewState.showPolygons = true
     expect(isFeatureGeometryVisible('Polygon')).toBe(true)
+  })
+
+  it('supports point label display modes', () => {
+    expect(featureCollectionViewState.pointLabelMode).toBe('auto')
+
+    featureCollectionViewState.pointLabelMode = 'all'
+    expect(featureCollectionViewState.pointLabelMode).toBe('all')
+
+    featureCollectionViewState.pointLabelMode = 'hover'
+    expect(featureCollectionViewState.pointLabelMode).toBe('hover')
   })
 
   it('stores the downloaded feature collection as a preview', () => {

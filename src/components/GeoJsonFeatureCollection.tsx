@@ -250,7 +250,7 @@ export default function GeoJsonFeatureCollection({
 }) {
   const { originCoordinate } = useSnapshot(store.data);
   const {
-    showLineStrings, showPoints, showPolygons, showOthers,
+    showLineStrings, showPoints, showPolygons, showOthers, pointLabelMode,
   } = useSnapshot(featureCollectionViewState);
   const {
     segmentList, isStraightList, nextSegmentList, focusedNextSegmentIndex,
@@ -396,9 +396,11 @@ export default function GeoJsonFeatureCollection({
     ? data.pointEntries[hoveredPointIndex]
     : undefined;
 
-  const autoLabels = data.pointEntries.length <= autoLabelLimit
+  const autoLabels = pointLabelMode === 'all'
     ? data.pointEntries
-    : [];
+    : pointLabelMode === 'auto' && data.pointEntries.length <= autoLabelLimit
+      ? data.pointEntries
+      : [];
 
   return <>
     {lineSegments}

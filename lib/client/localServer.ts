@@ -5,6 +5,9 @@ import { fetchHeightmap } from "@/lib/terrain";
 import { relocateTrainsForTimeChange } from "@/lib/diagram";
 import { ORSAppSaveDataType, getSaveData, normalizeSaveData, storeSaveData } from "@/lib/save";
 import { deleteProp, setProp, subscribeStoreDependencies } from "@/lib/storeDependencies";
+import {
+  clearSharedSaveSource, fetchSaveSource, fetchSaveSourceJson, resolveSaveSource, setSharedSaveSource,
+} from "@/lib/saveSource";
 
 export type LocalServerSocket = {
   send(data: string): void;
@@ -53,9 +56,10 @@ function getDefaultStorage(): LocalStorageLike {
 }
 
 let storage = getDefaultStorage();
-let initialized = false;
+let initializePromise: Promise<void> | undefined;
 let unsubscribe: (() => void) | undefined;
 let currentSaveName = "";
+let currentSaveUrl = "";
 let username = "Anonymous";
 
 const userId = "local";
@@ -79,10 +83,16 @@ function listSaves(): string[] {
   return names.sort();
 }
 
+function applyResolvedSaveData(saveData: ORSAppSaveDataType, baseData: ORSAppSaveDataType, includes: string[]) {
+  setSharedSaveSource(baseData, includes);
+  storeSaveData(normalizeSaveData(saveData));
+}
+
 function saveToStorage(name: string): boolean {
   try {
-    storage.setItem(saveKey(name), JSON.stringify(getSaveData()));
+    storage.setItem(saveKey(name), JSON.stringify(getSaveData({ excludeShared: true })));
     currentSaveName = name;
+    currentSaveUrl = "";
     storage.setItem(CURRENT_SAVE_KEY, name);
     return true;
   } catch (e) {
@@ -91,19 +101,47 @@ function saveToStorage(name: string): boolean {
   }
 }
 
-function loadFromStorage(name: string): boolean {
+async function loadFromStorage(name: string): Promise<boolean> {
   const raw = storage.getItem(saveKey(name));
   if (raw === null) return false;
 
   try {
-    const saveData = normalizeSaveData(JSON.parse(raw) as ORSAppSaveDataType);
-    storeSaveData(saveData);
+    const saveData = JSON.parse(raw) as ORSAppSaveDataType;
+
+    if (Array.isArray(saveData.includes) && saveData.includes.length > 0) {
+      const source = `local-storage:${saveKey(name)}`;
+      const resolved = await resolveSaveSource(source, async currentSource =>
+        currentSource === source
+          ? saveData
+          : fetchSaveSourceJson(currentSource)
+      );
+      applyResolvedSaveData(resolved.data, resolved.baseData, resolved.includes);
+    } else {
+      clearSharedSaveSource();
+      storeSaveData(normalizeSaveData(saveData));
+    }
+
     currentSaveName = name;
+    currentSaveUrl = "";
     storage.setItem(CURRENT_SAVE_KEY, name);
     return true;
   } catch (e) {
+    clearSharedSaveSource();
     console.error(e);
     return false;
+  }
+}
+
+async function loadFromUrl(url: string): Promise<void> {
+  try {
+    const resolved = await fetchSaveSource(url);
+    applyResolvedSaveData(resolved.data, resolved.baseData, resolved.includes);
+    currentSaveName = "";
+    currentSaveUrl = url;
+    storage.removeItem(CURRENT_SAVE_KEY);
+  } catch (e) {
+    clearSharedSaveSource();
+    throw e;
   }
 }
 
@@ -120,27 +158,31 @@ function sendUserList(socket: LocalServerSocket) {
 }
 
 function initialize() {
-  if (initialized) return;
-  initialized = true;
+  if (initializePromise) return initializePromise;
 
-  unsubscribe = subscribeStoreDependencies();
+  initializePromise = (async () => {
+    unsubscribe = subscribeStoreDependencies();
 
-  // 前回使用したセーブデータがあれば復元する
-  const savedCurrentSave = storage.getItem(CURRENT_SAVE_KEY);
-  if (savedCurrentSave)
-    loadFromStorage(savedCurrentSave);
+    // 前回使用したセーブデータがあれば復元する
+    const savedCurrentSave = storage.getItem(CURRENT_SAVE_KEY);
+    if (savedCurrentSave)
+      await loadFromStorage(savedCurrentSave);
+  })();
+
+  return initializePromise;
 }
 
 /**
- * ブラウザ内で WebSocket サーバーの代わりに接続を開始する。
+ * ブラウザ用の WebSocket サーバーの代わりに接続を開始する。
  */
-export function connectLocalServer(socket: LocalServerSocket) {
-  initialize();
+export async function connectLocalServer(socket: LocalServerSocket) {
+  await initialize();
 
   send(socket, MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED, false);
   send(socket, MessageCode.FROM_SERVER_AUTH_RESULT, true);
   send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
   send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+  send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
   sendUserList(socket);
 }
 
@@ -176,24 +218,49 @@ export function handleLocalServerMessage(
         break;
       case MessageCode.FROM_CLIENT_SAVE: {
         if (typeof value !== "string" || !value) break;
-        if (saveToStorage(value))
+        if (saveToStorage(value)) {
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+          send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
+        }
         send(socket, MessageCode.FROM_SERVER_SAVE_COMPLETED);
         break;
       }
       case MessageCode.FROM_CLIENT_LOAD_SAVE: {
         if (typeof value !== "string" || !value) break;
-        if (loadFromStorage(value)) {
+        void loadFromStorage(value).then(ok => {
+          if (!ok) return;
+
           send(socket, MessageCode.FROM_SERVER_LOAD_COMPLETED);
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+          send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
           send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
-        }
+        });
+        break;
+      }
+      case MessageCode.FROM_CLIENT_LOAD_SAVE_URL: {
+        if (typeof value !== "string" || !value) break;
+        const url = value.trim();
+        if (!url) break;
+
+        void loadFromUrl(url).then(() => {
+          send(socket, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, { ok: true, url });
+          send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+          send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
+          send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
+        }).catch(error => {
+          send(socket, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, {
+            ok: false,
+            url,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
         break;
       }
       case MessageCode.FROM_CLIENT_DELETE_SAVE: {
         if (typeof value !== "string" || !value) break;
         deleteFromStorage(value);
         send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+        send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
         break;
       }
       case MessageCode.FROM_CLIENT_SWITCH_TRACK: {
@@ -240,10 +307,12 @@ export function handleLocalServerMessage(
 export function resetLocalServer(options?: { storage?: LocalStorageLike }) {
   unsubscribe?.();
   unsubscribe = undefined;
-  initialized = false;
+  initializePromise = undefined;
   currentSaveName = "";
+  currentSaveUrl = "";
   username = "Anonymous";
   storage = options?.storage ?? getDefaultStorage();
+  clearSharedSaveSource();
   store.data = createAppData();
 }
 

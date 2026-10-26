@@ -30,6 +30,23 @@ export const featureCollectionViewState = proxy<{
 });
 
 /**
+ * セーブデータを読み込んだ後に表示する Feature collection のIDを求める。
+ * 同じIDは表示状態を維持し、新しいIDは表示する。
+ */
+export function mergeVisibleFeatureCollectionIds(
+  previousIds: readonly string[],
+  currentIds: readonly string[],
+) {
+  const currentIdSet = new Set(currentIds);
+  const previousIdSet = new Set(previousIds);
+
+  return [
+    ...previousIds.filter(id => currentIdSet.has(id)),
+    ...currentIds.filter(id => !previousIdSet.has(id)),
+  ];
+}
+
+/**
  * GeoJSON のジオメトリ種別が現在の表示設定で表示されるか。
  */
 export function isFeatureGeometryVisible(

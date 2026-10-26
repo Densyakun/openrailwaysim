@@ -20,6 +20,7 @@ export const clientState = proxy<{
   cameraFar: number;
   visibleFeatureCollections: string[];
   showSaveSuccess: boolean;
+  saveNotificationMessage: string;
   username: string;
   connectionPassword: string;
   isAuthenticated: boolean;
@@ -28,6 +29,9 @@ export const clientState = proxy<{
   adminPasswordRequired: boolean;
   saves: string[];
   currentSave: string;
+  currentSaveUrl: string;
+  saveUrlStatus: "idle" | "loading" | "success" | "error";
+  saveUrlMessage: string;
   users: { id: string; username: string }[];
   serverUrl: string;
   localMode: boolean;
@@ -46,6 +50,7 @@ export const clientState = proxy<{
   cameraFar: 200000,
   visibleFeatureCollections: [],
   showSaveSuccess: false,
+  saveNotificationMessage: "",
   username: "",
   connectionPassword: "",
   isAuthenticated: false,
@@ -54,6 +59,9 @@ export const clientState = proxy<{
   adminPasswordRequired: false,
   saves: [],
   currentSave: "",
+  currentSaveUrl: "",
+  saveUrlStatus: "idle",
+  saveUrlMessage: "",
   users: [],
   serverUrl: "",
   localMode: startInLocalMode,

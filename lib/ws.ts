@@ -31,6 +31,9 @@ export enum MessageCode {
   FROM_SERVER_CURRENT_SAVE,
   FROM_CLIENT_SAVE_DATA_REQUEST,
   FROM_SERVER_SAVE_DATA_RESPONSE,
+  FROM_CLIENT_LOAD_SAVE_URL,
+  FROM_SERVER_LOAD_SAVE_URL_RESULT,
+  FROM_SERVER_CURRENT_SAVE_URL,
 }
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
@@ -58,6 +61,9 @@ export type MessageValueMap = {
   [MessageCode.FROM_SERVER_LOAD_COMPLETED]: undefined;
   [MessageCode.FROM_CLIENT_DELETE_SAVE]: string;
   [MessageCode.FROM_SERVER_CURRENT_SAVE]: string;
+  [MessageCode.FROM_CLIENT_LOAD_SAVE_URL]: string;
+  [MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT]: { ok: boolean; url: string; error?: string };
+  [MessageCode.FROM_SERVER_CURRENT_SAVE_URL]: string;
   [MessageCode.FROM_CLIENT_SAVE_DATA_REQUEST]: [number, string, unknown?];
   [MessageCode.FROM_SERVER_SAVE_DATA_RESPONSE]: [
     number,

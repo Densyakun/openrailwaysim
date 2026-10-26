@@ -3,7 +3,7 @@ import { MessageEmitter, OnMessageInServer, serialize, updateTime, orsAppDataTyp
 import { WebSocketServer, WebSocket as WSWebSocket } from "ws";
 import { switchTrack } from "./tracks";
 import { fetchHeightmap } from "./terrain";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, promises as fsPromises } from "fs";
 import crypto from "crypto";
 import path from "path";
 import "dotenv/config";
@@ -12,9 +12,12 @@ import { MessageCode, send } from "./ws";
 import { relocateTrainsForTimeChange } from "./diagram";
 import { getSaveData, normalizeSaveData, ORSAppSaveDataType, storeSaveData } from "./save";
 import { getSaveSummary, getSaveValue, removeSaveValue, setSaveValue } from "./saveAccess";
+import {
+  clearSharedSaveSource, fetchSaveSourceJson, isHttpUrl, resolveSaveSource, setSharedSaveSource,
+} from "./saveSource";
 import { cleanupDependentData, deleteProp, setProp } from "./storeDependencies";
 
-export const savesDir = "./saves";
+export const savesDir = process.env.ORS_SAVES_DIR || "./saves";
 
 // 前回使用したセーブデータの名前を保存するファイル（サーバー再起動時の自動読み込みに使用）
 const currentSaveFileName = ".current-save";
@@ -26,19 +29,47 @@ function ensureSavesDir() {
 }
 
 function saveFilePath(name: string): string {
-  // パス・トラバーサル対策: ディレクトリ部を除去し、ファイル名に使えない文字を置換
-  const basename = path.basename(name);
-  const safeName = basename.replace(/[\\/:*?"<>|]/g, "_");
-  return path.join(savesDir, `${safeName}.json`);
+  // パス・トラバーサル対策: 各セグメントを検証し、saves ディレクトリ外に出ないようにする
+  const segments = name
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter(segment => segment && segment !== "." && segment !== "..");
+
+  const safeSegments = segments
+    .map(segment => segment.replace(/[\\/:*?"<>|]/g, "_"))
+    .filter(segment => segment.length > 0);
+
+  if (!safeSegments.length)
+    throw new Error("save name must not be empty");
+
+  const filePath = path.join(savesDir, ...safeSegments) + ".json";
+  const resolved = path.resolve(filePath);
+  const root = path.resolve(savesDir);
+
+  if (resolved !== root && !resolved.startsWith(root + path.sep))
+    throw new Error("invalid save name");
+
+  return resolved;
 }
 
-function listSaves(): string[] {
+function listSaves(directory = savesDir, prefix = ""): string[] {
   ensureSavesDir();
+
   try {
-    const files = readdirSync(savesDir);
-    return files
-      .filter(f => f.endsWith(".json"))
-      .map(f => f.slice(0, -5));
+    const entries = readdirSync(directory, { withFileTypes: true });
+    const saves: string[] = [];
+
+    entries.forEach(entry => {
+      if (entry.name.startsWith(".")) return;
+
+      if (entry.isDirectory()) {
+        saves.push(...listSaves(path.join(directory, entry.name), `${prefix}${entry.name}/`));
+      } else if (entry.name.endsWith(".json")) {
+        saves.push(`${prefix}${entry.name.slice(0, -5)}`);
+      }
+    });
+
+    return saves.sort();
   } catch {
     return [];
   }
@@ -64,26 +95,75 @@ function writeCurrentSave(name: string) {
   }
 }
 
-function loadData(name: string): boolean {
+function resolveLocalSaveReference(reference: string, base: string) {
+  if (isHttpUrl(reference) || path.isAbsolute(reference)) return reference;
+  return path.resolve(path.dirname(base), reference);
+}
+
+async function loadJsonFromSource(source: string): Promise<unknown> {
+  if (isHttpUrl(source)) return fetchSaveSourceJson(source);
+
+  return JSON.parse(await fsPromises.readFile(source, "utf8"));
+}
+
+function applyResolvedSaveData(saveData: ORSAppSaveDataType, baseData: ORSAppSaveDataType, includes: string[]) {
+  setSharedSaveSource(baseData, includes);
+  storeSaveData(normalizeSaveData(saveData));
+}
+
+async function loadData(name: string): Promise<boolean> {
   const filePath = saveFilePath(name);
   if (!existsSync(filePath)) return false;
 
   try {
-    const saveData: ORSAppSaveDataType = normalizeSaveData(JSON.parse(readFileSync(filePath, 'utf8')));
+    const resolved = await resolveSaveSource(filePath, loadJsonFromSource, {
+      resolveReference: resolveLocalSaveReference,
+    });
 
-    storeSaveData(saveData);
+    applyResolvedSaveData(resolved.data, resolved.baseData, resolved.includes);
     return true;
   } catch (e) {
+    clearSharedSaveSource();
     console.error(e);
     return false;
   }
+}
+
+async function loadDataFromUrl(url: string): Promise<void> {
+  if (!isHttpUrl(url))
+    throw new Error("http:// または https:// で始まるURLを指定してください");
+
+  try {
+    const resolved = await resolveSaveSource(url, fetchSaveSourceJson);
+    applyResolvedSaveData(resolved.data, resolved.baseData, resolved.includes);
+  } catch (e) {
+    clearSharedSaveSource();
+    throw e;
+  }
+}
+
+function makeIncludesRelativeToSaveFile(saveData: ORSAppSaveDataType, filePath: string) {
+  if (!saveData.includes) return;
+
+  const directory = path.dirname(filePath);
+  saveData.includes = saveData.includes.map(include => {
+    if (isHttpUrl(include) || !path.isAbsolute(include)) return include;
+
+    const relative = path.relative(directory, include).split(path.sep).join("/");
+    if (!relative) return include;
+
+    return relative.startsWith(".") ? relative : `./${relative}`;
+  });
 }
 
 function saveData(name: string): boolean {
   ensureSavesDir();
   const filePath = saveFilePath(name);
   try {
-    writeFileSync(filePath, JSON.stringify(getSaveData()), "utf8");
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    const newSaveData = getSaveData({ excludeShared: true });
+    makeIncludesRelativeToSaveFile(newSaveData, filePath);
+    writeFileSync(filePath, JSON.stringify(newSaveData), "utf8");
     console.log(`Data saved to ${filePath}`);
     return true;
   } catch (e) {
@@ -107,7 +187,7 @@ function deleteSave(name: string): boolean {
 
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
-export function setupServer(wss: WebSocketServer) {
+export async function setupServer(wss: WebSocketServer) {
   // 旧save.jsonからの移行
   const oldSavePath = "./save.json";
   if (existsSync(oldSavePath)) {
@@ -128,10 +208,11 @@ export function setupServer(wss: WebSocketServer) {
   // サーバー起動時に前回使用したセーブデータを読み込む（無ければdefault.json）
   ensureSavesDir();
   let currentSaveName = readCurrentSave();
+  let currentSaveUrl = "";
   if (!currentSaveName || !existsSync(saveFilePath(currentSaveName)))
     currentSaveName = "default";
   if (existsSync(saveFilePath(currentSaveName))) {
-    const loaded = loadData(currentSaveName);
+    const loaded = await loadData(currentSaveName);
     if (loaded) {
       writeCurrentSave(currentSaveName);
       console.log(`Loaded save data from ${saveFilePath(currentSaveName)}`);
@@ -170,6 +251,13 @@ export function setupServer(wss: WebSocketServer) {
     wss.clients.forEach(client => {
       if (isMcpClient(client)) return;
       send(client, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+    });
+  }
+
+  function broadcastCurrentSaveUrl() {
+    wss.clients.forEach(client => {
+      if (isMcpClient(client)) return;
+      send(client, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
     });
   }
 
@@ -351,6 +439,7 @@ export function setupServer(wss: WebSocketServer) {
       send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
 
       send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
+      send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
     }
 
     broadcastUserList();
@@ -421,8 +510,10 @@ export function setupServer(wss: WebSocketServer) {
           if (!saveName) break;
           if (saveData(saveName)) {
             currentSaveName = saveName;
+            currentSaveUrl = "";
             writeCurrentSave(currentSaveName);
             broadcastCurrentSave();
+            broadcastCurrentSaveUrl();
           }
           send(ws, MessageCode.FROM_SERVER_SAVE_COMPLETED);
 
@@ -454,14 +545,42 @@ export function setupServer(wss: WebSocketServer) {
           if (!isAdmin(ws as WSWebSocket)) break;
           const loadName = value as string;
           if (!loadName) break;
-          const ok = loadData(loadName);
-          if (ok) {
+
+          void loadData(loadName).then(ok => {
+            if (!ok) return;
+
             currentSaveName = loadName;
+            currentSaveUrl = "";
             writeCurrentSave(currentSaveName);
             broadcastCurrentSave();
+            broadcastCurrentSaveUrl();
             send(ws, MessageCode.FROM_SERVER_LOAD_COMPLETED);
             broadcastSerializableState();
-          }
+          });
+
+          messageEmitter.isInvalidMessage = false;
+          break;
+        }
+        case MessageCode.FROM_CLIENT_LOAD_SAVE_URL: {
+          if (!isAdmin(ws as WSWebSocket)) break;
+          const url = typeof value === "string" ? value.trim() : "";
+          if (!url) break;
+
+          void loadDataFromUrl(url).then(() => {
+            currentSaveName = "";
+            currentSaveUrl = url;
+            writeCurrentSave("");
+            broadcastCurrentSave();
+            broadcastCurrentSaveUrl();
+            send(ws, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, { ok: true, url });
+            broadcastSerializableState();
+          }).catch(error => {
+            send(ws, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, {
+              ok: false,
+              url,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
 
           messageEmitter.isInvalidMessage = false;
           break;
@@ -474,8 +593,10 @@ export function setupServer(wss: WebSocketServer) {
           deleteSave(deleteName);
           if (deleteName === currentSaveName) {
             currentSaveName = "";
+            currentSaveUrl = "";
             writeCurrentSave("");
             broadcastCurrentSave();
+            broadcastCurrentSaveUrl();
           }
 
           messageEmitter.isInvalidMessage = false;
@@ -516,6 +637,7 @@ export function setupServer(wss: WebSocketServer) {
           ) =>
             send(ws, MessageCode.FROM_SERVER_SAVE_DATA_RESPONSE, [requestId, response]);
 
+          void (async () => {
           try {
             if (!authenticatedClients.get(ws as WSWebSocket))
               throw new Error('not authenticated');
@@ -527,10 +649,10 @@ export function setupServer(wss: WebSocketServer) {
 
             switch (method) {
               case 'getSummary':
-                result = { currentSave: currentSaveName, ...getSaveSummary() };
+                result = { currentSave: currentSaveName, currentSaveUrl, ...getSaveSummary() };
                 break;
               case 'listSaves':
-                result = { currentSave: currentSaveName, saves: listSaves() };
+                result = { currentSave: currentSaveName, currentSaveUrl, saves: listSaves() };
                 break;
               case 'loadSave': {
                 if (!isAdmin(ws as WSWebSocket))
@@ -538,13 +660,32 @@ export function setupServer(wss: WebSocketServer) {
 
                 const name = typeof params.name === 'string' ? params.name : '';
                 if (!name) throw new Error('name is required');
-                if (!loadData(name)) throw new Error(`failed to load save: ${name}`);
+                if (!await loadData(name)) throw new Error(`failed to load save: ${name}`);
 
                 currentSaveName = name;
+                currentSaveUrl = "";
                 writeCurrentSave(currentSaveName);
                 broadcastCurrentSave();
+                broadcastCurrentSaveUrl();
                 broadcastSerializableState();
-                result = { currentSave: currentSaveName, summary: getSaveSummary() };
+                result = { currentSave: currentSaveName, currentSaveUrl, summary: getSaveSummary() };
+                break;
+              }
+              case 'loadSaveUrl': {
+                if (!isAdmin(ws as WSWebSocket))
+                  throw new Error('admin authentication required');
+
+                const url = typeof params.url === 'string' ? params.url.trim() : '';
+                if (!url) throw new Error('url is required');
+                await loadDataFromUrl(url);
+
+                currentSaveName = "";
+                currentSaveUrl = url;
+                writeCurrentSave("");
+                broadcastCurrentSave();
+                broadcastCurrentSaveUrl();
+                broadcastSerializableState();
+                result = { currentSave: currentSaveName, currentSaveUrl, url, summary: getSaveSummary() };
                 break;
               }
               case 'save': {
@@ -556,9 +697,11 @@ export function setupServer(wss: WebSocketServer) {
                 if (!saveData(name)) throw new Error(`failed to save: ${name}`);
 
                 currentSaveName = name;
+                currentSaveUrl = "";
                 writeCurrentSave(currentSaveName);
                 broadcastCurrentSave();
-                result = { currentSave: currentSaveName };
+                broadcastCurrentSaveUrl();
+                result = { currentSave: currentSaveName, currentSaveUrl };
                 break;
               }
               case 'getValue': {
@@ -582,6 +725,7 @@ export function setupServer(wss: WebSocketServer) {
           } catch (e) {
             respond({ ok: false, error: e instanceof Error ? e.message : String(e) });
           }
+          })();
 
           messageEmitter.isInvalidMessage = false;
           break;

@@ -7,8 +7,14 @@ import { SerializableTrainFormat, UIOneHandleMasterControllerConfig, CabStateTyp
 import { deserialize, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataType, serialize, store } from "./game";
 import { ConstructionZone } from "./construction";
 import { Tunnel } from "./tunnel";
+import { withoutSharedSaveData } from "./saveSource";
 
 export type ORSAppSaveDataType = {
+  /**
+   * 複数のセーブデータで共通利用するデータのURL。
+   * 読み込み時にマージされる。
+   */
+  includes?: string[];
   originCoordinate: Position;
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   featureCollections: { [key: string]: { value: FeatureCollection } };
@@ -50,6 +56,10 @@ export type SavedTrain = {
 export function normalizeSaveData(saveData: ORSAppSaveDataType): ORSAppSaveDataType {
   // 古いセーブデータに存在しないフィールドを補完する
   const defaultEmptyMap = () => ({});
+  if (Array.isArray(saveData.includes))
+    saveData.includes = saveData.includes.filter((value): value is string => typeof value === "string");
+  else
+    delete saveData.includes;
   saveData.terrains = saveData.terrains || defaultEmptyMap();
   saveData.featureCollections = saveData.featureCollections || defaultEmptyMap();
   saveData.tracks = saveData.tracks || defaultEmptyMap();
@@ -72,7 +82,7 @@ export function normalizeSaveData(saveData: ORSAppSaveDataType): ORSAppSaveDataT
   return saveData;
 }
 
-export function getSaveData() {
+export function getSaveData(options?: { excludeShared?: boolean }) {
   const savedTrains: ORSAppSaveDataType["trains"] = {};
 
   Object.keys(store.data.trains).forEach(trainId => {
@@ -111,7 +121,7 @@ export function getSaveData() {
     trains: savedTrains,
   };
 
-  return saveData;
+  return options?.excludeShared ? withoutSharedSaveData(saveData) : saveData;
 }
 
 export function storeSaveData(saveData: ORSAppSaveDataType) {

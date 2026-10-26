@@ -129,7 +129,7 @@ export default function GUI() {
   const { selectedTab, alignItems } = useSnapshot(guiState);
   const { activeTrainId } = useSnapshot(trainsState);
   const { trains } = useSnapshot(store.data);
-  const { showSaveSuccess } = useSnapshot(clientState);
+  const { showSaveSuccess, saveNotificationMessage } = useSnapshot(clientState);
 
   useEffect(() => {
     guiState.alignItems = "center";
@@ -239,7 +239,7 @@ export default function GUI() {
         variant="filled"
         sx={{ width: '100%' }}
       >
-        セーブデータを保存しました。
+        {saveNotificationMessage || "セーブデータを保存しました。"}
       </Alert>
     </Snackbar>
   </Stack>;

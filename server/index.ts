@@ -6,6 +6,6 @@ const port = parseInt(process.env.PORT || '8080');
 
 const wss = new WebSocketServer({ port, host });
 
-setupServer(wss);
+await setupServer(wss);
 
 console.log(`Server listening: ws://${host}:${port}/ws`);

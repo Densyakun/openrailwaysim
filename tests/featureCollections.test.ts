@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
-  featureCollectionViewState, isFeatureGeometryVisible, setFeatureCollectionPreview,
+  featureCollectionViewState, isFeatureGeometryVisible, mergeVisibleFeatureCollectionIds,
+  setFeatureCollectionPreview,
 } from '@/lib/client/featureCollections'
 
 beforeEach(() => {
@@ -40,6 +41,15 @@ describe('feature collection view state', () => {
 
     featureCollectionViewState.pointLabelMode = 'hover'
     expect(featureCollectionViewState.pointLabelMode).toBe('hover')
+  })
+
+  it('keeps visibility for surviving feature collections and shows new ones', () => {
+    expect(mergeVisibleFeatureCollectionIds(
+      ['line-hiroshima-tram', 'shared'],
+      ['line-chikuhi', 'shared'],
+    )).toEqual(['shared', 'line-chikuhi'])
+
+    expect(mergeVisibleFeatureCollectionIds([], ['line-chikuhi'])).toEqual(['line-chikuhi'])
   })
 
   it('stores the downloaded feature collection as a preview', () => {

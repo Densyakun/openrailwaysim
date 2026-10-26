@@ -30,7 +30,7 @@ export class LocalSocket {
   connect() {
     this.readyState = 1;
     this.emit("open");
-    connectLocalServer(this.serverSocket);
+    void connectLocalServer(this.serverSocket);
   }
 
   send(data: string) {

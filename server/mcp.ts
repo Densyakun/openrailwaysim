@@ -266,6 +266,15 @@ const tools: ToolDefinition[] = [
     },
   },
   {
+    name: 'ors_load_save_url',
+    description: 'Load ORS save data from an HTTP(S) URL. The save can reference shared data with an "includes" array. Requires admin authentication if ADMIN_PASSWORD is configured.',
+    inputSchema: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'Save data URL' } },
+      required: ['url'],
+    },
+  },
+  {
     name: 'ors_save',
     description: 'Save the current ORS store to a save file. Requires admin authentication if ADMIN_PASSWORD is configured.',
     inputSchema: {
@@ -322,6 +331,8 @@ async function callTool(name: string, rawArguments: unknown) {
       return ors.request('listSaves');
     case 'ors_load_save':
       return ors.request('loadSave', { name: String(args.name ?? '') });
+    case 'ors_load_save_url':
+      return ors.request('loadSaveUrl', { url: String(args.url ?? '') });
     case 'ors_save':
       return ors.request('save', { name: String(args.name ?? '') });
     case 'ors_get_save_value':

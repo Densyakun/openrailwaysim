@@ -8,7 +8,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CameraSwitch from '../cameras-and-controls/CameraSwitch';
 import CameraControlsSwitch from '../cameras-and-controls/CameraControlsSwitch';
-import { Button, Paper, Stack, TextField, Typography, Chip, Box, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip, Switch, FormControlLabel, Slider } from '@mui/material';
+import { Button, Paper, Stack, TextField, Typography, Chip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemButton, ListItemText, IconButton, Tooltip, Switch, FormControlLabel, Slider } from '@mui/material';
 import { socket } from '../Client';
 import { SERVER_URL_STORAGE_KEY } from '@/lib/client/client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
@@ -20,10 +20,11 @@ export default function Settings() {
   const [adminPassword, setAdminPassword] = useState("");
   const [saveName, setSaveName] = useState("");
   const [loadName, setLoadName] = useState("");
+  const [loadUrl, setLoadUrl] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveListExpanded, setSaveListExpanded] = useState(false);
   const [serverUrlInput, setServerUrlInput] = useState("");
-  const { isAdmin, adminPasswordRequired, saves, currentSave, serverUrl, localMode, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
+  const { isAdmin, adminPasswordRequired, saves, currentSave, currentSaveUrl, saveUrlStatus, saveUrlMessage, serverUrl, localMode, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
 
   useEffect(() => {
     if (isAdmin) {
@@ -70,6 +71,15 @@ export default function Settings() {
       send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE, loadName);
       clientState.currentSave = loadName;
     }
+  };
+
+  const handleLoadUrl = () => {
+    const url = loadUrl.trim();
+    if (!url) return;
+
+    clientState.saveUrlStatus = "loading";
+    clientState.saveUrlMessage = "URLからセーブデータを読み込んでいます...";
+    send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE_URL, url);
   };
 
   const handleDelete = (name: string) => {
@@ -207,6 +217,43 @@ export default function Settings() {
         {currentSave && (
           <Typography variant="body2" color="text.secondary">
             Current save: {currentSave}
+          </Typography>
+        )}
+        {currentSaveUrl && (
+          <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
+            Current save URL: {currentSaveUrl}
+          </Typography>
+        )}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            label="Save data URL"
+            size="small"
+            value={loadUrl}
+            onChange={e => setLoadUrl(e.target.value)}
+            helperText="GitHub Raw などのセーブデータURLを指定します"
+            sx={{ flexGrow: 1 }}
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleLoadUrl();
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<FolderOpenIcon />}
+            onClick={handleLoadUrl}
+            disabled={!isAdmin || !loadUrl.trim() || saveUrlStatus === "loading"}
+          >
+            Load URL
+          </Button>
+        </Stack>
+        {saveUrlStatus !== "idle" && saveUrlMessage && (
+          <Typography
+            variant="body2"
+            color={saveUrlStatus === "error" ? "error" : saveUrlStatus === "success" ? "success.main" : "text.secondary"}
+          >
+            {saveUrlMessage}
           </Typography>
         )}
         <Accordion expanded={saveListExpanded} onChange={(_, v) => setSaveListExpanded(v)} disableGutters sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.04)' }}>

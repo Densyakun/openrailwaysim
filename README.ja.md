@@ -68,6 +68,44 @@ ORSでは、インターネット上にあるファイルをURLで参照しま�
 
 現在、glTF（glb）のみ対応しています。
 
+#### セーブデータをURLから読み込む
+
+Settings パネルの「Save data URL」にセーブデータのJSONを指定すると、URLからセーブデータを読み込めます。`?save=<URL>` を付けて起動した場合も、接続後に自動で読み込みます。
+
+```text
+https://raw.githubusercontent.com/Densyakun/openrailwaysim-saves/main/yamanote.json
+```
+
+URLの読み込みは管理者モードでのみ利用できます。
+
+#### 複数のセーブデータで共通データを参照する
+
+セーブデータのトップレベルに `includes` を追加すると、別のJSONファイルを共通データとして読み込めます。相対URLは読み込み元のURLを基準に解決されます。
+
+```json
+{
+  "includes": [
+    "./shared/stations/shinjuku.json",
+    "./shared/trains/E217.json"
+  ],
+  "originCoordinate": [139.7, 35.691],
+  "tracks": {}
+}
+```
+
+`includes` は先に書いたものから順にマージされ、読み込み元のセーブデータが最後に上書きします。共通データと同一の項目は保存時に重複して書き出されないため、複数のセーブデータが同じ駅・車両データを参照できます。
+
+セーブデータはアプリ本体とは別のリポジトリ（`openrailwaysim-saves`）で管理します。`ORS_SAVES_DIR` にそのリポジトリのパスを指定すると、サーバーとMCPはそのディレクトリを読み書きします。
+
+```sh
+git clone https://github.com/Densyakun/openrailwaysim-saves.git ../openrailwaysim-saves
+
+# .env
+ORS_SAVES_DIR=../openrailwaysim-saves
+```
+
+`ORS_SAVES_DIR` を省略した場合は `./saves` を使用します。`npm run generate:saves` も同じディレクトリに初期データを生成します。
+
 ### 接続パスワードとユーザー名
 
 WebSocket サーバーには、環境変数でパスワードを設定できます。

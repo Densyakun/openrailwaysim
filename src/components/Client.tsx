@@ -7,6 +7,27 @@ import { onFrame as onFrameTrains } from "./Trains"
 import { tracksState } from "@/lib/client/tracks/store"
 import { MessageCode, send } from "@/lib/ws"
 import { LocalSocket } from "@/lib/client/localSocket"
+import { gisState } from "@/lib/gis"
+import { mergeVisibleFeatureCollectionIds } from "@/lib/client/featureCollections"
+
+let querySaveRequested = false;
+
+function loadSaveUrlFromQuery(ws: WebSocket) {
+  if (querySaveRequested || !clientState.isAdmin) return;
+  if (typeof location === "undefined") return;
+
+  const search = new URLSearchParams(location.search);
+  const url = search.get("save") ?? search.get("saveUrl");
+  if (!url) {
+    querySaveRequested = true;
+    return;
+  }
+
+  querySaveRequested = true;
+  clientState.saveUrlStatus = "loading";
+  clientState.saveUrlMessage = "URLからセーブデータを読み込んでいます...";
+  send(ws, MessageCode.FROM_CLIENT_LOAD_SAVE_URL, url);
+}
 
 const onMessage: OnMessageInClient = (code, value, ws) => {
   const data = store.data;
@@ -19,7 +40,25 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
         data[key as keyof typeof data] = saveData[key]
       );
 
+      // セーブデータを置き換えたときに、以前のセーブデータの表示状態や選択状態が残らないようにする。
+      // 同じIDが残っている場合は表示状態を維持し、新しいFeature collectionは表示する。
+      clientState.visibleFeatureCollections = mergeVisibleFeatureCollectionIds(
+        clientState.visibleFeatureCollections,
+        Object.keys(data.featureCollections),
+      );
+      gisState.hoveredFeatures = gisState.hoveredFeatures.filter(feature =>
+        data.featureCollections[feature.featureCollectionId] !== undefined
+      );
+      gisState.selectedFeatures = gisState.selectedFeatures.filter(feature =>
+        data.featureCollections[feature.featureCollectionId] !== undefined
+      );
+      for (let index = tracksState.selectedTrackIds.length - 1; index >= 0; index--) {
+        if (!data.tracks[tracksState.selectedTrackIds[index]])
+          tracksState.selectedTrackIds.splice(index, 1);
+      }
+
       clientState.isSynced = true
+      loadSaveUrlFromQuery(ws)
 
       messageEmitter.isInvalidMessage = false
       break
@@ -67,6 +106,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_SAVE_COMPLETED:
+      clientState.saveNotificationMessage = "セーブデータを保存しました。";
       clientState.showSaveSuccess = true
       messageEmitter.isInvalidMessage = false
       break
@@ -81,6 +121,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
           clientState.isAdmin = true;
         }
         send(ws, MessageCode.FROM_CLIENT_SET_USERNAME, clientState.username || "Anonymous");
+        loadSaveUrlFromQuery(ws);
       } else {
         clientState.isAuthenticated = false;
         clientState.passwordRequired = true;
@@ -103,6 +144,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       break
     case MessageCode.FROM_SERVER_ADMIN_AUTH_RESULT:
       clientState.isAdmin = value as boolean
+      if (value) loadSaveUrlFromQuery(ws)
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_SAVE_LIST:
@@ -110,6 +152,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_LOAD_COMPLETED:
+      clientState.saveNotificationMessage = "セーブデータを読み込みました。";
       clientState.showSaveSuccess = true;
       messageEmitter.isInvalidMessage = false
       break
@@ -117,6 +160,24 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       clientState.currentSave = value as string;
       messageEmitter.isInvalidMessage = false
       break
+    case MessageCode.FROM_SERVER_CURRENT_SAVE_URL:
+      clientState.currentSaveUrl = value as string;
+      messageEmitter.isInvalidMessage = false
+      break
+    case MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT: {
+      const result = value as { ok: boolean; url: string; error?: string };
+      clientState.saveUrlStatus = result.ok ? "success" : "error";
+      clientState.saveUrlMessage = result.ok
+        ? "URLからセーブデータを読み込みました"
+        : `読み込みに失敗しました: ${result.error ?? "不明なエラー"}`;
+      if (result.ok) {
+        clientState.saveNotificationMessage = "URLからセーブデータを読み込みました。";
+        clientState.showSaveSuccess = true;
+        clientState.currentSaveUrl = result.url;
+      }
+      messageEmitter.isInvalidMessage = false
+      break
+    }
     default:
       break
   }

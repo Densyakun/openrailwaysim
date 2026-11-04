@@ -28,3 +28,6 @@ dist-ssr
 # ORS user data
 # セーブデータは別リポジトリ（openrailwaysim-saves）で管理する
 saves/*
+
+# OSM cache for save data generation
+scripts/.osm-cache/

@@ -1,15 +1,19 @@
 // 駅・路線・車両の初期セーブデータを生成する
 // 使い方: npm run generate:saves
 import "dotenv/config";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Position } from "geojson";
-import { connectTwoTracks, createStraightTrackFromLineStrings } from "../lib/tracks";
-import { serialize, trainFormatTypeId } from "../lib/game";
-import type { SerializableTrack, TrackModel } from "../lib/tracks";
+import { deserialize, serialize, trackTypeId, trainFormatTypeId } from "../lib/game";
+import { getPosition } from "../lib/tracks";
+import type { SerializableTrack, Track, TrackModel } from "../lib/tracks";
+import type { OsmElement, OsmResponse } from "../lib/osm";
+import { defaultOverpassEndpointIds, fetchOsm } from "../lib/osm";
+import { getRelativePosition } from "../lib/gis";
 import { createStandardTrainFormat, createUISotetsu20000SeriesMasterControllerConfig } from "../lib/trainExamples";
 import type { StandardCarFormat } from "../lib/trainExamples";
 import type { SerializableTrainFormat } from "../lib/trains";
+import { createAlignmentFromLineString } from "./osmAlignment";
 
 type Station = {
   id: string;
@@ -24,7 +28,17 @@ type LineDefinition = {
   stations: Station[];
   trainIds: TrainDefinition["id"][];
   gauge: number;
+  designSpeedKmh: number;
   loop?: boolean;
+  osm: {
+    nameRegex: string;
+    routeRegex: string;
+    bbox: [south: number, west: number, north: number, east: number];
+  };
+  maxCurveRadius?: number;
+  minCurveRadius?: number;
+  minCurveLength?: number;
+  minCurveArcLength?: number;
 };
 
 type TrainDefinition = {
@@ -228,7 +242,15 @@ const lines: LineDefinition[] = [
     stations: yamanoteStations,
     trainIds: ["E217"],
     gauge: 1067,
+    designSpeedKmh: 90,
     loop: true,
+    osm: {
+      nameRegex: "山手線",
+      routeRegex: "train",
+      bbox: [35.55, 139.60, 35.85, 139.90],
+    },
+    maxCurveRadius: 2500,
+    minCurveRadius: 100,
   },
   {
     id: "keio",
@@ -236,6 +258,14 @@ const lines: LineDefinition[] = [
     stations: keioStations,
     trainIds: ["M250"],
     gauge: 1372,
+    designSpeedKmh: 110,
+    osm: {
+      nameRegex: "京王線",
+      routeRegex: "train",
+      bbox: [35.60, 139.28, 35.75, 139.75],
+    },
+    maxCurveRadius: 3000,
+    minCurveRadius: 100,
   },
   {
     id: "chikuhi",
@@ -243,6 +273,14 @@ const lines: LineDefinition[] = [
     stations: chikuhiStations,
     trainIds: ["EH800"],
     gauge: 1067,
+    designSpeedKmh: 85,
+    osm: {
+      nameRegex: "筑肥線",
+      routeRegex: "train",
+      bbox: [33.35, 129.90, 33.65, 130.40],
+    },
+    maxCurveRadius: 2000,
+    minCurveRadius: 80,
   },
   {
     id: "tsukuba-express",
@@ -250,6 +288,14 @@ const lines: LineDefinition[] = [
     stations: tsukubaExpressStations,
     trainIds: ["E217"],
     gauge: 1067,
+    designSpeedKmh: 130,
+    osm: {
+      nameRegex: "つくばエクスプレス",
+      routeRegex: "train",
+      bbox: [35.65, 139.70, 36.15, 140.15],
+    },
+    maxCurveRadius: 5000,
+    minCurveRadius: 200,
   },
   {
     id: "hiroshima-tram",
@@ -257,6 +303,16 @@ const lines: LineDefinition[] = [
     stations: hiroshimaTramStations,
     trainIds: [],
     gauge: 1435,
+    designSpeedKmh: 40,
+    osm: {
+      nameRegex: "広島電鉄",
+      routeRegex: "tram|light_rail",
+      bbox: [34.30, 132.35, 34.50, 132.55],
+    },
+    maxCurveRadius: 500,
+    minCurveRadius: 25,
+    minCurveLength: 15,
+    minCurveArcLength: 10,
   },
 ];
 
@@ -274,47 +330,120 @@ function createTrackModel(gauge: number): TrackModel[] {
   }];
 }
 
-function createTrackChain(line: LineDefinition, originCoordinate: Position) {
-  const tracks: { [trackId: string]: SerializableTrack } = {};
-  const trackIds: string[] = [];
-  const trackModels = createTrackModel(line.gauge);
+const osmCacheDirectory = path.resolve("scripts/.osm-cache");
+const refreshOsm = process.argv.includes("--refresh-osm");
 
-  for (let index = 0; index < line.stations.length - 1; index++) {
-    const from = line.stations[index].coordinate;
-    const to = line.stations[index + 1].coordinate;
-    const track = createStraightTrackFromLineStrings(originCoordinate, [from, to], trackModels);
-    const trackId = `track-${line.id}-${index}`;
-
-    const serializableTrack: SerializableTrack = {
-      position: [track.position.x, track.position.y, track.position.z],
-      rotationY: track.rotationY,
-      length: track.length,
-      radius: 0,
-      gradients: { 0: 0, [track.length]: 0 },
-      idOfTrackOrSwitchConnectedFromStart: "",
-      idOfTrackOrSwitchConnectedFromEnd: "",
-      connectedFromStartIsTrack: true,
-      connectedFromEndIsTrack: true,
-      connectedFromStartIsToEnd: false,
-      connectedFromEndIsToEnd: false,
-      beginCant: 0,
-      endCant: 0,
-      trackModels,
-    };
-
-    if (0 < trackIds.length) {
-      const previousId = trackIds[trackIds.length - 1];
-      connectTwoTracks(tracks[previousId], previousId, true, serializableTrack, trackId, false);
-    }
-
-    tracks[trackId] = serializableTrack;
-    trackIds.push(trackId);
-  }
-
-  return { tracks, trackIds };
+function coordinateDistanceMeters(a: Position, b: Position) {
+  const latitude = (a[1] + b[1]) * Math.PI / 360;
+  const dx = (a[0] - b[0]) * 111320 * Math.cos(latitude);
+  const dz = (a[1] - b[1]) * 110540;
+  return Math.hypot(dx, dz);
 }
 
-function createFeatureCollection(line: LineDefinition) {
+function polylineLength(points: Position[]) {
+  let total = 0;
+  for (let index = 1; index < points.length; index++)
+    total += coordinateDistanceMeters(points[index - 1], points[index]);
+  return total;
+}
+
+function pickRelation(osm: OsmResponse, line: LineDefinition) {
+  const nameRegex = new RegExp(line.osm.nameRegex);
+  const routeRegex = new RegExp(line.osm.routeRegex);
+
+  const relations = osm.elements.filter((element): element is OsmElement =>
+    element.type === "relation"
+    && element.tags !== undefined
+    && nameRegex.test(element.tags.name ?? "")
+    && routeRegex.test(element.tags.route ?? "")
+  );
+
+  return relations
+    .map(relation => ({
+      relation,
+      points: (relation.members ?? []).reduce((total, member) =>
+        total + (member.type === "way" && member.geometry ? member.geometry.length : 0), 0),
+    }))
+    .sort((a, b) => b.points - a.points)[0]?.relation;
+}
+
+function assembleRelationLineString(relation: OsmElement): { coordinates: Position[]; closed: boolean } {
+  const segments: Position[][] = [];
+  let current: Position[] = [];
+
+  const appendWay = (way: Position[]) => {
+    if (!current.length) {
+      current = way;
+      return;
+    }
+
+    const last = current[current.length - 1];
+    const startDistance = coordinateDistanceMeters(last, way[0]);
+    const endDistance = coordinateDistanceMeters(last, way[way.length - 1]);
+
+    if (Math.min(startDistance, endDistance) > 300) {
+      segments.push(current);
+      current = way;
+      return;
+    }
+
+    if (startDistance <= endDistance) {
+      current.push(...(startDistance < 0.5 ? way.slice(1) : way));
+    } else {
+      way.reverse();
+      current.push(...(endDistance < 0.5 ? way.slice(1) : way));
+    }
+  };
+
+  (relation.members ?? []).forEach(member => {
+    if (member.type !== "way" || !member.geometry || member.geometry.length < 2) return;
+
+    const way = member.geometry.map(geometry => [geometry.lon, geometry.lat] as Position);
+    if (member.role === "backward") way.reverse();
+    appendWay(way);
+  });
+
+  if (current.length) segments.push(current);
+
+  const best = segments
+    .filter(segment => 1 < segment.length)
+    .sort((a, b) => polylineLength(b) - polylineLength(a))[0];
+
+  if (!best)
+    throw new Error(`OSM relation ${relation.id} の線形を取得できませんでした`);
+
+  const coordinates = best.filter((coordinate, index) =>
+    index === 0
+    || 0.01 < coordinateDistanceMeters(best[index - 1], coordinate)
+  );
+
+  return {
+    coordinates,
+    closed: coordinateDistanceMeters(coordinates[0], coordinates[coordinates.length - 1]) < 30,
+  };
+}
+
+async function loadOsmLine(line: LineDefinition) {
+  const cacheFile = path.join(osmCacheDirectory, `${line.id}.json`);
+
+  if (!refreshOsm && existsSync(cacheFile))
+    return JSON.parse(readFileSync(cacheFile, "utf8")) as OsmResponse;
+
+  const [south, west, north, east] = line.osm.bbox;
+  const query = `[out:json][timeout:180];
+relation["route"~"${line.osm.routeRegex}"]["name"~"${line.osm.nameRegex}"](${south},${west},${north},${east});
+out geom;`;
+
+  const result = await fetchOsm(query, defaultOverpassEndpointIds, message =>
+    console.log(`[${line.id}] ${message}`)
+  );
+
+  mkdirSync(osmCacheDirectory, { recursive: true });
+  writeFileSync(cacheFile, JSON.stringify(result.osm), "utf8");
+  return result.osm;
+}
+
+function createFeatureCollection(line: LineDefinition, coordinates: Position[], relation: OsmElement) {
   return {
     type: "FeatureCollection" as const,
     features: [{
@@ -322,34 +451,92 @@ function createFeatureCollection(line: LineDefinition) {
       id: `line/${line.id}`,
       properties: {
         name: line.name,
-        route: "train",
-        "@id": `line/${line.id}`,
+        route: relation.tags?.route ?? "train",
+        "@id": `relation/${relation.id}`,
+        osmRelationId: String(relation.id),
       },
       geometry: {
         type: "LineString" as const,
-        coordinates: line.stations.map(station => station.coordinate),
+        coordinates,
       },
     }],
   };
 }
 
-function createPlatforms(line: LineDefinition, trackIds: string[], tracks: { [id: string]: SerializableTrack }) {
+type StationProjection = {
+  station: Station;
+  trackId: string;
+  trackIndex: number;
+  length: number;
+};
+
+function projectStationToTracks(
+  station: Station,
+  originCoordinate: Position,
+  trackIds: string[],
+  tracks: { [trackId: string]: SerializableTrack },
+): StationProjection | undefined {
+  const target = getRelativePosition(station.coordinate, originCoordinate);
+  let best: { trackId: string; trackIndex: number; length: number; distanceSquared: number } | undefined;
+
+  trackIds.forEach((trackId, trackIndex) => {
+    const track = deserialize(trackTypeId, tracks[trackId]) as Track;
+    if (!track || track.length <= 0) return;
+
+    const step = Math.max(1, Math.min(5, track.length / 1000));
+    const steps = Math.max(1, Math.ceil(track.length / step));
+
+    for (let index = 0; index <= steps; index++) {
+      const length = Math.min(track.length, index * step);
+      const position = getPosition(track, length);
+      const distanceSquared = (position.x - target.x) ** 2 + (position.z - target.z) ** 2;
+      if (!best || distanceSquared < best.distanceSquared)
+        best = { trackId, trackIndex, length, distanceSquared };
+    }
+  });
+
+  if (!best || 2000 ** 2 < best.distanceSquared) return undefined;
+
+  const track = deserialize(trackTypeId, tracks[best.trackId]) as Track;
+  for (let offset = -2; offset <= 2; offset += 0.25) {
+    const length = Math.max(0, Math.min(track.length, best.length + offset));
+    const position = getPosition(track, length);
+    const distanceSquared = (position.x - target.x) ** 2 + (position.z - target.z) ** 2;
+    if (distanceSquared < best.distanceSquared)
+      best = { ...best, length, distanceSquared };
+  }
+
+  return {
+    station,
+    trackId: best.trackId,
+    trackIndex: best.trackIndex,
+    length: best.length,
+  };
+}
+
+function createPlatforms(
+  line: LineDefinition,
+  projections: StationProjection[],
+  tracks: { [trackId: string]: SerializableTrack },
+) {
   const platforms: Record<string, unknown> = {};
 
-  line.stations.forEach((station, index) => {
-    const trackIndex = Math.max(0, index - 1);
-    const trackId = trackIds[trackIndex];
-    if (!trackId) return;
+  projections.forEach(({ station, trackId, length }) => {
+    const platformId = `platform-${line.id}-${station.id}`;
+    if (platforms[platformId]) return;
 
-    const track = tracks[trackId];
-    const platformLength = Math.max(0, Math.min(160, track.length - 20));
-    const isFirstStation = index === 0;
+    const track = deserialize(trackTypeId, tracks[trackId]) as Track;
+    const halfLength = Math.min(80, Math.max(0, (track.length - 2) / 2));
+    if (halfLength < 5) return;
 
-    platforms[`platform-${line.id}-${station.id}`] = {
-      id: `platform-${line.id}-${station.id}`,
+    const startLength = Math.max(0, Math.min(track.length - halfLength * 2, length - halfLength));
+    const endLength = Math.min(track.length, startLength + halfLength * 2);
+
+    platforms[platformId] = {
+      id: platformId,
       name: `${station.name} ホーム`,
-      startLength: isFirstStation ? 10 : Math.max(0, track.length - platformLength - 10),
-      endLength: isFirstStation ? Math.min(track.length - 10, 10 + platformLength) : Math.max(platformLength, track.length - 10),
+      startLength,
+      endLength,
       offset: 2.5,
       height: 1.1,
       isAbsoluteHeight: false,
@@ -364,20 +551,42 @@ function createPlatforms(line: LineDefinition, trackIds: string[], tracks: { [id
   return platforms;
 }
 
-function createDiagram(line: LineDefinition, trackIds: string[]) {
+function createDiagram(
+  line: LineDefinition,
+  trackIds: string[],
+  projections: (StationProjection | undefined)[],
+) {
   const baseTime = 8 * 60 * 60 * 1000;
-  const sections = line.stations.slice(0, -1).map((station, index) => ({
-    routes: [{
-      trackIds: [trackIds[index]],
-      stopOffset: 0,
-      fromPlatformName: "",
-      toPlatformName: "",
-    }],
-    fromDisplayName: station.name,
-    toDisplayName: line.stations[index + 1].name,
-    fromTimezone: "Asia/Tokyo",
-    toTimezone: "Asia/Tokyo",
-  }));
+
+  const sections = line.stations.slice(0, -1).map((station, index) => {
+    const from = projections[index];
+    const to = projections[index + 1];
+    const fromIndex = from ? trackIds.indexOf(from.trackId) : 0;
+    const toIndex = to ? trackIds.indexOf(to.trackId) : fromIndex;
+
+    let routeTrackIds: string[];
+
+    if (toIndex < fromIndex)
+      routeTrackIds = trackIds.slice(fromIndex);
+    else
+      routeTrackIds = trackIds.slice(fromIndex, toIndex + 1);
+
+    if (!routeTrackIds.length)
+      routeTrackIds = [trackIds[Math.max(0, Math.min(trackIds.length - 1, fromIndex))]];
+
+    return {
+      routes: [{
+        trackIds: [...new Set(routeTrackIds.filter(Boolean))],
+        stopOffset: 0,
+        fromPlatformName: "",
+        toPlatformName: "",
+      }],
+      fromDisplayName: station.name,
+      toDisplayName: line.stations[index + 1].name,
+      fromTimezone: "Asia/Tokyo",
+      toTimezone: "Asia/Tokyo",
+    };
+  });
 
   return {
     sections,
@@ -394,8 +603,15 @@ function createDiagram(line: LineDefinition, trackIds: string[]) {
   };
 }
 
-function createSavedTrain(train: TrainDefinition, trainFormat: SerializableTrainFormat, trackId: string, trackLength: number) {
+function createSavedTrain(
+  train: TrainDefinition,
+  trainFormat: SerializableTrainFormat,
+  trackIds: string[],
+  tracks: { [trackId: string]: SerializableTrack },
+) {
   const trainLength = train.carFormat.carLength * train.cars;
+  const trackId = trackIds.find(id => tracks[id] && trainLength + 40 < tracks[id].length) ?? trackIds[0];
+  const trackLength = trackId ? tracks[trackId].length : 100;
   const pointLength = Math.min(Math.max(20, trackLength - 20), trainLength / 2 + 20);
 
   return {
@@ -418,8 +634,7 @@ function includePath(filePath: string) {
   return `./${path.relative(savesDirectory, filePath).split(path.sep).join("/")}`;
 }
 
-function main() {
-  // 共通のマスコン設定
+async function main() {
   const masterControllerPath = path.join(sharedDirectory, "master-controller.json");
   writeJson(masterControllerPath, {
     oneHandleMasterControllerUIConfigs: {
@@ -427,7 +642,6 @@ function main() {
     },
   });
 
-  // 共通の駅
   const stationPaths: Record<string, string> = {};
   Object.values(stations).forEach(value => {
     const filePath = path.join(stationDirectory, `${value.id}.json`);
@@ -456,7 +670,6 @@ function main() {
     stationPaths[value.id] = filePath;
   });
 
-  // 共通の車両形式
   const trainFormatPaths: Record<string, string> = {};
   trainDefinitions.forEach(train => {
     const trainFormat = serialize(
@@ -477,11 +690,52 @@ function main() {
     trainFormatPaths[train.id] = filePath;
   });
 
-  // 路線ごとのセーブデータ
-  lines.forEach(line => {
-    const originCoordinate = line.stations[0].coordinate;
-    const { tracks, trackIds } = createTrackChain(line, originCoordinate);
-    const platforms = createPlatforms(line, trackIds, tracks);
+  const lineFilter = process.argv.find(argument => argument.startsWith("--line="))?.split("=")[1];
+  const linesToGenerate = lineFilter
+    ? lines.filter(line => line.id === lineFilter)
+    : lines;
+
+  if (!linesToGenerate.length)
+    throw new Error(`line not found: ${lineFilter}`);
+
+  for (const line of linesToGenerate) {
+    console.log(`[${line.id}] OSM データを読み込んでいます...`);
+
+    const osm = await loadOsmLine(line);
+    const relation = pickRelation(osm, line);
+    if (!relation)
+      throw new Error(`[${line.id}] OSM の路線リレーションが見つかりません`);
+
+    const { coordinates: osmCoordinates, closed: osmClosed } = assembleRelationLineString(relation);
+    const originCoordinate = osmCoordinates[0];
+
+    console.log(`[${line.id}] 線形を作成しています... (${(polylineLength(osmCoordinates) / 1000).toFixed(2)} km)`);
+
+    const alignment = createAlignmentFromLineString(osmCoordinates, {
+      originCoordinate,
+      designSpeedKmh: line.designSpeedKmh,
+      gaugeMm: line.gauge,
+      trackModels: createTrackModel(line.gauge),
+      idPrefix: line.id,
+      maxCurveRadius: line.maxCurveRadius,
+      minCurveRadius: line.minCurveRadius,
+      minCurveLength: line.minCurveLength,
+      minCurveArcLength: line.minCurveArcLength,
+      closed: line.loop ?? osmClosed,
+    });
+
+    const { tracks, trackIds } = alignment;
+    if (!trackIds.length)
+      throw new Error(`[${line.id}] 軌道を作成できませんでした`);
+
+    const stationProjections = line.stations.map(station =>
+      projectStationToTracks(station, originCoordinate, trackIds, tracks)
+    );
+    const platforms = createPlatforms(
+      line,
+      stationProjections.filter((projection): projection is StationProjection => projection !== undefined),
+      tracks,
+    );
 
     const trainFormats: { [id: string]: SerializableTrainFormat } = {};
     line.trainIds.forEach(trainId => {
@@ -497,11 +751,14 @@ function main() {
     });
 
     const trains: Record<string, unknown> = {};
-    line.trainIds.forEach((trainId, index) => {
+    line.trainIds.forEach(trainId => {
       const train = trainDefinitions.find(value => value.id === trainId)!;
-      const trainFormat = trainFormats[trainId];
-      const trackId = trackIds[Math.min(trackIds.length - 1, index)];
-      trains[`${trainId}-${line.id}`] = createSavedTrain(train, trainFormat, trackId, tracks[trackId].length);
+      trains[`${trainId}-${line.id}`] = createSavedTrain(
+        train,
+        trainFormats[trainId],
+        trackIds,
+        tracks,
+      );
     });
 
     const includes = [
@@ -518,7 +775,7 @@ function main() {
       terrains: {},
       featureCollections: {
         [`line-${line.id}`]: {
-          value: createFeatureCollection(line),
+          value: createFeatureCollection(line, osmCoordinates, relation),
         },
       },
       tracks,
@@ -531,7 +788,7 @@ function main() {
       oneHandleMasterControllerUIConfigs: {},
       nowDate,
       diagrams: {
-        [`diagram-${line.id}`]: createDiagram(line, trackIds),
+        [`diagram-${line.id}`]: createDiagram(line, trackIds, stationProjections),
       },
       constructionZones: {},
       tunnels: {},
@@ -540,9 +797,9 @@ function main() {
     };
 
     writeJson(path.join(savesDirectory, `${line.id}.json`), saveData);
-  });
+    console.log(`[${line.id}] 曲線 ${alignment.curveCount} 区間、軌道 ${trackIds.length} 本`);
+  }
 
-  // 共通データだけで構成した確認用セーブデータ
   writeJson(path.join(savesDirectory, "shared-example.json"), {
     includes: [
       includePath(stationPaths.shinjuku),
@@ -556,4 +813,7 @@ function main() {
   });
 }
 
-main();
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

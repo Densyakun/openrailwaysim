@@ -13,7 +13,7 @@ import { socket } from '../Client';
 import { SERVER_URL_STORAGE_KEY } from '@/lib/client/client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
-import { clientState, getDefaultServerUrl } from '@/lib/client/client';
+import { clientState, getDefaultServerUrl, removeSaveUrlCandidate } from '@/lib/client/client';
 import { useSnapshot } from 'valtio';
 
 export default function Settings() {
@@ -24,7 +24,7 @@ export default function Settings() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveListExpanded, setSaveListExpanded] = useState(false);
   const [serverUrlInput, setServerUrlInput] = useState("");
-  const { isAdmin, adminPasswordRequired, saves, currentSave, currentSaveUrl, saveUrlStatus, saveUrlMessage, serverUrl, localMode, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
+  const { isAdmin, adminPasswordRequired, saves, currentSave, currentSaveUrl, saveUrlStatus, saveUrlMessage, saveUrlCandidates, serverUrl, localMode, enableBloom, bloomStrength, bloomRadius, bloomThreshold } = useSnapshot(clientState);
 
   useEffect(() => {
     if (isAdmin) {
@@ -73,13 +73,17 @@ export default function Settings() {
     }
   };
 
-  const handleLoadUrl = () => {
-    const url = loadUrl.trim();
+  const loadSaveUrl = (url: string) => {
     if (!url) return;
 
+    setLoadUrl(url);
     clientState.saveUrlStatus = "loading";
     clientState.saveUrlMessage = "URLからセーブデータを読み込んでいます...";
     send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE_URL, url);
+  };
+
+  const handleLoadUrl = () => {
+    loadSaveUrl(loadUrl.trim());
   };
 
   const handleDelete = (name: string) => {
@@ -255,6 +259,57 @@ export default function Settings() {
           >
             {saveUrlMessage}
           </Typography>
+        )}
+        <Typography variant="subtitle2" sx={{ mt: 1 }}>URLセーブデータ候補</Typography>
+        {saveUrlCandidates.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            読み込んだURLがここに追加されます
+          </Typography>
+        ) : (
+          <List dense disablePadding sx={{ maxHeight: 180, overflowY: 'auto' }}>
+            {saveUrlCandidates.map(candidate => (
+              <ListItem
+                key={candidate.url}
+                disablePadding
+                secondaryAction={
+                  <Stack direction="row" spacing={0.5}>
+                    <Tooltip title="読み込む">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => loadSaveUrl(candidate.url)}
+                        disabled={!isAdmin || saveUrlStatus === "loading"}
+                      >
+                        <FolderOpenIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="候補から削除">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        color="error"
+                        onClick={() => removeSaveUrlCandidate(candidate.url)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                }
+              >
+                <ListItemButton
+                  onClick={() => loadSaveUrl(candidate.url)}
+                  disabled={!isAdmin || saveUrlStatus === "loading"}
+                >
+                  <ListItemText
+                    primary={candidate.name}
+                    secondary={candidate.url}
+                    primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                    secondaryTypographyProps={{ variant: 'caption', noWrap: true }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
         )}
         <Accordion expanded={saveListExpanded} onChange={(_, v) => setSaveListExpanded(v)} disableGutters sx={{ mt: 1, bgcolor: 'rgba(255,255,255,0.04)' }}>
           <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: 'white' }} />} sx={{ color: 'white' }}>

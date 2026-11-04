@@ -827,11 +827,10 @@ export function createTransitionCurve(
     trackModels,
     gradients: { 0: 0 },
   };
-  applyTransitionCurveToSerializableTrack(transitionTrack, {
+  return applyTransitionCurveToSerializableTrack(transitionTrack, {
     ...transitionData,
     curveDirection: true,
-  } as TransitionCurve);
-  return transitionTrack;
+  } as TransitionCurve) as SerializableTrack;
 }
 
 /**
@@ -1173,10 +1172,10 @@ export function connectCurveToStraightWithTransition(
     trackModels,
     gradients: { 0: 0 },
   };
-  applyTransitionCurveToSerializableTrack(transitionTrack, {
+  const appliedTransitionTrack = applyTransitionCurveToSerializableTrack(transitionTrack, {
     ...transitionData,
     curveDirection: true,
-  } as TransitionCurve);
+  } as TransitionCurve) as SerializableTrack;
 
   // 緩和曲線終点から直線終点までの短縮直線
   const shortenedStraight: SerializableTrack = {
@@ -1185,7 +1184,7 @@ export function connectCurveToStraightWithTransition(
     length: straightTrack.length - fromStraightStart,
   };
 
-  return [curveTrack, transitionTrack, shortenedStraight];
+  return [curveTrack, appliedTransitionTrack, shortenedStraight];
 }
 
 /**

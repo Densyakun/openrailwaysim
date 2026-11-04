@@ -12,6 +12,63 @@ export function getDefaultServerUrl() {
   return `${protocol}//${hostname}:8080/ws`;
 }
 
+export const SAVE_URL_CANDIDATES_STORAGE_KEY = "ors.saveUrlCandidates";
+
+export type SaveUrlCandidate = {
+  name: string;
+  url: string;
+};
+
+export function loadSaveUrlCandidates(): SaveUrlCandidate[] {
+  try {
+    const raw = localStorage.getItem(SAVE_URL_CANDIDATES_STORAGE_KEY);
+    if (!raw) return [];
+
+    const value = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+
+    return value.filter((candidate): candidate is SaveUrlCandidate =>
+      candidate
+      && typeof candidate.name === "string"
+      && typeof candidate.url === "string"
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function saveSaveUrlCandidates(candidates: SaveUrlCandidate[]) {
+  try {
+    localStorage.setItem(SAVE_URL_CANDIDATES_STORAGE_KEY, JSON.stringify(candidates));
+  } catch {
+    // localStorage が使えない場合は状態のみ更新する
+  }
+}
+
+export function addSaveUrlCandidate(name: string, url: string) {
+  const normalizedName = name.trim() || url;
+  const candidates = clientState.saveUrlCandidates.filter(candidate => candidate.url !== url);
+  candidates.push({ name: normalizedName, url });
+  clientState.saveUrlCandidates = candidates;
+  saveSaveUrlCandidates(candidates);
+}
+
+export function removeSaveUrlCandidate(url: string) {
+  const candidates = clientState.saveUrlCandidates.filter(candidate => candidate.url !== url);
+  clientState.saveUrlCandidates = candidates;
+  saveSaveUrlCandidates(candidates);
+}
+
+export function getSaveUrlCandidateName(url: string) {
+  try {
+    const parsed = new URL(url);
+    const filename = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() ?? "");
+    return filename.replace(/\.json$/i, "") || parsed.hostname || url;
+  } catch {
+    return url;
+  }
+}
+
 const startInLocalMode = isLocalMode();
 
 export const clientState = proxy<{
@@ -32,6 +89,7 @@ export const clientState = proxy<{
   currentSaveUrl: string;
   saveUrlStatus: "idle" | "loading" | "success" | "error";
   saveUrlMessage: string;
+  saveUrlCandidates: SaveUrlCandidate[];
   users: { id: string; username: string }[];
   serverUrl: string;
   localMode: boolean;
@@ -62,6 +120,7 @@ export const clientState = proxy<{
   currentSaveUrl: "",
   saveUrlStatus: "idle",
   saveUrlMessage: "",
+  saveUrlCandidates: loadSaveUrlCandidates(),
   users: [],
   serverUrl: "",
   localMode: startInLocalMode,

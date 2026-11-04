@@ -1,4 +1,6 @@
-import { clientState, messageEmitter, getDefaultServerUrl, SERVER_URL_STORAGE_KEY } from "@/lib/client/client"
+import {
+  addSaveUrlCandidate, clientState, getDefaultServerUrl, getSaveUrlCandidateName, messageEmitter, SERVER_URL_STORAGE_KEY,
+} from "@/lib/client/client"
 import { OnMessageInClient, Path, SerializableORSAppDataType, deserialize, getTypeIdByPath, store, orsAppDataTypeId, updateTime } from "@/lib/game"
 import { useFrame } from "@react-three/fiber"
 import { useEffect } from "react"
@@ -174,6 +176,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
         clientState.saveNotificationMessage = "URLからセーブデータを読み込みました。";
         clientState.showSaveSuccess = true;
         clientState.currentSaveUrl = result.url;
+        addSaveUrlCandidate(getSaveUrlCandidateName(result.url), result.url);
       }
       messageEmitter.isInvalidMessage = false
       break

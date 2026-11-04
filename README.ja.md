@@ -76,7 +76,7 @@ Settings パネルの「Save data URL」にセーブデータのJSONを指定す
 https://raw.githubusercontent.com/Densyakun/openrailwaysim-saves/main/yamanote.json
 ```
 
-URLの読み込みは管理者モードでのみ利用できます。
+URLの読み込みは管理者モードでのみ利用できます。読み込んだURLは「URLセーブデータ候補」に追加され、次回以降は候補を選択するだけで読み込めます。
 
 #### 複数のセーブデータで共通データを参照する
 
@@ -105,6 +105,23 @@ ORS_SAVES_DIR=../openrailwaysim-saves
 ```
 
 `ORS_SAVES_DIR` を省略した場合は `./saves` を使用します。`npm run generate:saves` も同じディレクトリに初期データを生成します。
+
+#### OSMから軌道の線形を生成する
+
+`npm run generate:saves` は Overpass API から路線のリレーションを取得し、LineString の曲率から直線区間と曲線区間を判定して、直線・緩和曲線・円曲線を接続した軌道を生成します。円曲線半径は LineString への円フィットから近似し、緩和曲線長は在来線のカント・乗り心地・カント不足の変化から算出しています。
+
+```sh
+# すべての路線を生成
+npm run generate:saves
+
+# 特定の路線だけ生成
+npx tsx scripts/generate-save-data.ts --line=yamanote
+
+# OSMキャッシュを無視して再取得
+npx tsx scripts/generate-save-data.ts --refresh-osm
+```
+
+OSMの取得結果は `scripts/.osm-cache/` にキャッシュされます。
 
 ### 接続パスワードとユーザー名
 

@@ -133,8 +133,13 @@ export type SerializableTransitionCurve = SerializableTrack & SerializableTransi
  * @param length 緩和曲線長
  * @returns 緩和曲線のデータ
  */
-export function getTransitionCurveData(beginCurvature: number, endCurvature: number, length: number): TransitionCurveData {
-  const s = Math.max(2, Math.round(length / TRANSITION_STEP));
+export function getTransitionCurveData(
+  beginCurvature: number,
+  endCurvature: number,
+  length: number,
+  step = TRANSITION_STEP,
+): TransitionCurveData {
+  const s = Math.max(2, Math.round(length / Math.max(0.01, step)));
 
   const position = new THREE.Vector3();
   let rotationY = 0;

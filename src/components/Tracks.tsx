@@ -65,21 +65,27 @@ function TrackModel({
     gltfState.errorBoundaryResetFuncList.splice(0);
   }, [modelPath]);
 
-  const children = <ErrorBoundary FallbackComponent={ErrorFallback}>
-    <Detailed distances={maxDistance === 0 ? [0, minDistance] : [0, minDistance, maxDistance]}>
-      <group />
-      <group>
-        <GLTFModel
-          modelPath={modelPath}
-          meshProps={
-            color ? { material: new THREE.MeshBasicMaterial({ color }) }
-              : undefined
-          }
-        />
-      </group>
-      <group />
-    </Detailed>
-  </ErrorBoundary>;
+  const model = <GLTFModel
+    modelPath={modelPath}
+    meshProps={
+      color ? { material: new THREE.MeshBasicMaterial({ color }) }
+        : undefined
+    }
+  />;
+
+  const children = maxDistance === 0 && minDistance === 0
+    ? <ErrorBoundary FallbackComponent={ErrorFallback}>
+      {model}
+    </ErrorBoundary>
+    : <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <Detailed distances={[0, minDistance, maxDistance]}>
+        <group />
+        <group>
+          {model}
+        </group>
+        <group />
+      </Detailed>
+    </ErrorBoundary>;
 
   const fromPos = getPosition(track, from, overrideGradients);
   if (from === to) {
@@ -998,8 +1004,18 @@ function getLengthOfPoints(track: Track, isSwitchMode = false, trackId?: string,
   } else {
     const { transitionCurves } = track as TransitionCurve;
 
-    for (let i = 0; i < transitionCurves.length; i++)
-      lengthOfPoints.push(length * i / transitionCurves.length);
+    let maxCurvature = 0;
+    transitionCurves.forEach(transition => {
+      const curvature = Math.abs(transition.curvature);
+      if (maxCurvature < curvature) maxCurvature = curvature;
+    });
+
+    const numberOfPoints = 0 < maxCurvature
+      ? Math.min(transitionCurves.length, getNumberOfCurvePoints(length, 1 / maxCurvature))
+      : transitionCurves.length;
+
+    for (let i = 0; i < numberOfPoints; i++)
+      lengthOfPoints.push(length * i / numberOfPoints);
     lengthOfPoints.push(length);
   }
 

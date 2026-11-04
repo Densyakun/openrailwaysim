@@ -14,10 +14,16 @@ export function getSelectedTracks() {
   return tracks;
 }
 
-export let railModelFactor = 60; //曲線に設置するレールのモデルの個数の係数
+
+/** レールモデルを配置する曲線分割の許容矢高（m） */
+export const railModelSagitta = 0.1;
 
 export function getNumberOfCurvePoints(length: number, radius: number) {
-  return Math.max(2, Math.ceil(length * railModelFactor / Math.abs(radius)));
+  const absRadius = Math.abs(radius);
+  if (absRadius < 1e-6) return 2;
+
+  const segmentLength = Math.sqrt(8 * railModelSagitta * absRadius);
+  return Math.max(2, Math.ceil(length / segmentLength));
 }
 
 export function getRotationFromTwoPoints(point: THREE.Vector3, nextPoint: THREE.Vector3, tilt: number) {

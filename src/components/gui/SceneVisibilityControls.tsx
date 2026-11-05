@@ -19,6 +19,7 @@ export default function SceneVisibilityControls({
     showBuildings,
     showPlatforms,
     showConstructionZones,
+    showConstructionSolids,
     showTunnels,
   } = useSnapshot(sceneVisibilityState);
 
@@ -68,6 +69,14 @@ export default function SceneVisibilityControls({
           onChange={event => { sceneVisibilityState.showConstructionZones = event.target.checked; }}
         />}
         label={<Typography variant="body2">造成</Typography>}
+      />
+      <FormControlLabel
+        control={<Checkbox
+          size="small"
+          checked={showConstructionSolids}
+          onChange={event => { sceneVisibilityState.showConstructionSolids = event.target.checked; }}
+        />}
+        label={<Typography variant="body2">造成CSGソリッド</Typography>}
       />
       <FormControlLabel
         control={<Checkbox

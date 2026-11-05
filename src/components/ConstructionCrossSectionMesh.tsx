@@ -4,8 +4,10 @@ import * as THREE from 'three';
 import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { constructionState } from '@/lib/client/construction';
-import { getCrossSectionFrames } from '@/lib/construction';
+import { TerrainHeightSampler, getCrossSectionFrames } from '@/lib/construction';
+import { getTerrainHeightAt, HeightmapType } from '@/lib/terrain';
 import { Track, TransitionCurve } from '@/lib/tracks';
+import { Position } from 'geojson';
 
 function CrossSectionFrame({ points }: { points: THREE.Vector3[] }) {
   // 断面を三角形分割（凸多角形のファン分割）して面として描画する
@@ -59,16 +61,33 @@ function CrossSectionFrame({ points }: { points: THREE.Vector3[] }) {
 }
 
 function CrossSectionPreviewForZone({ zoneId }: { zoneId: string }) {
-  const constructionZones = useSnapshot(store.data).constructionZones;
-  const tracks = useSnapshot(store.data).tracks;
+  const constructionZones = useSnapshot(store.data.constructionZones);
+  const tracks = useSnapshot(store.data.tracks);
+  const originCoordinate = useSnapshot(store.data.originCoordinate);
+  const terrains = useSnapshot(store.data.terrains);
 
   const zone = constructionZones[zoneId];
   const track = zone?.trackId ? tracks[zone.trackId] : undefined;
 
+  const terrainHeightAt = useMemo<TerrainHeightSampler>(() => {
+    const cache = new Map<string, number | null>();
+    return (x, z) => {
+      const key = `${Math.round(x / 2)},${Math.round(z / 2)}`;
+      if (cache.has(key)) return cache.get(key) ?? null;
+      const height = getTerrainHeightAt(
+        new THREE.Vector3(x, 0, z),
+        originCoordinate as Position,
+        terrains as { [key: string]: { [key: string]: HeightmapType } },
+      );
+      cache.set(key, height);
+      return height;
+    };
+  }, [originCoordinate, terrains]);
+
   const frames = useMemo(() => {
     if (!zone || !track) return [];
-    return getCrossSectionFrames(track as Track | TransitionCurve, zone);
-  }, [zone, track]);
+    return getCrossSectionFrames(track as Track | TransitionCurve, zone, undefined, terrainHeightAt);
+  }, [zone, track, terrainHeightAt]);
 
   if (!zone || !track || frames.length === 0) return null;
 

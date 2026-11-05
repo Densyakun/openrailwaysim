@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
 import {
-  Paper, Stack, Button, TextField, Typography, IconButton,
+  Paper, Stack, Button, TextField, Typography, IconButton, Box,
   FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch,
   Divider,
 } from '@mui/material';
@@ -13,7 +13,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import TunnelIcon from '@mui/icons-material/Directions';
 import { store } from '@/lib/game';
 import { constructionState } from '@/lib/client/construction';
-import { ConstructionZone, ConstructionCrossSection } from '@/lib/construction';
+import { CONSTRUCTION_PART_INFO, ConstructionZone, ConstructionCrossSection } from '@/lib/construction';
 import { Tunnel, TunnelCrossSectionShape } from '@/lib/tunnel';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -370,6 +370,54 @@ function ConstructionZoneEditor({ zone, onSave, onCancel }: {
         )}
 
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">端部・地形</Typography>
+
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={zone.endWalls?.start ?? false}
+              onChange={e => updateZone({ endWalls: { ...zone.endWalls, start: e.target.checked } })}
+            />
+          }
+          label={<Typography variant="caption">前壁を表示</Typography>}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={zone.endWalls?.end ?? false}
+              onChange={e => updateZone({ endWalls: { ...zone.endWalls, end: e.target.checked } })}
+            />
+          }
+          label={<Typography variant="caption">後壁を表示</Typography>}
+        />
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={zone.applyToTerrain !== false}
+              onChange={e => updateZone({ applyToTerrain: e.target.checked })}
+            />
+          }
+          label={<Typography variant="caption">地形に反映（CSG）</Typography>}
+        />
+
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+        <Typography variant="caption" color="primary">パーツの色</Typography>
+        <Stack spacing={0.25}>
+          {(['floor', 'slopeLeft', 'slopeRight', 'startWall', 'endWall', 'retainingWallLeft', 'retainingWallRight', 'cutSolid', 'fillSolid'] as const).map(id => (
+            <Stack key={id} direction="row" spacing={0.5} alignItems="center">
+              <Box sx={{ width: 10, height: 10, bgcolor: CONSTRUCTION_PART_INFO[id].color, borderRadius: 0.25 }} />
+              <Typography variant="caption" color="#ccc">{CONSTRUCTION_PART_INFO[id].label}</Typography>
+            </Stack>
+          ))}
+        </Stack>
+        <Typography variant="caption" color="#aaa">
+          CSGソリッド（切取・盛土）はシーン表示設定から表示できます。
+        </Typography>
+
+        <Divider sx={{ borderColor: 'rgba(255,255,255,0.15)' }} />
         <Typography variant="caption" color="primary">断面プレビュー</Typography>
 
         <TextField
@@ -639,6 +687,8 @@ export default function ConstructionTabPanel() {
       startLength: 0,
       endLength: 100,
       ground: { height: 0, isAbsolute: false },
+      endWalls: { start: false, end: false },
+      applyToTerrain: true,
     };
     store.data.constructionZones[id] = newZone;
     constructionState.originalZone = { ...newZone };

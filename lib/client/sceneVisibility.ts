@@ -11,6 +11,7 @@ export const sceneVisibilityState = proxy<{
   showBuildings: boolean;
   showPlatforms: boolean;
   showConstructionZones: boolean;
+  showConstructionSolids: boolean;
   showTunnels: boolean;
 }>({
   showTrackModels: true,
@@ -18,6 +19,7 @@ export const sceneVisibilityState = proxy<{
   showBuildings: true,
   showPlatforms: true,
   showConstructionZones: true,
+  showConstructionSolids: false,
   showTunnels: true,
 });
 
@@ -35,6 +37,7 @@ export function useSceneVisibility() {
     showBuildings: isOverrideActive ? visibility.showBuildings : true,
     showPlatforms: isOverrideActive ? visibility.showPlatforms : true,
     showConstructionZones: isOverrideActive ? visibility.showConstructionZones : true,
+    showConstructionSolids: isOverrideActive ? visibility.showConstructionSolids : false,
     showTunnels: isOverrideActive ? visibility.showTunnels : true,
   };
 }

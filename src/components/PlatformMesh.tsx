@@ -6,6 +6,7 @@ import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { Platform, createPlatformMesh, getPlatformBoundaryPoints } from '@/lib/platforms';
 import { platformsState } from '@/lib/client/platforms';
+import { guiState } from '@/lib/client/gui';
 import { useSceneVisibility } from '@/lib/client/sceneVisibility';
 
 function PlatformMesh({ platformId }: { platformId: string }) {
@@ -109,7 +110,9 @@ function PlatformLabel({ platformId }: { platformId: string }) {
 
 export default function Platforms() {
   const { platforms } = useSnapshot(store.data);
+  const { selectedTab } = useSnapshot(guiState);
   const { showPlatforms } = useSceneVisibility();
+  const showEditingLines = selectedTab === "platforms";
 
   if (!showPlatforms) return null;
 
@@ -118,10 +121,10 @@ export default function Platforms() {
       {Object.keys(platforms).map(platformId => (
         <PlatformMesh key={platformId} platformId={platformId} />
       ))}
-      {Object.keys(platforms).map(platformId => (
+      {showEditingLines && Object.keys(platforms).map(platformId => (
         <PlatformBoundaryLine key={`boundary-${platformId}`} platformId={platformId} />
       ))}
-      {Object.keys(platforms).map(platformId => (
+      {showEditingLines && Object.keys(platforms).map(platformId => (
         <PlatformLabel key={`label-${platformId}`} platformId={platformId} />
       ))}
     </group>

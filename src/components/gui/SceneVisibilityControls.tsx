@@ -1,22 +1,25 @@
-import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
+﻿import { Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
 import { useSnapshot } from 'valtio';
 import { sceneVisibilityState } from '@/lib/client/sceneVisibility';
 
 /**
- * 編集中に、編集中の項目以外を個別に非表示にするための設定。
- */
+ * 邱ｨ髮・ｸｭ縺ｫ縲∫ｷｨ髮・ｸｭ縺ｮ鬆・岼莉･螟悶ｒ蛟句挨縺ｫ髱櫁｡ｨ遉ｺ縺ｫ縺吶ｋ縺溘ａ縺ｮ險ｭ螳壹・ */
 export default function SceneVisibilityControls({
   showTrackModels = false,
-  title = '他の項目の表示',
+  showTerrains = true,
+  title = '莉悶・鬆・岼縺ｮ陦ｨ遉ｺ',
 }: {
   showTrackModels?: boolean;
+  showTerrains?: boolean;
   title?: string;
 }) {
   const {
     showTrackModels: trackModelsVisible,
-    showTerrains,
+    showTerrains: terrainsVisible,
     showBuildings,
     showPlatforms,
+    showConstructionZones,
+    showTunnels,
   } = useSnapshot(sceneVisibilityState);
 
   return <Stack spacing={0.5}>
@@ -32,14 +35,16 @@ export default function SceneVisibilityControls({
           label={<Typography variant="body2">軌道3Dモデル</Typography>}
         />
       )}
-      <FormControlLabel
-        control={<Checkbox
-          size="small"
-          checked={showTerrains}
-          onChange={event => { sceneVisibilityState.showTerrains = event.target.checked; }}
-        />}
-        label={<Typography variant="body2">地形</Typography>}
-      />
+      {showTerrains && (
+        <FormControlLabel
+          control={<Checkbox
+            size="small"
+            checked={terrainsVisible}
+            onChange={event => { sceneVisibilityState.showTerrains = event.target.checked; }}
+          />}
+          label={<Typography variant="body2">地形</Typography>}
+        />
+      )}
       <FormControlLabel
         control={<Checkbox
           size="small"
@@ -56,6 +61,24 @@ export default function SceneVisibilityControls({
         />}
         label={<Typography variant="body2">プラットフォーム</Typography>}
       />
+      <FormControlLabel
+        control={<Checkbox
+          size="small"
+          checked={showConstructionZones}
+          onChange={event => { sceneVisibilityState.showConstructionZones = event.target.checked; }}
+        />}
+        label={<Typography variant="body2">造成</Typography>}
+      />
+      <FormControlLabel
+        control={<Checkbox
+          size="small"
+          checked={showTunnels}
+          onChange={event => { sceneVisibilityState.showTunnels = event.target.checked; }}
+        />}
+        label={<Typography variant="body2">トンネル</Typography>}
+      />
     </Stack>
   </Stack>;
 }
+
+

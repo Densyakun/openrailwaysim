@@ -6,6 +6,7 @@ import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { guiState } from '@/lib/client/gui';
 import { constructionState } from '@/lib/client/construction';
+import { useSceneVisibility } from '@/lib/client/sceneVisibility';
 import { ConstructionZone, createRetainingWallMesh, createSlopeMesh, createGroundMesh, getOffsetPoints } from '@/lib/construction';
 
 function RetainingWallMesh({ points, height, thickness, texturePath, isSelected, onClick }: {
@@ -112,7 +113,7 @@ function ConstructionZoneItem({ zone }: { zone: ConstructionZone }) {
       points.push(p);
     }
     return points;
-  }, [leftPoints, wallHeight, wallThickness, zone.ground, zone.slope?.topWidth, getGroundY]);
+  }, [leftPoints, wallHeight, wallThickness, zone.slope?.topWidth, getGroundY]);
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
@@ -169,8 +170,9 @@ function ConstructionZoneItem({ zone }: { zone: ConstructionZone }) {
 }
 export default function ConstructionZones() {
   const { constructionZones } = useSnapshot(store.data);
+  const { showConstructionZones } = useSceneVisibility();
 
-  if (!constructionZones || Object.keys(constructionZones).length === 0) return null;
+  if (!showConstructionZones || !constructionZones || Object.keys(constructionZones).length === 0) return null;
 
   return (
     <group>

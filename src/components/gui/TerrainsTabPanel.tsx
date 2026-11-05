@@ -4,6 +4,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ConstructionTabPanel from './ConstructionTabPanel';
+import SceneVisibilityControls from './SceneVisibilityControls';
 import { socket } from '../Client';
 import { terrainsState } from '@/lib/client/terrains';
 import { MessageCode, send } from '@/lib/ws';
@@ -25,6 +26,7 @@ export default function TerrainsTabPanel() {
       <FormGroup>
         <FormControlLabel control={<Switch checked={isVisible} onChange={e => terrainsState.isVisible = e.target.checked} />} label="Visible" />
       </FormGroup>
+      <SceneVisibilityControls showTrackModels showTerrains={false} title="他の項目の表示" />
       {selectedTileX !== -1 && <>
         <div>Selected: {selectedTileX}, {selectedTileY}</div>
         <Button variant='contained' startIcon={<DeselectIcon />} onClick={() => {

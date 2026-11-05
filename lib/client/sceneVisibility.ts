@@ -10,11 +10,15 @@ export const sceneVisibilityState = proxy<{
   showTerrains: boolean;
   showBuildings: boolean;
   showPlatforms: boolean;
+  showConstructionZones: boolean;
+  showTunnels: boolean;
 }>({
   showTrackModels: true,
   showTerrains: true,
   showBuildings: true,
   showPlatforms: true,
+  showConstructionZones: true,
+  showTunnels: true,
 });
 
 /**
@@ -23,12 +27,16 @@ export const sceneVisibilityState = proxy<{
 export function useSceneVisibility() {
   const visibility = useSnapshot(sceneVisibilityState);
   const { selectedTab } = useSnapshot(guiState);
-  const isOverrideActive = selectedTab === "tracks" || selectedTab === "featureCollections";
+  const isOverrideActive = selectedTab === "tracks" || selectedTab === "featureCollections" || selectedTab === "terrains";
 
   return {
     showTrackModels: isOverrideActive ? visibility.showTrackModels : true,
-    showTerrains: isOverrideActive ? visibility.showTerrains : true,
+    showTerrains: selectedTab === "terrains" ? true : (isOverrideActive ? visibility.showTerrains : true),
     showBuildings: isOverrideActive ? visibility.showBuildings : true,
     showPlatforms: isOverrideActive ? visibility.showPlatforms : true,
+    showConstructionZones: isOverrideActive ? visibility.showConstructionZones : true,
+    showTunnels: isOverrideActive ? visibility.showTunnels : true,
   };
 }
+
+

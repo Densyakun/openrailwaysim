@@ -7,6 +7,7 @@ import { proxy, ref } from 'valtio'
  * - OSM 取り込み時のダウンロード結果プレビュー
  */
 export const featureCollectionViewState = proxy<{
+  showFeatureCollections: boolean;
   showLineStrings: boolean;
   showPoints: boolean;
   showPolygons: boolean;
@@ -17,6 +18,7 @@ export const featureCollectionViewState = proxy<{
   preview: FeatureCollection | null;
   isPreviewVisible: boolean;
 }>({
+  showFeatureCollections: false,
   showLineStrings: true,
   showPoints: true,
   showPolygons: false,

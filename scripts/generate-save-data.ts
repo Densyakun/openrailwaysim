@@ -887,7 +887,7 @@ function isFeatureNear(feature: Feature, samples: Position[], maxDistance: numbe
 async function loadBuildingsAlongLine(coordinates: Position[]) {
   const samples = sampleCoordinates(coordinates, 1000);
   const clauses = samples
-    .map(coordinate => `way["building"](around:600,${coordinate[1]},${coordinate[0]});`)
+    .map(coordinate => `way["building"](around:800,${coordinate[1]},${coordinate[0]});`)
     .join("\n");
   const query = `[out:json][timeout:300];
 (
@@ -895,7 +895,59 @@ ${clauses}
 );
 out geom;`;
 
-  return loadCachedOsm("yamanote-line-buildings", query);
+  return loadCachedOsm("yamanote-line-buildings-200m", query);
+}
+
+function createSquarePolygon(longitude: number, latitude: number, halfSizeMeters: number): Polygon {
+  const latitudeDelta = halfSizeMeters / 111320;
+  const longitudeDelta = halfSizeMeters / (111320 * Math.cos(latitude * Math.PI / 180));
+
+  const coordinates: Position[] = [
+    [longitude - longitudeDelta, latitude - latitudeDelta],
+    [longitude + longitudeDelta, latitude - latitudeDelta],
+    [longitude + longitudeDelta, latitude + latitudeDelta],
+    [longitude - longitudeDelta, latitude + latitudeDelta],
+    [longitude - longitudeDelta, latitude - latitudeDelta],
+  ];
+
+  return {
+    type: "Polygon",
+    coordinates: [coordinates],
+  };
+}
+
+function createSkytreeFeatures(): Feature[] {
+  const longitude = 139.8107;
+  const latitude = 35.7101;
+
+  return [
+    {
+      type: "Feature",
+      id: "tokyo-skytree-base",
+      properties: {
+        name: "東京スカイツリー 基部",
+        building: "yes",
+        "building:part": "yes",
+        height: "350",
+        "min_height": "0",
+        "@id": "tokyo-skytree-base",
+      },
+      geometry: createSquarePolygon(longitude, latitude, 60),
+    },
+    {
+      type: "Feature",
+      id: "tokyo-skytree-shaft",
+      properties: {
+        name: "東京スカイツリー 塔身",
+        building: "yes",
+        "building:part": "yes",
+        height: "634",
+        "min_height": "350",
+        "@id": "tokyo-skytree-shaft",
+      },
+      geometry: createSquarePolygon(longitude, latitude, 25),
+    },
+  ];
 }
 
 async function createYamanoteSurroundings(yamanoteCoordinates: Position[]) {
@@ -961,7 +1013,8 @@ out geom;`;
     });
 
   const buildingFeatures = mergeOsmFeatures(buildingResponses, "building")
-    .filter(feature => isFeatureNear(feature, yamanoteSamples, 60));
+    .filter(feature => isFeatureNear(feature, yamanoteSamples, 200));
+  buildingFeatures.push(...createSkytreeFeatures());
 
   const featureCollections: { [key: string]: { value: FeatureCollection } } = {};
 

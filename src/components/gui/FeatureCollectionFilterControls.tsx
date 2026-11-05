@@ -10,10 +10,16 @@ import { featureCollectionViewState } from '@/lib/client/featureCollections'
  */
 export default function FeatureCollectionFilterControls() {
   const {
-    showLineStrings, showPoints, showPolygons, showOthers, pointLabelMode,
+    showFeatureCollections, showLineStrings, showPoints, showPolygons, showOthers, pointLabelMode,
   } = useSnapshot(featureCollectionViewState);
 
   return <Stack spacing={0.5}>
+    <FormControlLabel
+      control={<Checkbox size="small" checked={showFeatureCollections} onChange={event => {
+        featureCollectionViewState.showFeatureCollections = event.target.checked;
+      }} />}
+      label={<Typography variant="body2">地物を表示</Typography>}
+    />
     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
       <Typography variant="caption" color="text.secondary">3D 表示:</Typography>
       <FormControlLabel

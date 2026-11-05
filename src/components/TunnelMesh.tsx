@@ -6,11 +6,13 @@ import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { guiState } from '@/lib/client/gui';
 import { constructionState } from '@/lib/client/construction';
+import { useSceneVisibility } from '@/lib/client/sceneVisibility';
 import { Tunnel, createTunnelExtrudeGeometry } from '@/lib/tunnel';
 import { Track, TransitionCurve, getPosition, getRotation } from '@/lib/tracks';
 
 function TunnelMeshItem({ tunnel }: { tunnel: Tunnel }) {
   const { selectedTunnelId } = useSnapshot(constructionState);
+  const { selectedTab } = useSnapshot(guiState);
   const isSelected = selectedTunnelId === tunnel.id;
   const track = store.data.tracks[tunnel.trackId] as Track | TransitionCurve | undefined;
 
@@ -45,7 +47,7 @@ function TunnelMeshItem({ tunnel }: { tunnel: Tunnel }) {
       </mesh>
 
       {/* トンネル開口部（入口・出口のエッジ） */}
-      {[tunnel.startLength, tunnel.endLength].map((l, idx) => {
+      {selectedTab === "terrains" && [tunnel.startLength, tunnel.endLength].map((l, idx) => {
         const position = getPosition(track, l);
         const rotation = getRotation(track, l);
 
@@ -112,8 +114,9 @@ function TunnelMeshItem({ tunnel }: { tunnel: Tunnel }) {
 
 export default function Tunnels() {
   const { tunnels } = useSnapshot(store.data);
+  const { showTunnels } = useSceneVisibility();
 
-  if (!tunnels || Object.keys(tunnels).length === 0) return null;
+  if (!showTunnels || !tunnels || Object.keys(tunnels).length === 0) return null;
 
   return (
     <group>

@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio'
 import { store } from '@/lib/game'
 import { buildingGenerationSettings } from '@/lib/client/buildings'
 import { BuildingSourceEntry, buildBuildingGeometryData } from '@/lib/buildings'
-import { sceneVisibilityState } from '@/lib/client/sceneVisibility'
+import { useSceneVisibility } from '@/lib/client/sceneVisibility'
 import { getBuildingMaterials } from './buildingTextures'
 
 function createGeometry(
@@ -86,7 +86,7 @@ export function BuildingMeshes({ entries }: { entries: BuildingSourceEntry[] }) 
  * 表示中の Feature collection に含まれる建物を 3D 表示する。
  */
 export default function Buildings() {
-  const { showBuildings } = useSnapshot(sceneVisibilityState);
+  const { showBuildings } = useSceneVisibility();
   const featureCollections = useSnapshot(store.data.featureCollections);
 
   const entries = useMemo<BuildingSourceEntry[]>(

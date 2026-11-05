@@ -306,7 +306,6 @@ function pushWall(
   if (ring.length < 3) return;
 
   const counterClockwise = signedArea(ring) > 0;
-  let distance = 0;
 
   const pushVertex = (point: THREE.Vector3, normal: THREE.Vector3, u: number, v: number) => {
     target.positions.push(point.x, point.y, point.z);
@@ -334,10 +333,11 @@ function pushWall(
     const p2 = new THREE.Vector3(next.x, top, next.y);
     const p3 = new THREE.Vector3(current.x, top, current.y);
 
-    const u0 = distance / facadeWidth;
-    const u1 = (distance + length) / facadeWidth;
-    const v0 = base / floorHeight;
-    const v1 = top / floorHeight;
+    // 壁面ごとにテクスチャを整数枚で割り当て、窓が建物の角で切れないようにする
+    const u0 = 0;
+    const u1 = Math.max(1, Math.round(length / facadeWidth));
+    const v0 = 0;
+    const v1 = Math.max(1, Math.round((top - base) / floorHeight));
 
     const cross = new THREE.Vector3().subVectors(p1, p0).cross(new THREE.Vector3().subVectors(p2, p0));
 
@@ -357,7 +357,6 @@ function pushWall(
       pushVertex(p3, normal, u0, v1);
     }
 
-    distance += length;
   }
 }
 

@@ -1,7 +1,9 @@
 import { useSnapshot } from 'valtio';
-import { Button, FormControlLabel, FormGroup, Paper, Stack, Switch } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Button, FormControlLabel, FormGroup, Paper, Stack, Switch, Typography } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DeselectIcon from '@mui/icons-material/Deselect';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ConstructionTabPanel from './ConstructionTabPanel';
 import { socket } from '../Client';
 import { terrainsState } from '@/lib/client/terrains';
 import { MessageCode, send } from '@/lib/ws';
@@ -39,6 +41,14 @@ export default function TerrainsTabPanel() {
           Delete
         </Button>
       </>}
+      <Accordion defaultExpanded disableGutters sx={{ bgcolor: 'rgba(255,255,255,0.04)' }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="subtitle2">造成・トンネル</Typography>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0 }}>
+          <ConstructionTabPanel />
+        </AccordionDetails>
+      </Accordion>
     </Stack>
   </Paper>;
 }

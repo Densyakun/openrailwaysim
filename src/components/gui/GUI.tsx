@@ -8,7 +8,6 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import ImportExportIcon from '@mui/icons-material/ImportExport';
 import TerrainIcon from '@mui/icons-material/Terrain';
 import TrainIcon from '@mui/icons-material/Train';
-import BuildIcon from '@mui/icons-material/Build';
 import PlatformIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
@@ -20,7 +19,6 @@ import UserListPanel from '../UserListPanel';
 import FeatureCollectionsTabPanel from './FeatureCollectionsTabPanel';
 import TracksSubMenu from './TracksSubMenu';
 import TrainsTabPanel from './TrainsTabPanel';
-import ConstructionTabPanel from './ConstructionTabPanel';
 import PlatformsTabPanel from './PlatformsTabPanel';
 import DataExchangePanel from './DataExchangePanel';
 import { guiState } from '@/lib/client/gui';
@@ -102,11 +100,6 @@ const menuComponents: {
     title: 'Diagrams',
     icon: <DepartureBoardIcon />,
     component: <DiagramsTabPanel />,
-  },
-  'construction': {
-    title: 'Construction',
-    icon: <BuildIcon />,
-    component: <ConstructionTabPanel />,
   },
   'platforms': {
     title: 'Platforms',

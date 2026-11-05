@@ -5,9 +5,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Feature, FeatureCollection, LineString, Point, Polygon, Position } from "geojson";
 import simplify from "@turf/simplify";
+import * as THREE from "three";
 import { deserialize, serialize, trackTypeId, trainFormatTypeId } from "../lib/game";
 import { getPosition } from "../lib/tracks";
-import { fetchHeightmap, merc, terrainZoom } from "../lib/terrain";
+import { fetchHeightmap, getTerrainHeightAt, merc, terrainZoom } from "../lib/terrain";
 import type { SerializableTrack, Track, TrackModel } from "../lib/tracks";
 import type { OsmElement, OsmResponse } from "../lib/osm";
 import { defaultOverpassEndpointIds, fetchOsm } from "../lib/osm";
@@ -989,6 +990,317 @@ out geom;`;
   return { featureCollections, terrains };
 }
 
+type ConnectingLineDefinition = {
+  id: string;
+  name: string;
+  nameRegex: string;
+  bbox: [south: number, west: number, north: number, east: number];
+  start: [lon: number, lat: number];
+  end: [lon: number, lat: number];
+  designSpeedKmh: number;
+  gauge: number;
+};
+
+const connectingLines: ConnectingLineDefinition[] = [
+  {
+    id: "chuo-rapid",
+    name: "中央線快速",
+    nameRegex: "中央線快速|中央線",
+    bbox: [35.63, 139.38, 35.73, 139.75],
+    start: [139.7006, 35.6896],
+    end: [139.4137, 35.6984],
+    designSpeedKmh: 100,
+    gauge: 1067,
+  },
+  {
+    id: "chuo-sobu",
+    name: "中央・総武線",
+    nameRegex: "中央・総武線|中央総武線",
+    bbox: [35.68, 139.64, 35.72, 139.72],
+    start: [139.7006, 35.6896],
+    end: [139.6657, 35.7057],
+    designSpeedKmh: 90,
+    gauge: 1067,
+  },
+  {
+    id: "saikyo",
+    name: "埼京線",
+    nameRegex: "埼京線",
+    bbox: [35.60, 139.68, 35.71, 139.74],
+    start: [139.7006, 35.6896],
+    end: [139.7286, 35.6197],
+    designSpeedKmh: 100,
+    gauge: 1067,
+  },
+  {
+    id: "keihin-tohoku",
+    name: "京浜東北線",
+    nameRegex: "京浜東北線",
+    bbox: [35.61, 139.72, 35.70, 139.79],
+    start: [139.7671, 35.6812],
+    end: [139.7387, 35.6285],
+    designSpeedKmh: 90,
+    gauge: 1067,
+  },
+  {
+    id: "tokaido",
+    name: "東海道線",
+    nameRegex: "東海道線|東海道本線",
+    bbox: [35.61, 139.72, 35.70, 139.79],
+    start: [139.7671, 35.6812],
+    end: [139.7387, 35.6285],
+    designSpeedKmh: 110,
+    gauge: 1067,
+  },
+  {
+    id: "joban",
+    name: "常磐線",
+    nameRegex: "常磐線",
+    bbox: [35.70, 139.75, 35.74, 139.80],
+    start: [139.7773, 35.7138],
+    end: [139.7709, 35.7277],
+    designSpeedKmh: 90,
+    gauge: 1067,
+  },
+  {
+    id: "keisei",
+    name: "京成本線",
+    nameRegex: "京成本線",
+    bbox: [35.70, 139.75, 35.74, 139.80],
+    start: [139.7709, 35.7277],
+    end: [139.7773, 35.7138],
+    designSpeedKmh: 90,
+    gauge: 1435,
+  },
+];
+
+function findNearestCoordinateIndex(coordinates: Position[], target: [lon: number, lat: number]) {
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+
+  coordinates.forEach((coordinate, index) => {
+    const distance = coordinateDistanceMeters(coordinate, target);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  });
+
+  return { index: bestIndex, distance: bestDistance };
+}
+
+function clipLineString(
+  coordinates: Position[],
+  start: [lon: number, lat: number],
+  end: [lon: number, lat: number],
+) {
+  const startMatch = findNearestCoordinateIndex(coordinates, start);
+  const endMatch = findNearestCoordinateIndex(coordinates, end);
+
+  if (startMatch.index < 0 || endMatch.index < 0) return undefined;
+  if (2000 < startMatch.distance || 2000 < endMatch.distance) return undefined;
+
+  if (startMatch.index === endMatch.index) return undefined;
+
+  return startMatch.index < endMatch.index
+    ? coordinates.slice(startMatch.index, endMatch.index + 1)
+    : coordinates.slice(endMatch.index, startMatch.index + 1).reverse();
+}
+
+async function createConnectingLineTracks(originCoordinate: Position) {
+  const tracks: { [trackId: string]: SerializableTrack } = {};
+  const trackIds: string[] = [];
+
+  for (const definition of connectingLines) {
+    const [south, west, north, east] = definition.bbox;
+    const query = `[out:json][timeout:180];
+relation["route"="train"]["name"~"${definition.nameRegex}"](${south},${west},${north},${east});
+out geom;`;
+
+    try {
+      const osm = await loadCachedOsm(`connecting-${definition.id}`, query);
+      const relations = pickRelations(osm, {
+        osm: {
+          nameRegex: definition.nameRegex,
+          routeRegex: "train",
+          bbox: definition.bbox,
+        },
+      } as LineDefinition);
+
+      const relation = relations[0];
+      if (!relation) {
+        console.warn(`[yamanote] 接続路線 ${definition.name} のリレーションが見つかりません`);
+        continue;
+      }
+
+      const { coordinates } = assembleRelationLineString(relation);
+      const clipped = clipLineString(coordinates, definition.start, definition.end);
+      if (!clipped || clipped.length < 2) {
+        console.warn(`[yamanote] 接続路線 ${definition.name} の区間を切り出せませんでした`);
+        continue;
+      }
+
+      const alignment = createAlignmentFromLineString(clipped, {
+        originCoordinate,
+        designSpeedKmh: definition.designSpeedKmh,
+        gaugeMm: definition.gauge,
+        trackModels: createTrackModel(definition.gauge),
+        idPrefix: `connecting-${definition.id}`,
+        closed: false,
+      });
+
+      Object.assign(tracks, alignment.tracks);
+      trackIds.push(...alignment.trackIds);
+      console.log(`[yamanote] 接続路線 ${definition.name}: ${alignment.trackIds.length} 本`);
+    } catch (error) {
+      console.warn(`[yamanote] 接続路線 ${definition.name} を追加できませんでした: ${error}`);
+    }
+  }
+
+  return { tracks, trackIds };
+}
+
+function applyVerticalProfileToChain(
+  trackIds: string[],
+  tracks: { [trackId: string]: SerializableTrack },
+  originCoordinate: Position,
+  terrains: { [tileY: string]: { [tileX: string]: unknown } },
+  constructionZones: Record<string, unknown>,
+  options: {
+    closed?: boolean;
+    constructionPrefix?: string;
+    maxConstructionZones?: number;
+  } = {},
+) {
+  if (!trackIds.length) return;
+
+  const heights: number[] = [];
+  let previousHeight = 0;
+
+  trackIds.forEach((trackId, index) => {
+    const rawTrack = tracks[trackId];
+    if (!rawTrack) return;
+
+    const track = deserialize(trackTypeId, rawTrack) as Track;
+    const start = track.position;
+    const end = getPosition(track, track.length);
+    const startHeight = getTerrainHeightAt(
+      new THREE.Vector3(start.x, 0, start.z),
+      originCoordinate,
+      terrains as never,
+    );
+    const endHeight = getTerrainHeightAt(
+      new THREE.Vector3(end.x, 0, end.z),
+      originCoordinate,
+      terrains as never,
+    );
+
+    if (index === 0)
+      heights.push(startHeight ?? 0);
+
+    const height = endHeight ?? heights[heights.length - 1] ?? previousHeight;
+    heights.push(height);
+    previousHeight = height;
+  });
+
+  if (heights.length !== trackIds.length + 1) return;
+
+  const smoothedHeights = [...heights];
+  for (let index = 1; index < heights.length - 1; index++)
+    smoothedHeights[index] = (heights[index - 1] + heights[index] * 2 + heights[index + 1]) / 4;
+
+  if (options.closed) {
+    const closure = smoothedHeights[0] - smoothedHeights[smoothedHeights.length - 1];
+    for (let index = 0; index < smoothedHeights.length; index++)
+      smoothedHeights[index] += closure * index / (smoothedHeights.length - 1);
+  }
+
+  const lengths = trackIds.map(trackId => tracks[trackId]?.length ?? 0);
+  const grades = trackIds.map((_, index) =>
+    lengths[index] > 0
+      ? (smoothedHeights[index + 1] - smoothedHeights[index]) / lengths[index] * 1000
+      : 0
+  );
+
+  const boundaryGrades: number[] = [];
+  for (let index = 0; index <= trackIds.length; index++) {
+    if (index === 0)
+      boundaryGrades.push(grades[0]);
+    else if (index === trackIds.length)
+      boundaryGrades.push(grades[grades.length - 1]);
+    else
+      boundaryGrades.push((grades[index - 1] + grades[index]) / 2);
+  }
+
+  const totalLength = lengths.reduce((total, length) => total + length, 0);
+  let gain = 0;
+  for (let index = 0; index < trackIds.length; index++)
+    gain += (boundaryGrades[index] + boundaryGrades[index + 1]) / 2 * lengths[index] / 1000;
+
+  const desiredGain = smoothedHeights[smoothedHeights.length - 1] - smoothedHeights[0];
+  const gradeCorrection = totalLength > 0
+    ? (desiredGain - gain) / totalLength * 1000
+    : 0;
+
+  for (let index = 0; index < boundaryGrades.length; index++)
+    boundaryGrades[index] += gradeCorrection;
+
+  let runningHeight = smoothedHeights[0];
+  let constructionCount = 0;
+  const maxConstructionZones = options.maxConstructionZones ?? 40;
+
+  trackIds.forEach((trackId, index) => {
+    const rawTrack = tracks[trackId];
+    if (!rawTrack) return;
+
+    rawTrack.position = [rawTrack.position[0], runningHeight, rawTrack.position[2]];
+    rawTrack.gradients = {
+      0: boundaryGrades[index],
+      [rawTrack.length]: boundaryGrades[index + 1],
+    };
+
+    const track = deserialize(trackTypeId, rawTrack) as Track;
+    const middle = getPosition(track, track.length / 2);
+    const terrainHeight = getTerrainHeightAt(
+      new THREE.Vector3(middle.x, 0, middle.z),
+      originCoordinate,
+      terrains as never,
+    );
+
+    if (
+      terrainHeight !== null
+      && Math.abs(middle.y - terrainHeight) > 1.5
+      && constructionCount < maxConstructionZones
+    ) {
+      const zoneId = `construction-${options.constructionPrefix ?? "profile"}-${index}`;
+      constructionZones[zoneId] = {
+        id: zoneId,
+        name: `造成 ${options.constructionPrefix ?? ""} ${index + 1}`,
+        trackId,
+        offsetLeft: 3.5,
+        offsetRight: 3.5,
+        startLength: 0,
+        endLength: rawTrack.length,
+        ground: {
+          height: 0,
+          isAbsolute: false,
+        },
+        slope: {
+          gradient: 1.5,
+          topWidth: 0,
+        },
+        crossSection: {
+          divisions: Math.max(2, Math.ceil(rawTrack.length / 50)),
+          height: 3,
+        },
+      };
+      constructionCount++;
+    }
+
+    runningHeight += (boundaryGrades[index] + boundaryGrades[index + 1]) / 2 * rawTrack.length / 1000;
+  });
+}
+
 function includePath(filePath: string) {
   return `./${path.relative(savesDirectory, filePath).split(path.sep).join("/")}`;
 }
@@ -1152,6 +1464,11 @@ async function main() {
       };
     });
 
+    if (line.id === "yamanote") {
+      const connecting = await createConnectingLineTracks(originCoordinate);
+      Object.assign(tracks, connecting.tracks);
+    }
+
     const trainFormats: { [id: string]: SerializableTrainFormat } = {};
     line.trainIds.forEach(trainId => {
       const train = trainDefinitions.find(value => value.id === trainId)!;
@@ -1221,6 +1538,26 @@ async function main() {
         console.log(`[yamanote] 周辺線路 ${railwayCount} 件、建物 ${buildingCount} 件、地形 ${terrainTileCount} タイル`);
       } catch (error) {
         console.warn(`[yamanote] 周辺データを追加できませんでした: ${error}`);
+      }
+
+      const profileTerrains = saveData.terrains as { [tileY: string]: { [tileX: string]: unknown } };
+      applyVerticalProfileToChain(
+        alignments[0].alignment.trackIds,
+        tracks,
+        originCoordinate,
+        profileTerrains,
+        saveData.constructionZones,
+        { closed: true, constructionPrefix: "yamanote-outer", maxConstructionZones: 40 },
+      );
+      if (alignments[1]) {
+        applyVerticalProfileToChain(
+          alignments[1].alignment.trackIds,
+          tracks,
+          originCoordinate,
+          profileTerrains,
+          saveData.constructionZones,
+          { closed: true, constructionPrefix: "yamanote-inner", maxConstructionZones: 40 },
+        );
       }
     }
 

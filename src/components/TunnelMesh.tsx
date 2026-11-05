@@ -1,12 +1,17 @@
 // トンネルの3Dレンダリング
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
+import { ThreeEvent } from '@react-three/fiber';
 import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
+import { guiState } from '@/lib/client/gui';
+import { constructionState } from '@/lib/client/construction';
 import { Tunnel, createTunnelExtrudeGeometry } from '@/lib/tunnel';
 import { Track, TransitionCurve, getPosition, getRotation } from '@/lib/tracks';
 
 function TunnelMeshItem({ tunnel }: { tunnel: Tunnel }) {
+  const { selectedTunnelId } = useSnapshot(constructionState);
+  const isSelected = selectedTunnelId === tunnel.id;
   const track = store.data.tracks[tunnel.trackId] as Track | TransitionCurve | undefined;
 
   const tunnelGeometry = useMemo(() => {
@@ -21,12 +26,20 @@ function TunnelMeshItem({ tunnel }: { tunnel: Tunnel }) {
 
   if (!tunnelGeometry || !track) return null;
 
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    constructionState.originalTunnel = { ...store.data.tunnels[tunnel.id] };
+    constructionState.selectedTunnelId = tunnel.id;
+    constructionState.isEditingTunnel = true;
+    guiState.selectedTab = "terrains";
+  };
+
   return (
     <group>
-      {/* トンネル内壁 */}
-      <mesh geometry={tunnelGeometry} receiveShadow>
+      {/* トンネル本体 */}
+      <mesh geometry={tunnelGeometry} receiveShadow onClick={handleClick}>
         <meshStandardMaterial
-          color="#444444"
+          color={isSelected ? "#ffaa00" : "#444444"}
           side={THREE.BackSide}
         />
       </mesh>

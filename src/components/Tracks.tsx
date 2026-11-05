@@ -10,7 +10,7 @@ import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints } from "@/lib/client/tracks/index"
 import { tracksState, offsetTrackState, tracksVisibilityState } from "@/lib/client/tracks/store"
-import { sceneVisibilityState } from "@/lib/client/sceneVisibility"
+import { useSceneVisibility } from "@/lib/client/sceneVisibility"
 import { constructionState } from '@/lib/client/construction'
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
@@ -511,7 +511,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const switches = useSnapshot(store.data.switches);
   const { isPlacing: isSwitchPlacing } = useSnapshot(switchPlacementState);
   const { nearTrackIds, initialized } = useSnapshot(tracksVisibilityState);
-  const { showTrackModels } = useSnapshot(sceneVisibilityState);
+  const { showTrackModels } = useSceneVisibility();
   const isTrackModelVisible = showTrackModels && (!initialized || nearTrackIds[trackId] === true);
 
   track = { ...track };

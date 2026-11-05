@@ -1,15 +1,20 @@
-// 造成ゾーンの3Dレンダリング
-import React, { useMemo } from 'react';
+﻿// 造成ゾーンの3Dレンダリング
+import React, { useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { ThreeEvent } from '@react-three/fiber';
 import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
-import { ConstructionZone, createRetainingWallMesh, createSlopeMesh, createGroundMesh, getOffsetPoints, getGroundHeight } from '@/lib/construction';
+import { guiState } from '@/lib/client/gui';
+import { constructionState } from '@/lib/client/construction';
+import { ConstructionZone, createRetainingWallMesh, createSlopeMesh, createGroundMesh, getOffsetPoints } from '@/lib/construction';
 
-function RetainingWallMesh({ points, height, thickness, texturePath }: {
+function RetainingWallMesh({ points, height, thickness, texturePath, isSelected, onClick }: {
   points: THREE.Vector3[];
   height: number;
   thickness: number;
   texturePath?: string;
+  isSelected?: boolean;
+  onClick?: (event: ThreeEvent<MouseEvent>) => void;
 }) {
   const geometry = useMemo(
     () => createRetainingWallMesh(points, height, thickness),
@@ -19,21 +24,23 @@ function RetainingWallMesh({ points, height, thickness, texturePath }: {
   if (!geometry.attributes.position) return null;
 
   return (
-    <mesh geometry={geometry} castShadow receiveShadow>
+    <mesh geometry={geometry} castShadow receiveShadow onClick={onClick}>
       {texturePath ? (
-        <meshStandardMaterial map={null} color="#888888" />
+        <meshStandardMaterial map={null} color={isSelected ? "#ffaa00" : "#888888"} />
       ) : (
-        <meshStandardMaterial color="#999999" />
+        <meshStandardMaterial color={isSelected ? "#ffaa00" : "#999999"} />
       )}
     </mesh>
   );
 }
 
-function SlopeMesh({ topPoints, bottomHeight, gradient, texturePath }: {
+function SlopeMesh({ topPoints, bottomHeight, gradient, texturePath, isSelected, onClick }: {
   topPoints: THREE.Vector3[];
-  bottomHeight: number;
+  bottomHeight: number | ((point: THREE.Vector3, index: number) => number);
   gradient: number;
   texturePath?: string;
+  isSelected?: boolean;
+  onClick?: (event: ThreeEvent<MouseEvent>) => void;
 }) {
   const geometry = useMemo(
     () => createSlopeMesh(topPoints, bottomHeight, gradient),
@@ -43,19 +50,21 @@ function SlopeMesh({ topPoints, bottomHeight, gradient, texturePath }: {
   if (!geometry.attributes.position) return null;
 
   return (
-    <mesh geometry={geometry} receiveShadow>
+    <mesh geometry={geometry} receiveShadow onClick={onClick}>
       <meshStandardMaterial
-        color={texturePath ? "#668844" : "#779955"}
+        color={isSelected ? "#ffaa00" : texturePath ? "#668844" : "#779955"}
         side={THREE.DoubleSide}
       />
     </mesh>
   );
 }
 
-function GroundMesh({ leftPoints, rightPoints, height }: {
+function GroundMesh({ leftPoints, rightPoints, height, isSelected, onClick }: {
   leftPoints: THREE.Vector3[];
   rightPoints: THREE.Vector3[];
-  height: number;
+  height: number | ((point: THREE.Vector3, index: number) => number);
+  isSelected?: boolean;
+  onClick?: (event: ThreeEvent<MouseEvent>) => void;
 }) {
   const geometry = useMemo(
     () => createGroundMesh(leftPoints, rightPoints, height),
@@ -65,27 +74,29 @@ function GroundMesh({ leftPoints, rightPoints, height }: {
   if (!geometry.attributes.position) return null;
 
   return (
-    <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial color="#887755" side={THREE.DoubleSide} />
+    <mesh geometry={geometry} receiveShadow onClick={onClick}>
+      <meshStandardMaterial color={isSelected ? "#ffaa00" : "#887755"} side={THREE.DoubleSide} />
     </mesh>
   );
 }
 
 function ConstructionZoneItem({ zone }: { zone: ConstructionZone }) {
+  const { selectedZoneId } = useSnapshot(constructionState);
+  const isSelected = selectedZoneId === zone.id;
+
   const { leftPoints, rightPoints } = useMemo(
     () => getOffsetPoints(zone.trackId, zone.offsetLeft, zone.offsetRight, zone.startLength, zone.endLength),
     [zone.trackId, zone.offsetLeft, zone.offsetRight, zone.startLength, zone.endLength],
-  );
-
-  const groundHeight = useMemo(
-    () => getGroundHeight(zone.trackId, (zone.startLength + zone.endLength) / 2, zone.ground),
-    [zone.trackId, zone.startLength, zone.endLength, zone.ground],
   );
 
   const wallHeight = zone.retainingWall?.height ?? 3;
   const wallThickness = zone.retainingWall?.thickness ?? 0.5;
 
   const slopeGradient = zone.slope?.gradient ?? 1.5;
+
+  const getGroundY = useCallback((point: THREE.Vector3) =>
+    zone.ground.isAbsolute ? zone.ground.height : point.y + zone.ground.height,
+    [zone.ground.isAbsolute, zone.ground.height]);
 
   const slopeTopPoints = useMemo(() => {
     const points: THREE.Vector3[] = [];
@@ -97,59 +108,65 @@ function ConstructionZoneItem({ zone }: { zone: ConstructionZone }) {
       const tangent = leftPoints[nextI].clone().sub(leftPoints[prevI]).normalize();
       const outward = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), tangent).normalize();
       p.add(outward.clone().multiplyScalar(-offset));
-      p.y = groundHeight + wallHeight;
+      p.y = getGroundY(leftPoints[i]) + wallHeight;
       points.push(p);
     }
     return points;
-  }, [leftPoints, wallHeight, wallThickness, groundHeight, zone.slope?.topWidth]);
+  }, [leftPoints, wallHeight, wallThickness, zone.ground, zone.slope?.topWidth, getGroundY]);
 
-  const slopeBottomHeight = useMemo(() => {
-    // Find terrain height at the bottom of the slope - use a simple fallback
-    return groundHeight - 5;
-  }, [groundHeight]);
+  const handleClick = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    constructionState.originalZone = { ...store.data.constructionZones[zone.id] };
+    constructionState.selectedZoneId = zone.id;
+    constructionState.isEditingZone = true;
+    guiState.selectedTab = "terrains";
+  };
 
   return (
     <group>
-      {/* 造成地面 */}
       <GroundMesh
         leftPoints={leftPoints}
         rightPoints={rightPoints}
-        height={groundHeight}
+        height={getGroundY}
+        isSelected={isSelected}
+        onClick={handleClick}
       />
 
-      {/* 左側の擁壁 */}
       {zone.retainingWall?.leftSide && (
         <RetainingWallMesh
           points={leftPoints}
           height={wallHeight}
           thickness={wallThickness}
           texturePath={zone.retainingWall.texturePath}
+          isSelected={isSelected}
+          onClick={handleClick}
         />
       )}
 
-      {/* 右側の擁壁 */}
       {zone.retainingWall?.rightSide && (
         <RetainingWallMesh
           points={rightPoints}
           height={wallHeight}
           thickness={wallThickness}
           texturePath={zone.retainingWall.texturePath}
+          isSelected={isSelected}
+          onClick={handleClick}
         />
       )}
 
-      {/* 法面 */}
       {zone.slope && (
         <SlopeMesh
           topPoints={slopeTopPoints}
-          bottomHeight={slopeBottomHeight}
+          bottomHeight={(point) => point.y - Math.max(1, zone.crossSection?.height ?? 3)}
           gradient={slopeGradient}
           texturePath={zone.slope.texturePath}
+          isSelected={isSelected}
+          onClick={handleClick}
         />
       )}
     </group>
   );
 }
-
 export default function ConstructionZones() {
   const { constructionZones } = useSnapshot(store.data);
 
@@ -163,3 +180,4 @@ export default function ConstructionZones() {
     </group>
   );
 }
+

@@ -1,11 +1,12 @@
 // プラットフォーム（ホーム）の3Dレンダリング
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { Billboard, ScreenSizer, Text } from '@react-three/drei';
 import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { Platform, createPlatformMesh, getPlatformBoundaryPoints } from '@/lib/platforms';
 import { platformsState } from '@/lib/client/platforms';
-import { sceneVisibilityState } from '@/lib/client/sceneVisibility';
+import { useSceneVisibility } from '@/lib/client/sceneVisibility';
 
 function PlatformMesh({ platformId }: { platformId: string }) {
   const { platforms } = useSnapshot(store.data);
@@ -62,9 +63,53 @@ function PlatformBoundaryLine({ platformId }: { platformId: string }) {
   return <primitive object={line} />;
 }
 
+function PlatformLabel({ platformId }: { platformId: string }) {
+  const { platforms } = useSnapshot(store.data);
+  const { selectedPlatformId } = useSnapshot(platformsState);
+  const platform = platforms[platformId];
+
+  const position = useMemo(() => {
+    if (!platform) return null;
+
+    const points = getPlatformBoundaryPoints(platform as unknown as Platform);
+    if (!points.length) return null;
+
+    const center = new THREE.Vector3();
+    let top = -Infinity;
+
+    points.forEach(point => {
+      center.add(point);
+      top = Math.max(top, point.y);
+    });
+
+    center.divideScalar(points.length);
+    center.y = top + 1.5;
+    return center;
+  }, [platform]);
+
+  if (!position || !platform?.name) return null;
+
+  const isSelected = selectedPlatformId === platformId;
+
+  return <ScreenSizer position={position} scale={1}>
+    <Billboard follow={true} lockX={false} lockY={false} lockZ={false}>
+      <Text
+        fontSize={13}
+        color={isSelected ? '#ffff00' : '#ffffff'}
+        outlineWidth={0.06}
+        outlineColor="#000000"
+        anchorY="bottom-baseline"
+        textAlign="center"
+      >
+        {platform.name}
+      </Text>
+    </Billboard>
+  </ScreenSizer>;
+}
+
 export default function Platforms() {
   const { platforms } = useSnapshot(store.data);
-  const { showPlatforms } = useSnapshot(sceneVisibilityState);
+  const { showPlatforms } = useSceneVisibility();
 
   if (!showPlatforms) return null;
 
@@ -75,6 +120,9 @@ export default function Platforms() {
       ))}
       {Object.keys(platforms).map(platformId => (
         <PlatformBoundaryLine key={`boundary-${platformId}`} platformId={platformId} />
+      ))}
+      {Object.keys(platforms).map(platformId => (
+        <PlatformLabel key={`label-${platformId}`} platformId={platformId} />
       ))}
     </group>
   );

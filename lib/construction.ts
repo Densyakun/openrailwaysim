@@ -292,7 +292,7 @@ export function createRetainingWallMesh(
 
 export function createSlopeMesh(
   topPoints: THREE.Vector3[],
-  bottomHeight: number,
+  bottomHeight: number | ((point: THREE.Vector3, index: number) => number),
   gradient: number,
 ): THREE.BufferGeometry {
   if (topPoints.length < 2) return new THREE.BufferGeometry();
@@ -304,7 +304,8 @@ export function createSlopeMesh(
 
   for (let i = 0; i < topPoints.length; i++) {
     const topP = topPoints[i];
-    const dropHeight = topP.y - bottomHeight;
+    const bottomY = typeof bottomHeight === "number" ? bottomHeight : bottomHeight(topP, i);
+    const dropHeight = topP.y - bottomY;
     const horizontalRun = dropHeight * gradient;
 
     const nextI = Math.min(i + 1, topPoints.length - 1);
@@ -326,7 +327,7 @@ export function createSlopeMesh(
 
     const bottomP = topP.clone()
       .add(outward.clone().multiplyScalar(horizontalRun))
-      .setY(bottomHeight);
+      .setY(bottomY);
 
     const vi = i * 6;
 
@@ -367,7 +368,7 @@ export function createSlopeMesh(
 export function createGroundMesh(
   leftPoints: THREE.Vector3[],
   rightPoints: THREE.Vector3[],
-  height: number,
+  height: number | ((point: THREE.Vector3, index: number) => number),
 ): THREE.BufferGeometry {
   if (leftPoints.length < 2 || rightPoints.length < 2) return new THREE.BufferGeometry();
 
@@ -379,8 +380,10 @@ export function createGroundMesh(
   const count = Math.min(leftPoints.length, rightPoints.length);
 
   for (let i = 0; i < count; i++) {
-    const leftP = leftPoints[i].clone().setY(height);
-    const rightP = rightPoints[i].clone().setY(height);
+    const leftHeight = typeof height === "number" ? height : height(leftPoints[i], i);
+    const rightHeight = typeof height === "number" ? height : height(rightPoints[i], i);
+    const leftP = leftPoints[i].clone().setY(leftHeight);
+    const rightP = rightPoints[i].clone().setY(rightHeight);
 
     const vi = i * 6;
 

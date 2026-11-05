@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { FeatureCollection } from 'geojson'
 import { useSnapshot } from 'valtio'
 import { featureCollectionViewState } from '@/lib/client/featureCollections'
-import { sceneVisibilityState } from '@/lib/client/sceneVisibility'
+import { useSceneVisibility } from '@/lib/client/sceneVisibility'
 import GeoJsonFeatureCollection, { GeoJsonFeatureCollectionEntry } from './GeoJsonFeatureCollection'
 import { BuildingMeshes } from './Buildings'
 
@@ -11,7 +11,7 @@ import { BuildingMeshes } from './Buildings'
  */
 export default function OsmPreview() {
   const { preview, isPreviewVisible } = useSnapshot(featureCollectionViewState);
-  const { showBuildings } = useSnapshot(sceneVisibilityState);
+  const { showBuildings } = useSceneVisibility();
 
   const entries = useMemo<GeoJsonFeatureCollectionEntry[]>(
     () => preview && isPreviewVisible ? [{ id: '__osm_preview__', value: preview as FeatureCollection }] : [],

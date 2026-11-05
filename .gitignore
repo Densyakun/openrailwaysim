@@ -31,3 +31,6 @@ saves/*
 
 # OSM cache for save data generation
 scripts/.osm-cache/
+
+# Terrain cache for save data generation
+scripts/.terrain-cache/

@@ -3,9 +3,11 @@
 import "dotenv/config";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Position } from "geojson";
+import type { Feature, FeatureCollection, LineString, Point, Polygon, Position } from "geojson";
+import simplify from "@turf/simplify";
 import { deserialize, serialize, trackTypeId, trainFormatTypeId } from "../lib/game";
 import { getPosition } from "../lib/tracks";
+import { fetchHeightmap, merc, terrainZoom } from "../lib/terrain";
 import type { SerializableTrack, Track, TrackModel } from "../lib/tracks";
 import type { OsmElement, OsmResponse } from "../lib/osm";
 import { defaultOverpassEndpointIds, fetchOsm } from "../lib/osm";
@@ -57,9 +59,9 @@ const nowDate = new Date("2026-01-01T09:00:00+09:00").getTime();
 const masterControllerId = "one-handle-standard";
 const masterController = createUISotetsu20000SeriesMasterControllerConfig();
 
-function writeJson(filePath: string, value: unknown) {
+function writeJson(filePath: string, value: unknown, pretty = true) {
   mkdirSync(path.dirname(filePath), { recursive: true });
-  writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  writeFileSync(filePath, `${JSON.stringify(value, null, pretty ? 2 : undefined)}\n`, "utf8");
   console.log(`wrote ${path.relative(process.cwd(), filePath)}`);
 }
 
@@ -630,6 +632,297 @@ function createSavedTrain(
   };
 }
 
+type SurroundingArea = {
+  id: string;
+  bbox: [south: number, west: number, north: number, east: number];
+  center: [lon: number, lat: number];
+};
+
+const surroundingAreas: SurroundingArea[] = [
+  { id: "shinjuku", bbox: [35.680, 139.690, 35.700, 139.715], center: [139.7006, 35.6896] },
+  { id: "tokyo", bbox: [35.675, 139.755, 35.690, 139.775], center: [139.7671, 35.6812] },
+  { id: "osaki", bbox: [35.610, 139.720, 35.635, 139.745], center: [139.7286, 35.6197] },
+];
+
+const buildingPoints: { id: string; coordinate: [lon: number, lat: number] }[] = [
+  { id: "shinjuku", coordinate: [139.7006, 35.6896] },
+  { id: "tokyo", coordinate: [139.7671, 35.6812] },
+  { id: "shinagawa", coordinate: [139.7387, 35.6285] },
+  { id: "osaki", coordinate: [139.7286, 35.6197] },
+  { id: "ikebukuro", coordinate: [139.7109, 35.7295] },
+  { id: "ueno", coordinate: [139.7773, 35.7138] },
+];
+
+const terrainCacheDirectory = path.resolve("scripts/.terrain-cache");
+
+async function loadCachedOsm(name: string, query: string) {
+  const cacheFile = path.join(osmCacheDirectory, `${name}.json`);
+
+  if (!refreshOsm && existsSync(cacheFile))
+    return JSON.parse(readFileSync(cacheFile, "utf8")) as OsmResponse;
+
+  const result = await fetchOsm(query, defaultOverpassEndpointIds, message =>
+    console.log(`[${name}] ${message}`)
+  );
+
+  mkdirSync(osmCacheDirectory, { recursive: true });
+  writeFileSync(cacheFile, JSON.stringify(result.osm), "utf8");
+  return result.osm;
+}
+
+function osmElementToFeature(element: OsmElement, kind: "railway" | "building" | "station"): Feature | undefined {
+  const properties = {
+    ...(element.tags ?? {}),
+    "@id": `${element.type}/${element.id}`,
+  };
+
+  if (kind === "station") {
+    if (element.type !== "node" || typeof element.lat !== "number" || typeof element.lon !== "number")
+      return undefined;
+
+    return {
+      type: "Feature",
+      id: `${element.type}/${element.id}`,
+      properties,
+      geometry: {
+        type: "Point",
+        coordinates: [element.lon, element.lat],
+      } as Point,
+    };
+  }
+
+  if (element.type !== "way" || !element.geometry || element.geometry.length < 2)
+    return undefined;
+
+  const coordinates = element.geometry
+    .filter(geometry => typeof geometry.lat === "number" && typeof geometry.lon === "number")
+    .map(geometry => [geometry.lon, geometry.lat] as Position);
+
+  if (coordinates.length < 2) return undefined;
+
+  if (kind === "building") {
+    const isClosed = 4 <= coordinates.length
+      && coordinates[0][0] === coordinates[coordinates.length - 1][0]
+      && coordinates[0][1] === coordinates[coordinates.length - 1][1];
+
+    if (isClosed) {
+      return {
+        type: "Feature",
+        id: `${element.type}/${element.id}`,
+        properties,
+        geometry: {
+          type: "Polygon",
+          coordinates: [coordinates],
+        } as Polygon,
+      };
+    }
+  }
+
+  return {
+    type: "Feature",
+    id: `${element.type}/${element.id}`,
+    properties,
+    geometry: {
+      type: "LineString",
+      coordinates,
+    } as LineString,
+  };
+}
+
+function mergeOsmFeatures(osmResponses: OsmResponse[], kind: "railway" | "building" | "station") {
+  const features = new Map<string, Feature>();
+
+  osmResponses.forEach(osm => {
+    osm.elements.forEach(element => {
+      const feature = osmElementToFeature(element, kind);
+      if (feature?.id === undefined) return;
+
+      const simplified = feature.geometry.type === "Point"
+        ? feature
+        : simplify(feature, {
+          tolerance: kind === "building" ? 0.00002 : 0.00005,
+          highQuality: true,
+        });
+
+      features.set(String(feature.id), simplified as Feature);
+    });
+  });
+
+  return [...features.values()];
+}
+
+function createOsmFeatureCollection(features: Feature[]): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+async function loadTerrainAround(center: [lon: number, lat: number], radius = 1) {
+  const terrains: { [tileY: string]: { [tileX: string]: unknown } } = {};
+  const [centerX, centerY] = merc.px(center, terrainZoom) as [number, number];
+  const tileX = Math.floor(centerX / 256);
+  const tileY = Math.floor(centerY / 256);
+
+  for (let offsetY = -radius; offsetY <= radius; offsetY++) {
+    for (let offsetX = -radius; offsetX <= radius; offsetX++) {
+      const x = tileX + offsetX;
+      const y = tileY + offsetY;
+      const cacheFile = path.join(terrainCacheDirectory, `${x}_${y}.json`);
+
+      let heightmap: unknown;
+
+      if (!refreshOsm && existsSync(cacheFile)) {
+        heightmap = JSON.parse(readFileSync(cacheFile, "utf8"));
+      } else {
+        heightmap = await fetchHeightmap(x, y);
+        if (heightmap) {
+          mkdirSync(terrainCacheDirectory, { recursive: true });
+          writeFileSync(cacheFile, JSON.stringify(heightmap), "utf8");
+        }
+      }
+
+      if (!heightmap) continue;
+      if (!terrains[y]) terrains[y] = {};
+      terrains[y][x] = heightmap;
+    }
+  }
+
+  return terrains;
+}
+
+function sampleCoordinates(coordinates: Position[], interval: number) {
+  if (coordinates.length < 2) return [...coordinates];
+
+  const samples: Position[] = [coordinates[0]];
+  let distanceSinceSample = 0;
+
+  for (let index = 1; index < coordinates.length; index++) {
+    const a = coordinates[index - 1];
+    const b = coordinates[index];
+    const distance = coordinateDistanceMeters(a, b);
+
+    if (interval <= distanceSinceSample + distance) {
+      samples.push(b);
+      distanceSinceSample = 0;
+    } else {
+      distanceSinceSample += distance;
+    }
+  }
+
+  samples.push(coordinates[coordinates.length - 1]);
+  return samples;
+}
+
+function getFeatureCoordinates(feature: Feature): Position[] {
+  switch (feature.geometry.type) {
+    case "Point":
+      return [feature.geometry.coordinates];
+    case "MultiPoint":
+    case "LineString":
+      return feature.geometry.coordinates;
+    case "MultiLineString":
+    case "Polygon":
+      return feature.geometry.coordinates.flat();
+    case "MultiPolygon":
+      return feature.geometry.coordinates.flat(2);
+    default:
+      return [];
+  }
+}
+
+function isFeatureNear(feature: Feature, samples: Position[], maxDistance: number) {
+  return getFeatureCoordinates(feature).some(coordinate =>
+    samples.some(sample => coordinateDistanceMeters(coordinate, sample) <= maxDistance)
+  );
+}
+
+async function createYamanoteSurroundings(yamanoteCoordinates: Position[]) {
+  const railwayResponses: OsmResponse[] = [];
+
+  for (const area of surroundingAreas) {
+    const [south, west, north, east] = area.bbox;
+    const query = `[out:json][timeout:180];
+(
+  way["railway"~"rail|light_rail|subway|tram"](${south},${west},${north},${east});
+  way["railway"="platform"](${south},${west},${north},${east});
+  node["railway"="station"](${south},${west},${north},${east});
+);
+out geom;`;
+
+    try {
+      railwayResponses.push(await loadCachedOsm(`yamanote-${area.id}-railways`, query));
+    } catch (error) {
+      console.warn(`[yamanote] ${area.id} 周辺の線路を取得できませんでした: ${error}`);
+    }
+  }
+
+  const buildingResponses: OsmResponse[] = [];
+
+  for (const point of buildingPoints) {
+    const [lon, lat] = point.coordinate;
+    const query = `[out:json][timeout:180];
+way["building"](around:250,${lat},${lon});
+out geom;`;
+
+    try {
+      buildingResponses.push(await loadCachedOsm(`yamanote-${point.id}-buildings`, query));
+    } catch (error) {
+      console.warn(`[yamanote] ${point.id} 周辺の建物を取得できませんでした: ${error}`);
+    }
+  }
+
+  const yamanoteSamples = sampleCoordinates(yamanoteCoordinates, 100);
+  const stationFeatures = mergeOsmFeatures(railwayResponses, "station")
+    .filter(feature => isFeatureNear(feature, yamanoteSamples, 500));
+  const stationSamples = stationFeatures.flatMap(getFeatureCoordinates);
+  const osakiArea = surroundingAreas.find(area => area.id === "osaki");
+  const osakiSamples = osakiArea ? [osakiArea.center] : [];
+
+  const railwayFeatures = mergeOsmFeatures(railwayResponses, "railway")
+    .filter(feature => {
+      if (!isFeatureNear(feature, yamanoteSamples, 300)) return false;
+
+      const properties = feature.properties ?? {};
+      const service = String(properties.service ?? "");
+      if (properties.railway === "platform") return true;
+      if (/yard|siding|spur|crossover/.test(service)) return true;
+      if (isFeatureNear(feature, stationSamples, 120)) return true;
+      if (osakiSamples.length && isFeatureNear(feature, osakiSamples, 500)) return true;
+
+      return false;
+    });
+
+  const buildingFeatures = mergeOsmFeatures(buildingResponses, "building")
+    .filter(feature => isFeatureNear(feature, yamanoteSamples, 250));
+
+  const featureCollections: { [key: string]: { value: FeatureCollection } } = {};
+
+  if (railwayFeatures.length)
+    featureCollections["yamanote-surrounding-railways"] = {
+      value: createOsmFeatureCollection(railwayFeatures),
+    };
+
+  if (stationFeatures.length)
+    featureCollections["yamanote-surrounding-stations"] = {
+      value: createOsmFeatureCollection(stationFeatures),
+    };
+
+  if (buildingFeatures.length)
+    featureCollections["yamanote-buildings"] = {
+      value: createOsmFeatureCollection(buildingFeatures),
+    };
+
+  let terrains = {};
+  try {
+    terrains = await loadTerrainAround(surroundingAreas[2].center, 1);
+  } catch (error) {
+    console.warn(`[yamanote] 地形を取得できませんでした: ${error}`);
+  }
+
+  return { featureCollections, terrains };
+}
+
 function includePath(filePath: string) {
   return `./${path.relative(savesDirectory, filePath).split(path.sep).join("/")}`;
 }
@@ -796,7 +1089,24 @@ async function main() {
       worldModels: {},
     };
 
-    writeJson(path.join(savesDirectory, `${line.id}.json`), saveData);
+    if (line.id === "yamanote") {
+      try {
+        const surroundings = await createYamanoteSurroundings(osmCoordinates);
+        Object.assign(saveData.featureCollections, surroundings.featureCollections);
+        Object.assign(saveData.terrains, surroundings.terrains);
+
+        const railwayCount = surroundings.featureCollections["yamanote-surrounding-railways"]?.value.features.length ?? 0;
+        const buildingCount = surroundings.featureCollections["yamanote-buildings"]?.value.features.length ?? 0;
+        const terrainTileCount = Object.values(
+          surroundings.terrains as { [tileY: string]: { [tileX: string]: unknown } },
+        ).reduce((total, tiles) => total + Object.keys(tiles).length, 0);
+        console.log(`[yamanote] 周辺線路 ${railwayCount} 件、建物 ${buildingCount} 件、地形 ${terrainTileCount} タイル`);
+      } catch (error) {
+        console.warn(`[yamanote] 周辺データを追加できませんでした: ${error}`);
+      }
+    }
+
+    writeJson(path.join(savesDirectory, `${line.id}.json`), saveData, false);
     console.log(`[${line.id}] 曲線 ${alignment.curveCount} 区間、軌道 ${trackIds.length} 本`);
   }
 

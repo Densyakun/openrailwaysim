@@ -12,6 +12,15 @@ export const tracksState = proxy<{
   hoveredSwitch: "",
 });
 
+export const tracksVisibilityState = proxy<{
+  /** カメラから近い軌道。値がない場合は距離計算前として表示する。 */
+  nearTrackIds: { [trackId: string]: true };
+  initialized: boolean;
+}>({
+  nearTrackIds: {},
+  initialized: false,
+});
+
 export const offsetTrackState = proxy<{
   isOffsetting: boolean;
   offsetDistance: string;

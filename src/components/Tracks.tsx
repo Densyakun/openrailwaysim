@@ -9,20 +9,34 @@ import { ErrorBoundary, FallbackProps, useErrorBoundary } from 'react-error-boun
 import { onClickAddingTrack } from './gui/CurveEditMenu';
 import { featureCollectionsTabPanelState } from './gui/FeatureCollectionsTabPanel';
 import { getNumberOfCurvePoints, getRotationFromTwoPoints } from "@/lib/client/tracks/index"
-import { tracksState, offsetTrackState } from "@/lib/client/tracks/store"
+import { tracksState, offsetTrackState, tracksVisibilityState } from "@/lib/client/tracks/store"
 import { constructionState } from '@/lib/client/construction'
 import { guiState } from '@/lib/client/gui';
 import { trainsTabPanelState } from '@/lib/client/trains';
 import { diagramsTabPanelState } from '@/lib/client/diagrams'
 import { editTracksInDiagramState, onUpdateTrackList, getConnectedTracks } from './gui/EditTracksInDiagramPanel'
 import { verticalCurveEditState } from '@/lib/client/verticalCurveEdit'
-import { ThreeEvent } from '@react-three/fiber'
-import { Fragment, useEffect } from 'react'
+import { ThreeEvent, useFrame, useThree } from '@react-three/fiber'
+import { Fragment, useEffect, useRef } from 'react'
 import { gltfState } from '@/lib/client/gltf'
 import { MessageCode, send } from '@/lib/ws'
 import { curveEditMenuState } from '@/lib/client/curveEditMenu'
 import { switchPlacementState } from '@/lib/client/switchPlacement'
 import { store } from '@/lib/game'
+
+const TRACK_MODEL_VISIBLE_DISTANCE = 1000;
+
+function getDistanceToTrack(cameraPosition: THREE.Vector3, track: Track) {
+  const sampleCount = 5;
+  let minimumDistanceSquared = Infinity;
+
+  for (let index = 0; index <= sampleCount; index++) {
+    const position = getPosition(track, track.length * index / sampleCount);
+    minimumDistanceSquared = Math.min(minimumDistanceSquared, cameraPosition.distanceToSquared(position));
+  }
+
+  return Math.sqrt(minimumDistanceSquared);
+}
 
 function ErrorFallback({ }: FallbackProps) {
   const { resetBoundary } = useErrorBoundary();
@@ -444,6 +458,31 @@ export default function Tracks() {
   const { tracks } = useSnapshot(store.data);
   const { selectedTab } = useSnapshot(guiState);
   const { tracksIsEditing } = useSnapshot(tracksSubMenuState);
+  const { camera } = useThree();
+  const lastDistanceCheck = useRef(0);
+
+  // カメラから遠い軌道の3Dモデルを非表示にする
+  useFrame(({ clock }) => {
+    if (clock.elapsedTime - lastDistanceCheck.current < 0.25) return;
+    lastDistanceCheck.current = clock.elapsedTime;
+
+    const nearTrackIds = tracksVisibilityState.nearTrackIds;
+    const nextNearTrackIds: { [trackId: string]: true } = {};
+
+    Object.keys(store.data.tracks).forEach(trackId => {
+      if (getDistanceToTrack(camera.position, store.data.tracks[trackId]) <= TRACK_MODEL_VISIBLE_DISTANCE)
+        nextNearTrackIds[trackId] = true;
+    });
+
+    Object.keys(nearTrackIds).forEach(trackId => {
+      if (!nextNearTrackIds[trackId]) delete nearTrackIds[trackId];
+    });
+    Object.keys(nextNearTrackIds).forEach(trackId => {
+      if (!nearTrackIds[trackId]) nearTrackIds[trackId] = true;
+    });
+
+    tracksVisibilityState.initialized = true;
+  });
 
   return <>
     {Object.keys(tracks).map(trackId => {
@@ -470,6 +509,8 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   const { gradientPoints, trackIds: verticalCurveTrackIds, isEditing: isEditingVerticalCurve } = useSnapshot(verticalCurveEditState, { sync: true });
   const switches = useSnapshot(store.data.switches);
   const { isPlacing: isSwitchPlacing } = useSnapshot(switchPlacementState);
+  const { nearTrackIds, initialized } = useSnapshot(tracksVisibilityState);
+  const isTrackModelVisible = !initialized || nearTrackIds[trackId] === true;
 
   track = { ...track };
   if (editingTrackId) {
@@ -597,7 +638,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
   }
 
   return <>
-    {points.map((_, pointIndex) => {
+    {isTrackModelVisible && points.map((_, pointIndex) => {
       if (pointIndex === 0) return null;
 
       return <Fragment key={pointIndex}>
@@ -626,7 +667,7 @@ function TracksOnTrackMode({ track, trackId }: { track: Track, trackId: string }
         })}
       </Fragment>;
     })}
-    {trackModels.map((trackModel, modelIndex) => {
+    {isTrackModelVisible && trackModels.map((trackModel, modelIndex) => {
       // 非連続設置の3Dモデル
       if (trackModel.start === trackModel.end)
         return <TrackModel

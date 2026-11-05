@@ -6,7 +6,7 @@ import {
   applyTransitionCurveToSerializableTrack, connectTwoTracks, createTransitionCurve,
   getPosition, getTransitionCurveData,
 } from "../lib/tracks";
-import type { SerializableTrack, Track, TrackModel, TransitionCurve } from "../lib/tracks";
+import type { SerializableTrack, SerializableTransitionCurve, Track, TrackModel, TransitionCurve } from "../lib/tracks";
 import { getRelativePosition } from "../lib/gis";
 
 export type LineAlignmentOptions = {
@@ -22,6 +22,8 @@ export type LineAlignmentOptions = {
   minCurveLength?: number;
   /** これより短い円曲線は直線として扱う（m） */
   minCurveArcLength?: number;
+  /** 1つの曲線区間で許容する最大の向き変化（rad） */
+  maxCurveDeflection?: number;
   resampleInterval?: number;
   closed?: boolean;
 };
@@ -263,6 +265,35 @@ function detectCurveIntervals(
     const deflection = Math.abs(kinematics.headings[interval.end] - kinematics.headings[interval.start]);
     return 0.5 * PI / 180 < deflection;
   });
+}
+
+function splitLongCurveIntervals(
+  intervals: CurveInterval[],
+  kinematics: Kinematics,
+  maxDeflection: number,
+): CurveInterval[] {
+  const result: CurveInterval[] = [];
+
+  intervals.forEach(interval => {
+    let start = interval.start;
+
+    while (start < interval.end) {
+      let end = start;
+
+      while (
+        end < interval.end
+        && Math.abs(kinematics.headings[end + 1] - kinematics.headings[start]) <= maxDeflection
+      ) {
+        end++;
+      }
+
+      if (end === start) end = Math.min(interval.end, start + 1);
+      result.push({ start, end, sign: interval.sign });
+      start = end;
+    }
+  });
+
+  return result;
 }
 
 function rotateClosedPolyline(points: Vec2[], kinematics: Kinematics, intervals: CurveInterval[]): Vec2[] {
@@ -824,13 +855,13 @@ function fitLines(points: Vec2[], kinematics: Kinematics, intervals: CurveInterv
       return;
     }
 
-    const start = span[0] ?? points[0];
-    const end = span[span.length - 1] ?? start;
+    const spanStart = index === 0 ? 0 : intervals[index - 1].end;
+    const spanEnd = index === intervals.length ? points.length - 1 : intervals[index].start;
+    const midpointIndex = Math.max(0, Math.min(points.length - 1, Math.round((spanStart + spanEnd) / 2)));
+    const start = points[spanStart] ?? points[midpointIndex];
+    const end = points[spanEnd] ?? start;
     const midpoint = lerp(start, end, 0.5);
-    const heading = kinematics.headings[
-      index === 0 ? 0 : index === spans.length - 1 ? points.length - 1 : Math.floor((points.length - 1) / 2)
-    ];
-    lines.push(lineFromHeading(midpoint, heading));
+    lines.push(lineFromHeading(midpoint, kinematics.headings[midpointIndex]));
   });
 
   return lines;
@@ -1196,101 +1227,142 @@ function applyTangentLimits(
   }
 }
 
-export function createAlignmentFromLineString(
-  coordinates: Position[],
+function integrateCurvatureProfile(
+  trackLength: number,
+  transitionLength: number,
+  curvature: number,
+  step = 5,
+) {
+  const count = Math.max(2, Math.ceil(trackLength / step));
+  const segmentLength = trackLength / count;
+  const position = new THREE.Vector3();
+  let rotationY = 0;
+  const transitionCurves: {
+    position: [number, number, number];
+    rotationY: number;
+    curvature: number;
+  }[] = [];
+
+  for (let index = 0; index < count; index++) {
+    const length = (index + 0.5) * segmentLength;
+    let segmentCurvature: number;
+
+    if (length <= transitionLength)
+      segmentCurvature = curvature * length / transitionLength;
+    else if (trackLength - transitionLength <= length)
+      segmentCurvature = curvature * (trackLength - length) / transitionLength;
+    else
+      segmentCurvature = curvature;
+
+    transitionCurves.push({
+      position: [position.x, position.y, position.z],
+      rotationY,
+      curvature: segmentCurvature,
+    });
+
+    if (Math.abs(segmentCurvature) < 1e-9) {
+      position.add(
+        new THREE.Vector3(1, 0, 0)
+          .applyEuler(new THREE.Euler(0, rotationY))
+          .multiplyScalar(segmentLength),
+      );
+    } else {
+      const radius = 1 / segmentCurvature;
+      position.add(
+        new THREE.Vector3(0, 0, radius)
+          .applyEuler(new THREE.Euler(0, rotationY))
+          .add(new THREE.Vector3(0, 0, -radius)
+            .applyEuler(new THREE.Euler(0, segmentLength / -radius + rotationY))),
+      );
+      rotationY += segmentLength / -radius;
+    }
+  }
+
+  return {
+    transitionCurves,
+    endPosition: position,
+    endRotationY: rotationY,
+  };
+}
+
+function createCurveTrackFromInterval(
+  points: Vec2[],
+  kinematics: Kinematics,
+  interval: CurveInterval,
   options: LineAlignmentOptions,
-): LineAlignmentResult {
-  const interval = options.resampleInterval ?? 2;
-  const maxCurveRadius = options.maxCurveRadius ?? 2500;
-  const minCurveRadius = options.minCurveRadius ?? 40;
-  const minCurveLength = options.minCurveLength ?? 25;
-  const closed = options.closed ?? false;
+) {
+  const startPoint = points[interval.start];
+  const startHeading = kinematics.headings[interval.start];
+  const trackLength = kinematics.distances[interval.end] - kinematics.distances[interval.start];
 
-  const projected = projectPolyline(coordinates, options.originCoordinate);
-  let points = resamplePolyline(projected, interval);
-  if (points.length < 2) return { tracks: {}, trackIds: [], curveCount: 0 };
+  if (trackLength <= 0.01) return null;
 
-  let kinematics = computeKinematics(points, interval);
-  let intervals = detectCurveIntervals(kinematics, {
-    resampleInterval: interval,
-    maxCurveRadius,
-    minCurveLength,
-  });
+  const cos = Math.cos(startHeading);
+  const sin = Math.sin(startHeading);
+  const transitionCurves = [];
 
-  if (closed && 2 < points.length) {
-    points = rotateClosedPolyline(points, kinematics, intervals);
-    kinematics = computeKinematics(points, interval);
-    intervals = detectCurveIntervals(kinematics, {
-      resampleInterval: interval,
-      maxCurveRadius,
-      minCurveLength,
+  for (let index = interval.start; index < interval.end; index++) {
+    const dx = points[index].x - startPoint.x;
+    const dz = points[index].z - startPoint.z;
+    const localX = dx * cos - dz * sin;
+    const localZ = dx * sin + dz * cos;
+    const nextIndex = index + 1;
+    const segmentLength = kinematics.distances[nextIndex] - kinematics.distances[index];
+
+    transitionCurves.push({
+      position: [localX, 0, localZ] as [number, number, number],
+      rotationY: kinematics.headings[index] - startHeading,
+      curvature: 0 < segmentLength
+        ? (kinematics.headings[nextIndex] - kinematics.headings[index]) / segmentLength
+        : kinematics.curvatures[index],
     });
   }
 
-    intervals = removeUnusableIntervals(points, kinematics, intervals, closed);
-
-  const minCurveArcLength = options.minCurveArcLength ?? 20;
-  const startPoint = points[0];
-  const endPoint = closed ? startPoint : points[points.length - 1];
-  const planOptions = {
-    designSpeedKmh: options.designSpeedKmh,
-    gaugeMm: options.gaugeMm,
-    minCurveRadius,
-    closed,
+  const endDx = points[interval.end].x - startPoint.x;
+  const endDz = points[interval.end].z - startPoint.z;
+  const endPosition: [number, number, number] = [
+    endDx * cos - endDz * sin,
+    0,
+    endDx * sin + endDz * cos,
+  ];
+  const endRotationY = kinematics.headings[interval.end] - startHeading;
+  const last = transitionCurves[transitionCurves.length - 1];
+  const track: SerializableTransitionCurve = {
+    position: [startPoint.x, 0, startPoint.z],
+    rotationY: startHeading,
+    length: trackLength,
+    radius: 0,
+    gradients: { 0: 0 },
+    idOfTrackOrSwitchConnectedFromStart: "",
+    idOfTrackOrSwitchConnectedFromEnd: "",
+    connectedFromStartIsTrack: true,
+    connectedFromEndIsTrack: true,
+    connectedFromStartIsToEnd: false,
+    connectedFromEndIsToEnd: false,
+    beginCant: 0,
+    endCant: 0,
+    trackModels: options.trackModels,
+    beginCurvature: transitionCurves[0]?.curvature ?? 0,
+    endCurvature: last?.curvature ?? 0,
+    endPosition,
+    endRotationY,
+    transitionCurves,
+    curveDirection: true,
   };
 
-  let built = buildPlansForIntervals(
-    points,
-    kinematics,
-    intervals,
-    closed,
-    minCurveArcLength,
-    planOptions,
-  );
-  let lines = built.lines;
-  let finalPlans = built.plans;
+  return {
+    track,
+    endPoint: points[interval.end],
+    endHeading: kinematics.headings[interval.end],
+  };
+}
 
-  for (let attempt = 0; attempt < intervals.length + 4; attempt++) {
-    if (closed && lines.length) lines[lines.length - 1] = lines[0];
-
-    applyTangentLimits(finalPlans, lines, startPoint, endPoint, closed, planOptions);
-
-    const lineDistances = computeLineDistances(finalPlans, lines, startPoint, endPoint, closed);
-    let removeIndex = -1;
-
-    for (let index = 1; index < finalPlans.length; index++) {
-      const available = lineDistances[index];
-      const total = finalPlans[index - 1].tangentLength + finalPlans[index].tangentLength;
-
-      if (available < 2 || total > available + 1) {
-        const leftArc = Math.abs(finalPlans[index - 1].deflection) * finalPlans[index - 1].fittedRadius;
-        const rightArc = Math.abs(finalPlans[index].deflection) * finalPlans[index].fittedRadius;
-        removeIndex = leftArc <= rightArc ? index - 1 : index;
-        break;
-      }
-    }
-
-    if (removeIndex === -1) break;
-
-    intervals.splice(removeIndex, 1);
-    if (!intervals.length) {
-      finalPlans = [];
-      lines = [];
-      break;
-    }
-
-    built = buildPlansForIntervals(
-      points,
-      kinematics,
-      intervals,
-      closed,
-      minCurveArcLength,
-      planOptions,
-    );
-    lines = built.lines;
-    finalPlans = built.plans;
-  }
-
+function createAlignmentTracksV2(
+  points: Vec2[],
+  kinematics: Kinematics,
+  intervals: CurveInterval[],
+  options: LineAlignmentOptions,
+): LineAlignmentResult {
   const tracks: { [trackId: string]: SerializableTrack } = {};
   const trackIds: string[] = [];
   let previousId = "";
@@ -1304,73 +1376,44 @@ export function createAlignmentFromLineString(
     previousId = trackId;
   };
 
-  const startProjection = projectPointOntoLine(startPoint, lines[0]);
+  let currentPoint = points[0];
+  let currentHeading = kinematics.headings[0];
 
-  if (finalPlans.length === 0) {
-    const direction = normalize(sub(endPoint, startPoint));
-    const trackLength = distance(startPoint, endPoint);
-    if (trackLength > 0.01)
-      addTrack(createStraightTrack(startPoint, direction, trackLength, options.trackModels));
-  } else {
-    const firstStraightLength = dot(sub(finalPlans[0].ts, startProjection), lines[0].dir);
-    if (firstStraightLength > 0.01)
-      addTrack(createStraightTrack(startProjection, lines[0].dir, firstStraightLength, options.trackModels));
+  for (let index = 0; index <= intervals.length; index++) {
+    const spanStart = index === 0 ? 0 : intervals[index - 1].end;
+    const spanEnd = index === intervals.length ? points.length - 1 : intervals[index].start;
 
-    let lastTransitionEnd = { position: finalPlans[0].st, heading: 0 };
+    if (spanStart < spanEnd) {
+      const target = points[spanEnd];
+      const difference = sub(target, currentPoint);
+      const trackLength = length(difference);
 
-    finalPlans.forEach((plan, index) => {
-      const transition1 = createTransitionToCurve(
-        plan.ts,
-        directionToHeading(plan.lineIn.dir),
-        plan.transitionLength,
-        plan.radius,
-        plan.isRight,
-        options.trackModels,
-      );
-      addTrack(transition1);
-
-      const transitionEnd = getTrackEnd(transition1);
-      const circularAngle = Math.abs(plan.deflection) - plan.transitionLength / plan.radius;
-      const circularLength = plan.radius * circularAngle;
-      const circularRadius = plan.isRight ? plan.radius : -plan.radius;
-      const circular = createCircularTrack(
-        transitionEnd.position,
-        transitionEnd.heading,
-        Math.max(0.01, circularLength),
-        circularRadius,
-        options.trackModels,
-      );
-      addTrack(circular);
-
-      const circularEnd = getTrackEnd(circular);
-      const transition2 = createCurveToTransition(
-        circularEnd.position,
-        circularEnd.heading,
-        plan.transitionLength,
-        plan.radius,
-        plan.isRight,
-        options.trackModels,
-      );
-      addTrack(transition2);
-
-      const transition2End = getTrackEnd(transition2);
-      lastTransitionEnd = transition2End;
-
-      if (index < finalPlans.length - 1) {
-        const next = finalPlans[index + 1];
-        const straightLength = dot(sub(next.ts, transition2End.position), lines[index + 1].dir);
-        if (straightLength > 0.01)
-          addTrack(createStraightTrack(transition2End.position, lines[index + 1].dir, straightLength, options.trackModels));
+      if (0.01 < trackLength) {
+        const direction = normalize(difference);
+        addTrack(createStraightTrack(currentPoint, direction, trackLength, options.trackModels));
+        currentPoint = target;
+        currentHeading = directionToHeading(direction);
       }
-    });
+    }
 
-    const endProjection = closed ? startProjection : projectPointOntoLine(endPoint, lines[lines.length - 1]);
-    const lastStraightLength = dot(sub(endProjection, lastTransitionEnd.position), lines[lines.length - 1].dir);
-    if (lastStraightLength > 0.01)
-      addTrack(createStraightTrack(lastTransitionEnd.position, lines[lines.length - 1].dir, lastStraightLength, options.trackModels));
+    if (index === intervals.length) break;
+
+    const curve = createCurveTrackFromInterval(
+      points,
+      kinematics,
+      intervals[index],
+      options,
+    );
+
+    if (!curve) continue;
+
+    addTrack(curve.track);
+    const curveEnd = getTrackEnd(curve.track);
+    currentPoint = curveEnd.position;
+    currentHeading = curveEnd.heading;
   }
 
-  if (closed && 1 < trackIds.length)
+  if (options.closed && 1 < trackIds.length)
     connectTwoTracks(tracks[trackIds[trackIds.length - 1]], trackIds[trackIds.length - 1], true, tracks[trackIds[0]], trackIds[0], false);
 
   const roundedTracks = Object.fromEntries(
@@ -1380,7 +1423,55 @@ export function createAlignmentFromLineString(
   return {
     tracks: roundedTracks,
     trackIds,
-    curveCount: finalPlans.length,
+    curveCount: intervals.length,
   };
 }
 
+export function createAlignmentFromLineString(
+  coordinates: Position[],
+  options: LineAlignmentOptions,
+): LineAlignmentResult {
+  const interval = options.resampleInterval ?? 2;
+  const maxCurveRadius = options.maxCurveRadius ?? 2500;
+  const minCurveRadius = options.minCurveRadius ?? 40;
+  const minCurveLength = options.minCurveLength ?? 25;
+  const maxCurveDeflection = options.maxCurveDeflection ?? 1.0;
+  const closed = options.closed ?? false;
+
+  const projected = projectPolyline(coordinates, options.originCoordinate);
+  let points = resamplePolyline(projected, interval);
+  if (points.length < 2) return { tracks: {}, trackIds: [], curveCount: 0 };
+
+  let kinematics = computeKinematics(points, interval);
+  let intervals = splitLongCurveIntervals(
+    detectCurveIntervals(kinematics, {
+      resampleInterval: interval,
+      maxCurveRadius,
+      minCurveLength,
+    }),
+    kinematics,
+    maxCurveDeflection,
+  );
+
+  if (closed && 2 < points.length) {
+    points = rotateClosedPolyline(points, kinematics, intervals);
+    kinematics = computeKinematics(points, interval);
+    intervals = splitLongCurveIntervals(
+      detectCurveIntervals(kinematics, {
+        resampleInterval: interval,
+        maxCurveRadius,
+        minCurveLength,
+      }),
+      kinematics,
+      maxCurveDeflection,
+    );
+  }
+
+    intervals = intervals.filter(interval => {
+    const trackLength = kinematics.distances[interval.end] - kinematics.distances[interval.start];
+    const deflection = Math.abs(kinematics.headings[interval.end] - kinematics.headings[interval.start]);
+    return minCurveLength <= trackLength && 0.5 * PI / 180 < deflection;
+  });
+
+  return createAlignmentTracksV2(points, kinematics, intervals, options);
+}

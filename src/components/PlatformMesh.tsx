@@ -5,6 +5,7 @@ import { useSnapshot } from 'valtio';
 import { store } from '@/lib/game';
 import { Platform, createPlatformMesh, getPlatformBoundaryPoints } from '@/lib/platforms';
 import { platformsState } from '@/lib/client/platforms';
+import { sceneVisibilityState } from '@/lib/client/sceneVisibility';
 
 function PlatformMesh({ platformId }: { platformId: string }) {
   const { platforms } = useSnapshot(store.data);
@@ -63,6 +64,9 @@ function PlatformBoundaryLine({ platformId }: { platformId: string }) {
 
 export default function Platforms() {
   const { platforms } = useSnapshot(store.data);
+  const { showPlatforms } = useSnapshot(sceneVisibilityState);
+
+  if (!showPlatforms) return null;
 
   return (
     <group>

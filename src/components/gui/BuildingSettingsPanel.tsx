@@ -7,7 +7,7 @@ import ApartmentIcon from '@mui/icons-material/Apartment'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import { useSnapshot } from 'valtio'
 import { buildingGenerationSettings } from '@/lib/client/buildings'
-import { featureCollectionViewState } from '@/lib/client/featureCollections'
+import { sceneVisibilityState } from '@/lib/client/sceneVisibility'
 import { buildingFloorHeight } from '@/lib/buildings'
 import { featureCollectionsTabPanelState } from './FeatureCollectionsTabPanel'
 
@@ -90,7 +90,7 @@ function NumberSettingField({
 }
 
 export default function BuildingSettingsPanel() {
-  const { showBuildings } = useSnapshot(featureCollectionViewState);
+  const { showBuildings } = useSnapshot(sceneVisibilityState);
   const {
     followTerrain, foundationDepth, floorHeight, seed, variation,
   } = useSnapshot(buildingGenerationSettings);
@@ -123,7 +123,7 @@ export default function BuildingSettingsPanel() {
 
       <FormControlLabel
         control={<Switch checked={showBuildings} onChange={event => {
-          featureCollectionViewState.showBuildings = event.target.checked;
+          sceneVisibilityState.showBuildings = event.target.checked;
         }} />}
         label="建物を表示する"
       />

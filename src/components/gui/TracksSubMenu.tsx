@@ -23,6 +23,7 @@ import { offsetTrackRoute, VEHICLE_OFFSET_CONSTANT } from '@/lib/tracks';
 import { getTerrainHeightAt } from '@/lib/terrain';
 import { v4 as uuidv4 } from 'uuid';
 import ModelPathAutocomplete from './ModelPathAutocomplete';
+import SceneVisibilityControls from './SceneVisibilityControls';
 
 export const tracksSubMenuState = proxy<{
   isAddingCurve: boolean;
@@ -516,6 +517,7 @@ function MainMenu() {
             }}
           />
         )}
+        <SceneVisibilityControls title="他の項目の表示" />
       </Stack>
     </Paper>
   </Stack>;

@@ -11,8 +11,6 @@ export const featureCollectionViewState = proxy<{
   showPoints: boolean;
   showPolygons: boolean;
   showOthers: boolean;
-  /** OSM の建物 Polygons から生成した 3D 建物を表示する。 */
-  showBuildings: boolean;
   /** 点のラベル表示方法。auto は点数が少ないときだけ表示する。 */
   pointLabelMode: 'auto' | 'all' | 'hover';
   /** OSM 取り込み画面でダウンロードしたデータ。Feature collection に追加するまで表示する。 */
@@ -23,7 +21,6 @@ export const featureCollectionViewState = proxy<{
   showPoints: true,
   showPolygons: false,
   showOthers: true,
-  showBuildings: true,
   pointLabelMode: 'auto',
   preview: null,
   isPreviewVisible: false,

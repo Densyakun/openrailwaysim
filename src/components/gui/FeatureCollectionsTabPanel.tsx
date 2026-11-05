@@ -30,6 +30,7 @@ import { OsmBBox } from '@/lib/osm';
 import OsmImportPanel from './OsmImportPanel';
 import BuildingSettingsPanel from './BuildingSettingsPanel';
 import FeatureCollectionFilterControls from './FeatureCollectionFilterControls';
+import SceneVisibilityControls from './SceneVisibilityControls';
 
 export type CurveSegmentRange = {
   startIndex: number;
@@ -362,6 +363,7 @@ function MainMenu() {
         {Object.keys(count).map(key => <div key={key}> {key}: {count[key]}</div>)}
       </Stack>
       <FeatureCollectionFilterControls />
+      <SceneVisibilityControls showTrackModels title="他の項目の表示" />
       <Button variant='contained' startIcon={<DeselectIcon />} disabled={!gisState.selectedFeatures.length} onClick={() => {
         gisState.selectedFeatures.splice(0, gisState.selectedFeatures.length);
       }}>

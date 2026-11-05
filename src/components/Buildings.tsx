@@ -3,10 +3,9 @@ import { useEffect, useMemo } from 'react'
 import { Position } from 'geojson'
 import { useSnapshot } from 'valtio'
 import { store } from '@/lib/game'
-import { featureCollectionViewState } from '@/lib/client/featureCollections'
 import { buildingGenerationSettings } from '@/lib/client/buildings'
 import { BuildingSourceEntry, buildBuildingGeometryData } from '@/lib/buildings'
-import { useVisibleFeatureCollectionEntries } from './useVisibleFeatureCollectionEntries'
+import { sceneVisibilityState } from '@/lib/client/sceneVisibility'
 import { getBuildingMaterials } from './buildingTextures'
 
 function createGeometry(
@@ -87,8 +86,16 @@ export function BuildingMeshes({ entries }: { entries: BuildingSourceEntry[] }) 
  * 表示中の Feature collection に含まれる建物を 3D 表示する。
  */
 export default function Buildings() {
-  const { showBuildings } = useSnapshot(featureCollectionViewState);
-  const entries = useVisibleFeatureCollectionEntries();
+  const { showBuildings } = useSnapshot(sceneVisibilityState);
+  const featureCollections = useSnapshot(store.data.featureCollections);
+
+  const entries = useMemo<BuildingSourceEntry[]>(
+    () => Object.keys(featureCollections).map(id => ({
+      id,
+      value: featureCollections[id].value as BuildingSourceEntry["value"],
+    })),
+    [featureCollections],
+  );
 
   if (!showBuildings) return null;
 

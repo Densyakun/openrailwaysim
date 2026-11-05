@@ -9,7 +9,6 @@ beforeEach(() => {
   featureCollectionViewState.showPoints = true
   featureCollectionViewState.showPolygons = false
   featureCollectionViewState.showOthers = true
-  featureCollectionViewState.showBuildings = true
   featureCollectionViewState.pointLabelMode = 'auto'
   setFeatureCollectionPreview(null)
 })

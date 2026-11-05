@@ -9,6 +9,7 @@ import { terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"
 import { MeshDiscardMaterial, Plane } from "@react-three/drei"
 import { store } from "@/lib/game"
+import { sceneVisibilityState } from "@/lib/client/sceneVisibility"
 
 function TerrainTile({
   tileX,
@@ -250,8 +251,9 @@ function TerrainTile({
 export default function Terrains() {
   const { terrains } = useSnapshot(store.data);
   const { isVisible } = useSnapshot(terrainsState);
+  const { showTerrains } = useSnapshot(sceneVisibilityState);
 
-  if (!isVisible) return null;
+  if (!isVisible || !showTerrains) return null;
 
   return <>
     {Object.keys(terrains).map(tileY_ =>

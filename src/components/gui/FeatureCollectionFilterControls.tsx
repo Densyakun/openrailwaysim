@@ -10,7 +10,7 @@ import { featureCollectionViewState } from '@/lib/client/featureCollections'
  */
 export default function FeatureCollectionFilterControls() {
   const {
-    showLineStrings, showPoints, showPolygons, showOthers, showBuildings, pointLabelMode,
+    showLineStrings, showPoints, showPolygons, showOthers, pointLabelMode,
   } = useSnapshot(featureCollectionViewState);
 
   return <Stack spacing={0.5}>
@@ -33,12 +33,6 @@ export default function FeatureCollectionFilterControls() {
           featureCollectionViewState.showPolygons = event.target.checked;
         }} />}
         label={<Typography variant="body2">面</Typography>}
-      />
-      <FormControlLabel
-        control={<Checkbox size="small" checked={showBuildings} onChange={event => {
-          featureCollectionViewState.showBuildings = event.target.checked;
-        }} />}
-        label={<Typography variant="body2">建物</Typography>}
       />
       <FormControlLabel
         control={<Checkbox size="small" checked={showOthers} onChange={event => {

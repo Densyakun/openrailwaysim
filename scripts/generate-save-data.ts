@@ -349,7 +349,7 @@ function polylineLength(points: Position[]) {
   return total;
 }
 
-function pickRelation(osm: OsmResponse, line: LineDefinition) {
+function pickRelations(osm: OsmResponse, line: LineDefinition) {
   const nameRegex = new RegExp(line.osm.nameRegex);
   const routeRegex = new RegExp(line.osm.routeRegex);
 
@@ -366,7 +366,12 @@ function pickRelation(osm: OsmResponse, line: LineDefinition) {
       points: (relation.members ?? []).reduce((total, member) =>
         total + (member.type === "way" && member.geometry ? member.geometry.length : 0), 0),
     }))
-    .sort((a, b) => b.points - a.points)[0]?.relation;
+    .sort((a, b) => b.points - a.points)
+    .map(value => value.relation);
+}
+
+function pickRelation(osm: OsmResponse, line: LineDefinition) {
+  return pickRelations(osm, line)[0];
 }
 
 function assembleRelationLineString(relation: OsmElement): { coordinates: Position[]; closed: boolean } {
@@ -520,11 +525,12 @@ function createPlatforms(
   line: LineDefinition,
   projections: StationProjection[],
   tracks: { [trackId: string]: SerializableTrack },
+  platformPrefix = `platform-${line.id}`,
 ) {
   const platforms: Record<string, unknown> = {};
 
   projections.forEach(({ station, trackId, length }) => {
-    const platformId = `platform-${line.id}-${station.id}`;
+    const platformId = `${platformPrefix}-${station.id}`;
     if (platforms[platformId]) return;
 
     const track = deserialize(trackTypeId, tracks[trackId]) as Track;
@@ -791,6 +797,46 @@ async function loadTerrainAround(center: [lon: number, lat: number], radius = 1)
   return terrains;
 }
 
+async function loadTerrainAlongCoordinates(coordinates: Position[], interval = 100) {
+  const terrains: { [tileY: string]: { [tileX: string]: unknown } } = {};
+  const tiles = new Map<string, { x: number; y: number }>();
+  let accumulatedDistance = 0;
+
+  for (let index = 0; index < coordinates.length; index++) {
+    if (index === 0 || interval <= accumulatedDistance || index === coordinates.length - 1) {
+      const [px, py] = merc.px(coordinates[index] as [number, number], terrainZoom) as [number, number];
+      const x = Math.floor(px / 256);
+      const y = Math.floor(py / 256);
+      tiles.set(`${x}_${y}`, { x, y });
+      accumulatedDistance = 0;
+    }
+
+    if (0 < index)
+      accumulatedDistance += coordinateDistanceMeters(coordinates[index - 1], coordinates[index]);
+  }
+
+  for (const { x, y } of tiles.values()) {
+    const cacheFile = path.join(terrainCacheDirectory, `${x}_${y}.json`);
+    let heightmap: unknown;
+
+    if (!refreshOsm && existsSync(cacheFile)) {
+      heightmap = JSON.parse(readFileSync(cacheFile, "utf8"));
+    } else {
+      heightmap = await fetchHeightmap(x, y);
+      if (heightmap) {
+        mkdirSync(terrainCacheDirectory, { recursive: true });
+        writeFileSync(cacheFile, JSON.stringify(heightmap), "utf8");
+      }
+    }
+
+    if (!heightmap) continue;
+    if (!terrains[y]) terrains[y] = {};
+    terrains[y][x] = heightmap;
+  }
+
+  return terrains;
+}
+
 function sampleCoordinates(coordinates: Position[], interval: number) {
   if (coordinates.length < 2) return [...coordinates];
 
@@ -837,6 +883,20 @@ function isFeatureNear(feature: Feature, samples: Position[], maxDistance: numbe
   );
 }
 
+async function loadBuildingsAlongLine(coordinates: Position[]) {
+  const samples = sampleCoordinates(coordinates, 1000);
+  const clauses = samples
+    .map(coordinate => `way["building"](around:600,${coordinate[1]},${coordinate[0]});`)
+    .join("\n");
+  const query = `[out:json][timeout:300];
+(
+${clauses}
+);
+out geom;`;
+
+  return loadCachedOsm("yamanote-line-buildings", query);
+}
+
 async function createYamanoteSurroundings(yamanoteCoordinates: Position[]) {
   const railwayResponses: OsmResponse[] = [];
 
@@ -872,6 +932,12 @@ out geom;`;
     }
   }
 
+  try {
+    buildingResponses.push(await loadBuildingsAlongLine(yamanoteCoordinates));
+  } catch (error) {
+    console.warn(`[yamanote] 沿線の建物を取得できませんでした: ${error}`);
+  }
+
   const yamanoteSamples = sampleCoordinates(yamanoteCoordinates, 100);
   const stationFeatures = mergeOsmFeatures(railwayResponses, "station")
     .filter(feature => isFeatureNear(feature, yamanoteSamples, 500));
@@ -894,7 +960,7 @@ out geom;`;
     });
 
   const buildingFeatures = mergeOsmFeatures(buildingResponses, "building")
-    .filter(feature => isFeatureNear(feature, yamanoteSamples, 250));
+    .filter(feature => isFeatureNear(feature, yamanoteSamples, 60));
 
   const featureCollections: { [key: string]: { value: FeatureCollection } } = {};
 
@@ -915,7 +981,7 @@ out geom;`;
 
   let terrains = {};
   try {
-    terrains = await loadTerrainAround(surroundingAreas[2].center, 1);
+    terrains = await loadTerrainAlongCoordinates(yamanoteCoordinates);
   } catch (error) {
     console.warn(`[yamanote] 地形を取得できませんでした: ${error}`);
   }
@@ -995,40 +1061,96 @@ async function main() {
     console.log(`[${line.id}] OSM データを読み込んでいます...`);
 
     const osm = await loadOsmLine(line);
-    const relation = pickRelation(osm, line);
-    if (!relation)
+    const relations = pickRelations(osm, line);
+    if (!relations.length)
       throw new Error(`[${line.id}] OSM の路線リレーションが見つかりません`);
 
-    const { coordinates: osmCoordinates, closed: osmClosed } = assembleRelationLineString(relation);
-    const originCoordinate = osmCoordinates[0];
+    const isYamanote = line.id === "yamanote";
+    const relationPairs: { relation: OsmElement; idPrefix: string; label: string }[] = [];
 
-    console.log(`[${line.id}] 線形を作成しています... (${(polylineLength(osmCoordinates) / 1000).toFixed(2)} km)`);
+    if (isYamanote) {
+      const outer = relations.find(relation =>
+        /外回り|Outer/i.test(`${relation.tags?.["name:ja"] ?? ""} ${relation.tags?.["name:en"] ?? ""}`)
+      ) ?? relations[0];
+      const inner = relations.find(relation =>
+        relation !== outer
+        && /内回り|Inner/i.test(`${relation.tags?.["name:ja"] ?? ""} ${relation.tags?.["name:en"] ?? ""}`)
+      ) ?? relations.find(relation => relation !== outer);
 
-    const alignment = createAlignmentFromLineString(osmCoordinates, {
-      originCoordinate,
-      designSpeedKmh: line.designSpeedKmh,
-      gaugeMm: line.gauge,
-      trackModels: createTrackModel(line.gauge),
-      idPrefix: line.id,
-      maxCurveRadius: line.maxCurveRadius,
-      minCurveRadius: line.minCurveRadius,
-      minCurveLength: line.minCurveLength,
-      minCurveArcLength: line.minCurveArcLength,
-      closed: line.loop ?? osmClosed,
-    });
+      if (outer)
+        relationPairs.push({ relation: outer, idPrefix: "yamanote-outer", label: "外回り" });
+      if (inner)
+        relationPairs.push({ relation: inner, idPrefix: "yamanote-inner", label: "内回り" });
+    } else {
+      relationPairs.push({ relation: relations[0], idPrefix: line.id, label: "" });
+    }
 
-    const { tracks, trackIds } = alignment;
+    const assembledLines = relationPairs.map(pair => ({
+      ...pair,
+      ...assembleRelationLineString(pair.relation),
+    }));
+
+    const originCoordinate = assembledLines[0].coordinates[0];
+
+    console.log(`[${line.id}] 線形を作成しています... (${(polylineLength(assembledLines[0].coordinates) / 1000).toFixed(2)} km)`);
+
+    const alignments = assembledLines.map(assembledLine => ({
+      ...assembledLine,
+      alignment: createAlignmentFromLineString(assembledLine.coordinates, {
+        originCoordinate,
+        designSpeedKmh: line.designSpeedKmh,
+        gaugeMm: line.gauge,
+        trackModels: createTrackModel(line.gauge),
+        idPrefix: assembledLine.idPrefix,
+        maxCurveRadius: line.maxCurveRadius,
+        minCurveRadius: line.minCurveRadius,
+        minCurveLength: line.minCurveLength,
+        minCurveArcLength: line.minCurveArcLength,
+        closed: line.loop ?? assembledLine.closed,
+      }),
+    }));
+
+    const tracks = Object.assign({}, ...alignments.map(assembledLine => assembledLine.alignment.tracks));
+    const trackIds = alignments[0].alignment.trackIds;
+
     if (!trackIds.length)
       throw new Error(`[${line.id}] 軌道を作成できませんでした`);
 
     const stationProjections = line.stations.map(station =>
       projectStationToTracks(station, originCoordinate, trackIds, tracks)
     );
-    const platforms = createPlatforms(
-      line,
-      stationProjections.filter((projection): projection is StationProjection => projection !== undefined),
-      tracks,
-    );
+
+    const platforms: Record<string, unknown> = {};
+    alignments.forEach((assembledLine, index) => {
+      const projections = line.stations.map(station =>
+        projectStationToTracks(
+          station,
+          originCoordinate,
+          assembledLine.alignment.trackIds,
+          assembledLine.alignment.tracks,
+        )
+      );
+
+      Object.assign(platforms, createPlatforms(
+        line,
+        projections.filter((projection): projection is StationProjection => projection !== undefined),
+        assembledLine.alignment.tracks,
+        index === 0 ? `platform-${line.id}` : `platform-${line.id}-inner`,
+      ));
+    });
+
+    const lineFeatureCollections: { [key: string]: { value: FeatureCollection } } = {};
+    alignments.forEach((assembledLine, index) => {
+      const id = index === 0 ? `line-${line.id}` : `line-${line.id}-inner`;
+      const name = index === 0 ? line.name : `${line.name}（内回り）`;
+      lineFeatureCollections[id] = {
+        value: createFeatureCollection(
+          { ...line, id, name },
+          assembledLine.coordinates,
+          assembledLine.relation,
+        ),
+      };
+    });
 
     const trainFormats: { [id: string]: SerializableTrainFormat } = {};
     line.trainIds.forEach(trainId => {
@@ -1066,11 +1188,7 @@ async function main() {
       includes,
       originCoordinate,
       terrains: {},
-      featureCollections: {
-        [`line-${line.id}`]: {
-          value: createFeatureCollection(line, osmCoordinates, relation),
-        },
-      },
+      featureCollections: lineFeatureCollections,
       tracks,
       switches: {},
       trainFormats: {},
@@ -1091,7 +1209,7 @@ async function main() {
 
     if (line.id === "yamanote") {
       try {
-        const surroundings = await createYamanoteSurroundings(osmCoordinates);
+        const surroundings = await createYamanoteSurroundings(assembledLines[0].coordinates);
         Object.assign(saveData.featureCollections, surroundings.featureCollections);
         Object.assign(saveData.terrains, surroundings.terrains);
 
@@ -1107,7 +1225,8 @@ async function main() {
     }
 
     writeJson(path.join(savesDirectory, `${line.id}.json`), saveData, false);
-    console.log(`[${line.id}] 曲線 ${alignment.curveCount} 区間、軌道 ${trackIds.length} 本`);
+    const curveCount = alignments.reduce((total, assembledLine) => total + assembledLine.alignment.curveCount, 0);
+    console.log(`[${line.id}] 曲線 ${curveCount} 区間、軌道 ${Object.keys(tracks).length} 本`);
   }
 
   writeJson(path.join(savesDirectory, "shared-example.json"), {

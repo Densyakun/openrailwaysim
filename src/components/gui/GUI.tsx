@@ -11,7 +11,9 @@ import TrainIcon from '@mui/icons-material/Train';
 import PlatformIcon from '@mui/icons-material/Train';
 import { useSnapshot } from 'valtio';
 import TimeChip from '../TimeChip';
-import { Alert, Paper, Snackbar, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import { Alert, IconButton, Paper, Snackbar, Stack, ToggleButton, ToggleButtonGroup, Tooltip } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import ConnectionChip from '../ConnectionChip';
 import { clientState } from '@/lib/client/client';
 import Settings from './Settings';
@@ -40,6 +42,8 @@ const horizontalScrollSx = {
 } as const;
 
 function TopInfo() {
+  const { selectedTab, panelOpen } = useSnapshot(guiState);
+
   return <Box sx={{
     width: "100%",
     maxWidth: "100%",
@@ -56,6 +60,17 @@ function TopInfo() {
       <ConnectionChip />
       <TimeChip />
       <CameraPositionChip />
+      {selectedTab && (
+        <Tooltip title={panelOpen ? 'メニューを隠す' : 'メニューを表示'}>
+          <IconButton
+            size="small"
+            onClick={() => { guiState.panelOpen = !guiState.panelOpen; }}
+            sx={{ color: 'white', bgcolor: 'rgba(0,0,0,0.5)' }}
+          >
+            {panelOpen ? <KeyboardArrowUpIcon fontSize="small" /> : <KeyboardArrowDownIcon fontSize="small" />}
+          </IconButton>
+        </Tooltip>
+      )}
     </Stack>
   </Box>;
 }
@@ -177,7 +192,7 @@ export default function GUI() {
       <Box sx={{
         maxWidth: 'min(480px, 90vw)',
         width: 'fit-content',
-        maxHeight: '100%',
+        maxHeight: '70dvh',
         display: 'flex',
         flexDirection: 'column',
         '& > *': {
@@ -185,7 +200,7 @@ export default function GUI() {
           boxSizing: 'border-box',
         }
       }}>
-        {selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}
+        {guiState.panelOpen && selectedTab && menuComponents[selectedTab].component && menuComponents[selectedTab].component}
       </Box>
     </Stack>
     {(selectedTab !== "trains" || !activeTrainId) &&

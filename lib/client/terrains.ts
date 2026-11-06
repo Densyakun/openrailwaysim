@@ -13,3 +13,11 @@ export const terrainsState = proxy<{
   selectedTileY: -1,
   isVisible: true,
 });
+
+export const terrainLodState = proxy<{
+  cameraX: number;
+  cameraZ: number;
+}>({
+  cameraX: 0,
+  cameraZ: 0,
+});

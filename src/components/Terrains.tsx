@@ -1,18 +1,24 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import * as THREE from "three"
+import { useThree } from "@react-three/fiber"
 import { HeightmapType, merc, terrainZoom } from "@/lib/terrain"
 import FeatureObject from './FeatureObject'
 import SlopeBlendMaterial from './SlopeBlendMaterial'
 import distance from "@turf/distance"
 import { useSnapshot } from "valtio"
-import { terrainsState } from "@/lib/client/terrains"
+import { terrainLodState, terrainsState } from "@/lib/client/terrains"
 import { guiState } from "@/lib/client/gui"
 import { MeshDiscardMaterial, Plane } from "@react-three/drei"
 import { store } from "@/lib/game"
 import { useSceneVisibility } from "@/lib/client/sceneVisibility"
 import { getRelativePosition, getRotation } from "@/lib/gis"
-import { ConstructionTerrainBrush, createConstructionTerrainBrushes } from "@/lib/constructionTerrain"
+import {
+  ConstructionTerrainBrush,
+  createConstructionTerrainBrushes,
+  createTunnelTerrainBrushes,
+} from "@/lib/constructionTerrain"
 import { ConstructionZone } from "@/lib/construction"
+import { Tunnel } from "@/lib/tunnel"
 import { constructionState } from "@/lib/client/construction"
 import { Track, TransitionCurve } from "@/lib/tracks"
 import { buildTerrainGeometry } from "@/lib/terrainMesh"
@@ -46,6 +52,42 @@ function getTileBounds(tileX: number, tileY: number, originCoordinate: Position)
   return bounds
 }
 
+function getTerrainLodStep(distance: number, currentStep: number) {
+  const resolve = (margin: number) => {
+    if (distance < 1200 * margin) return 1;
+    if (distance < 2500 * margin) return 2;
+    if (distance < 5000 * margin) return 4;
+    return 8;
+  };
+
+  const next = resolve(1);
+  if (next === currentStep) return currentStep;
+  return next > currentStep
+    ? Math.min(next, resolve(1.15))
+    : Math.max(next, resolve(0.85));
+}
+
+function TerrainLodTracker() {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    const update = () => {
+      const x = camera.position.x;
+      const z = camera.position.z;
+      if (Math.abs(x - terrainLodState.cameraX) + Math.abs(z - terrainLodState.cameraZ) < 5) return;
+
+      terrainLodState.cameraX = x;
+      terrainLodState.cameraZ = z;
+    };
+
+    update();
+    const interval = setInterval(update, 750);
+    return () => clearInterval(interval);
+  }, [camera]);
+
+  return null;
+}
+
 function TerrainTile({
   tileX,
   tileY,
@@ -66,8 +108,11 @@ function TerrainTile({
   originCoordinate: Position;
 }) {
   const { hoveredTileX, hoveredTileY, selectedTileX, selectedTileY } = useSnapshot(terrainsState);
+  const { cameraX, cameraZ } = useSnapshot(terrainLodState);
   const { selectedTab } = useSnapshot(guiState);
   const { revision } = useSnapshot(terrainCsgRevisionState);
+  const { isEditingZone, isEditingTunnel } = useSnapshot(constructionState);
+  const isEditingConstruction = isEditingZone || isEditingTunnel;
 
   const isHovered = hoveredTileX === tileX && hoveredTileY === tileY;
   const isSelected = selectedTileX === tileX && selectedTileY === tileY;
@@ -79,12 +124,41 @@ function TerrainTile({
     { units: 'meters' }
   );
 
+  const tileCenter = useMemo(
+    () => getRelativePosition(
+      merc.ll([(tileX + 0.5) * 256, (tileY + 0.5) * 256], terrainZoom),
+      originCoordinate,
+    ),
+    [tileX, tileY, originCoordinate],
+  );
+
+  const lodStepRef = useRef(1);
+  const lodStep = getTerrainLodStep(
+    Math.hypot(tileCenter.x - cameraX, tileCenter.z - cameraZ),
+    lodStepRef.current,
+  );
+  lodStepRef.current = lodStep;
+
   const baseGeometry = useMemo(
-    () => buildTerrainGeometry(heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap),
-    [heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap],
+    () => buildTerrainGeometry(heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap, lodStep),
+    [heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap, lodStep],
   );
 
   const [csgGeometry, setCsgGeometry] = useState<THREE.BufferGeometry | null>(null);
+
+  const previousBaseGeometry = useRef<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    const previous = previousBaseGeometry.current;
+    previousBaseGeometry.current = baseGeometry;
+    if (previous && previous !== baseGeometry) previous.dispose();
+  }, [baseGeometry]);
+
+  const previousCsgGeometry = useRef<THREE.BufferGeometry | null>(null);
+  useEffect(() => {
+    const previous = previousCsgGeometry.current;
+    previousCsgGeometry.current = csgGeometry;
+    if (previous && previous !== csgGeometry) previous.dispose();
+  }, [csgGeometry]);
 
   useEffect(() => {
     if (revision === 0 || !brushes || brushes.length === 0) {
@@ -100,9 +174,13 @@ function TerrainTile({
       tileX,
       tileY,
       heightmap,
+      eastHeightmap,
+      southHeightmap,
+      southeastHeightmap,
       terrainSize,
+      step: lodStep,
       inverseMatrix,
-      brushIds: brushes.map(brush => brush.zoneId),
+      brushes: brushes.map(brush => ({ id: brush.zoneId, revision: brush.revision })),
     }).then(result => {
       if (cancelled || !result) return;
 
@@ -118,7 +196,19 @@ function TerrainTile({
     return () => {
       cancelled = true;
     };
-  }, [revision, brushes, heightmap, terrainSize, tileX, tileY, originCoordinate]);
+  }, [
+    revision,
+    brushes,
+    heightmap,
+    eastHeightmap,
+    southHeightmap,
+    southeastHeightmap,
+    terrainSize,
+    lodStep,
+    tileX,
+    tileY,
+    originCoordinate,
+  ]);
 
   const geometry = csgGeometry ?? baseGeometry;
 
@@ -145,7 +235,7 @@ function TerrainTile({
       <MeshDiscardMaterial />
     </mesh>
     {/** 複雑なメッシュではonPointer~イベントが重いので簡単なジオメトリに分ける */}
-    {selectedTab === "terrains" &&
+    {selectedTab === "terrains" && !isEditingConstruction &&
       <Plane
         args={[terrainSize, terrainSize, 1, 1]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -186,6 +276,7 @@ export default function Terrains() {
   const terrains = useSnapshot(store.data.terrains);
   const originCoordinate = useSnapshot(store.data.originCoordinate);
   const constructionZones = useSnapshot(store.data.constructionZones);
+  const tunnels = useSnapshot(store.data.tunnels);
   const tracks = useSnapshot(store.data.tracks);
   const { isVisible } = useSnapshot(terrainsState);
   const { selectedTab } = useSnapshot(guiState);
@@ -200,6 +291,7 @@ export default function Terrains() {
     terrains={terrains as never}
     originCoordinate={originCoordinate as Position}
     constructionZones={constructionZones as never}
+    tunnels={tunnels as never}
     tracks={tracks as never}
   />;
 }
@@ -208,39 +300,43 @@ function TerrainsContent({
   terrains,
   originCoordinate,
   constructionZones,
+  tunnels,
   tracks,
 }: {
   terrains: { [key: string]: { [key: string]: HeightmapType } };
   originCoordinate: Position;
   constructionZones: { [key: string]: ConstructionZone };
+  tunnels: { [key: string]: Tunnel };
   tracks: { [key: string]: Track | TransitionCurve };
 }) {
   const { isEditingZone, isEditingTunnel } = useSnapshot(constructionState);
   const isEditing = isEditingZone || isEditingTunnel;
   const stableBrushes = useRef<ConstructionTerrainBrush[]>([]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+    terrainsState.hoveredTileX = -1;
+    terrainsState.hoveredTileY = -1;
+    terrainsState.selectedTileX = -1;
+    terrainsState.selectedTileY = -1;
+  }, [isEditing]);
+
   const computedBrushes = useMemo(() => {
     if (isEditing) return stableBrushes.current;
-    return createConstructionTerrainBrushes(
-      constructionZones,
-      tracks,
-      originCoordinate,
-      terrains,
-    );
-  }, [isEditing, constructionZones, tracks, originCoordinate, terrains]);
+    return [
+      ...createConstructionTerrainBrushes(
+        constructionZones,
+        tracks,
+        originCoordinate,
+        terrains,
+      ),
+      ...createTunnelTerrainBrushes(tunnels, tracks),
+    ];
+  }, [isEditing, constructionZones, tunnels, tracks, originCoordinate, terrains]);
 
   useEffect(() => {
     if (!isEditing) stableBrushes.current = computedBrushes;
   }, [computedBrushes, isEditing]);
-
-  useEffect(() => {
-    return () => {
-      for (const brush of computedBrushes) {
-        brush.cut?.dispose();
-        brush.fill?.dispose();
-      }
-    };
-  }, [computedBrushes]);
 
   const allBrushes = isEditing ? stableBrushes.current : computedBrushes;
 
@@ -267,6 +363,7 @@ function TerrainsContent({
   }, [allBrushes, terrains, originCoordinate]);
 
   return <>
+    <TerrainLodTracker />
     {Object.keys(terrains).map(tileY_ =>
       <React.Fragment key={tileY_}>
         {Object.keys(terrains[tileY_]).map(tileX_ => {

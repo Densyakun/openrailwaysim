@@ -29,6 +29,24 @@ export const terrainCsgProgressState = proxy<{
   error: '',
 });
 
+export type TerrainCsgBrushRef = {
+  id: string;
+  revision: number;
+};
+
+export type TerrainCsgRequest = {
+  tileX: number;
+  tileY: number;
+  heightmap: HeightmapType;
+  eastHeightmap?: HeightmapType;
+  southHeightmap?: HeightmapType;
+  southeastHeightmap?: HeightmapType;
+  terrainSize: number;
+  step: number;
+  inverseMatrix: number[];
+  brushes: TerrainCsgBrushRef[];
+};
+
 type WorkerResultMessage = {
   type: 'result';
   id: number;
@@ -43,9 +61,14 @@ type WorkerResultMessage = {
 type Job = {
   id: number;
   key: string;
+  tileKey: string;
   revision: number;
   heightmap: Float32Array;
+  eastEdge: Float32Array;
+  southEdge: Float32Array;
+  southeastCorner: number;
   terrainSize: number;
+  step: number;
   inverseMatrix: number[];
   brushIds: string[];
   resolve: (result: SerializedTerrainCsgResult | null) => void;
@@ -61,10 +84,12 @@ let queue: Job[] = [];
 let nextJobId = 1;
 let revision = 0;
 let nextRevision = 0;
-let currentBrushes = new Map<string, SerializedCsgBrush>();
+const currentBrushes = new Map<string, SerializedCsgBrush>();
+const publishedBrushRevisions = new Map<string, number>();
 
 const cache = new Map<string, SerializedTerrainCsgResult>();
 const inflight = new Map<string, Promise<SerializedTerrainCsgResult | null>>();
+const tileSteps = new Map<string, number>();
 const heightmapIds = new WeakMap<object, number>();
 let nextHeightmapId = 1;
 
@@ -79,7 +104,8 @@ function serializeGeometry(geometry: import('three').BufferGeometry): Serialized
   };
 }
 
-function getHeightmapId(heightmap: HeightmapType) {
+function getHeightmapId(heightmap: HeightmapType | undefined) {
+  if (!heightmap) return 0;
   let id = heightmapIds.get(heightmap as object);
   if (id === undefined) {
     id = nextHeightmapId++;
@@ -99,11 +125,32 @@ function serializeHeightmap(heightmap: HeightmapType) {
   return values;
 }
 
+function serializeEdge(
+  heightmap: HeightmapType | undefined,
+  getValue: (heightmap: HeightmapType, index: number) => number | null | undefined,
+) {
+  const values = new Float32Array(heightmapSize);
+  for (let index = 0; index < heightmapSize; index++) {
+    const value = heightmap ? getValue(heightmap, index) : null;
+    values[index] = value === null || value === undefined ? NaN : value;
+  }
+  return values;
+}
+
 function updateProgress() {
   terrainCsgProgressState.pending = queue.length;
   terrainCsgProgressState.running = slots.filter(slot => slot.job).length;
   terrainCsgProgressState.isProcessing =
     terrainCsgProgressState.pending > 0 || terrainCsgProgressState.running > 0;
+}
+
+function resetProgress() {
+  terrainCsgProgressState.pending = 0;
+  terrainCsgProgressState.running = slots.filter(slot => slot.job).length;
+  terrainCsgProgressState.completed = 0;
+  terrainCsgProgressState.total = 0;
+  terrainCsgProgressState.error = '';
+  updateProgress();
 }
 
 function finishJobProgress() {
@@ -128,11 +175,15 @@ function dispatch() {
       id: job.id,
       revision: job.revision,
       heightmap: job.heightmap,
+      eastEdge: job.eastEdge,
+      southEdge: job.southEdge,
+      southeastCorner: job.southeastCorner,
       heightmapSize,
       terrainSize: job.terrainSize,
+      step: job.step,
       inverseMatrix: job.inverseMatrix,
       brushIds: job.brushIds,
-    }, [job.heightmap.buffer]);
+    }, [job.heightmap.buffer, job.eastEdge.buffer, job.southEdge.buffer]);
   }
 
   updateProgress();
@@ -163,7 +214,7 @@ function handleResult(slot: WorkerSlot, message: WorkerResultMessage) {
     uv: message.uv,
     normal: message.normal,
   };
-  cache.set(job.key, result);
+  if (tileSteps.get(job.tileKey) === job.step) cache.set(job.key, result);
   job.resolve(result);
   finishJobProgress();
   dispatch();
@@ -208,73 +259,101 @@ function ensureWorkers() {
   }
 }
 
+function pruneCacheForZone(zoneId: string, brushRevision?: number) {
+  const needle = brushRevision === undefined ? `${zoneId}@` : `${zoneId}@${brushRevision};`;
+  for (const key of cache.keys()) {
+    if (key.includes(needle)) cache.delete(key);
+  }
+}
+
 export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
+  const nextBrushMap = new Map(brushes.map(brush => [brush.zoneId, brush]));
+  const changed: ConstructionTerrainBrush[] = [];
+  const removedIds: string[] = [];
+
+  for (const brush of brushes) {
+    const publishedRevision = publishedBrushRevisions.get(brush.zoneId);
+    if (publishedRevision !== brush.revision) changed.push(brush);
+  }
+
+  for (const zoneId of publishedBrushRevisions.keys()) {
+    if (!nextBrushMap.has(zoneId)) removedIds.push(zoneId);
+  }
+
+  if (changed.length === 0 && removedIds.length === 0) return revision;
+
   revision = ++nextRevision;
-  cache.clear();
-  inflight.clear();
 
   for (const job of queue) job.resolve(null);
   queue = [];
+  inflight.clear();
 
-  if (brushes.length === 0) {
-    currentBrushes = new Map();
-    terrainCsgProgressState.pending = 0;
-    terrainCsgProgressState.running = slots.filter(slot => slot.job).length;
-    terrainCsgProgressState.completed = 0;
-    terrainCsgProgressState.total = 0;
-    terrainCsgProgressState.error = '';
-    updateProgress();
-    terrainCsgRevisionState.revision = revision;
-    return revision;
-  }
-
-  ensureWorkers();
-
-  currentBrushes = new Map();
-
-  const payload = brushes.map(brush => {
-    const serialized: SerializedCsgBrush = {
+  for (const brush of changed) {
+    const oldRevision = publishedBrushRevisions.get(brush.zoneId);
+    if (oldRevision !== undefined) pruneCacheForZone(brush.zoneId, oldRevision);
+    publishedBrushRevisions.set(brush.zoneId, brush.revision);
+    currentBrushes.set(brush.zoneId, {
       cut: brush.cut ? serializeGeometry(brush.cut) : undefined,
       fill: brush.fill ? serializeGeometry(brush.fill) : undefined,
-    };
-    currentBrushes.set(brush.zoneId, serialized);
-    return {
-      zoneId: brush.zoneId,
-      cut: serialized.cut,
-      fill: serialized.fill,
-    };
-  });
-
-  for (const slot of slots) {
-    slot.worker.postMessage({ type: 'brushes', revision, brushes: payload });
+    });
   }
 
-  terrainCsgProgressState.pending = 0;
-  terrainCsgProgressState.running = slots.filter(slot => slot.job).length;
-  terrainCsgProgressState.completed = 0;
-  terrainCsgProgressState.total = 0;
-  terrainCsgProgressState.error = '';
-  updateProgress();
+  for (const zoneId of removedIds) {
+    publishedBrushRevisions.delete(zoneId);
+    currentBrushes.delete(zoneId);
+    pruneCacheForZone(zoneId);
+  }
 
+  if (currentBrushes.size > 0) ensureWorkers();
+
+  const changedPayload = changed
+    .map(brush => ({
+      zoneId: brush.zoneId,
+      cut: currentBrushes.get(brush.zoneId)?.cut,
+      fill: currentBrushes.get(brush.zoneId)?.fill,
+    }));
+
+  for (const slot of slots) {
+    slot.worker.postMessage({
+      type: 'updateBrushes',
+      revision,
+      brushes: changedPayload,
+      removeIds: removedIds,
+    });
+  }
+
+  resetProgress();
   terrainCsgRevisionState.revision = revision;
   return revision;
 }
 
-export function requestTerrainCsg(params: {
-  tileX: number;
-  tileY: number;
-  heightmap: HeightmapType;
-  terrainSize: number;
-  inverseMatrix: number[];
-  brushIds: string[];
-}): Promise<SerializedTerrainCsgResult | null> {
-  const key = [
-    params.tileX,
-    params.tileY,
-    revision,
-    getHeightmapId(params.heightmap),
-    params.brushIds.join(','),
+export function requestTerrainCsg(params: TerrainCsgRequest): Promise<SerializedTerrainCsgResult | null> {
+  const brushKey = params.brushes
+    .map(brush => `${brush.id}@${brush.revision};`)
+    .join('');
+  const neighborKey = [
+    getHeightmapId(params.eastHeightmap),
+    getHeightmapId(params.southHeightmap),
+    getHeightmapId(params.southeastHeightmap),
   ].join(':');
+  const heightmapId = getHeightmapId(params.heightmap);
+  const tileKey = `${params.tileX}:${params.tileY}:${heightmapId}`;
+  const key = [
+    tileKey,
+    params.step,
+    neighborKey,
+    brushKey,
+  ].join(':');
+
+  tileSteps.set(tileKey, params.step);
+
+  const tilePositionPrefix = `${params.tileX}:${params.tileY}:`;
+  for (const cacheKey of cache.keys()) {
+    if (!cacheKey.startsWith(tilePositionPrefix)) continue;
+    if (!cacheKey.startsWith(`${tileKey}:`) || !cacheKey.startsWith(`${tileKey}:${params.step}:`)) {
+      cache.delete(cacheKey);
+    }
+  }
 
   const cached = cache.get(key);
   if (cached) return Promise.resolve(cached);
@@ -282,8 +361,10 @@ export function requestTerrainCsg(params: {
   const existing = inflight.get(key);
   if (existing) return existing;
 
+  const brushIds = params.brushes.map(brush => brush.id);
+
   if (slots.length === 0) {
-    const selected = params.brushIds
+    const selected = brushIds
       .map(id => currentBrushes.get(id))
       .filter((brush): brush is SerializedCsgBrush => !!brush);
     try {
@@ -292,6 +373,12 @@ export function requestTerrainCsg(params: {
         params.terrainSize,
         params.inverseMatrix,
         selected,
+        params.step,
+        {
+          east: params.eastHeightmap ? serializeEdge(params.eastHeightmap, (heightmap, index) => heightmap[index]?.[0]) : undefined,
+          south: params.southHeightmap ? serializeEdge(params.southHeightmap, (heightmap, index) => heightmap[0]?.[index]) : undefined,
+          southeast: params.southeastHeightmap?.[0]?.[0] ?? undefined,
+        },
       ));
     } catch {
       return Promise.resolve(null);
@@ -302,11 +389,16 @@ export function requestTerrainCsg(params: {
     const job: Job = {
       id: nextJobId++,
       key,
+      tileKey,
       revision,
       heightmap: serializeHeightmap(params.heightmap),
+      eastEdge: serializeEdge(params.eastHeightmap, (heightmap, index) => heightmap[index]?.[0]),
+      southEdge: serializeEdge(params.southHeightmap, (heightmap, index) => heightmap[0]?.[index]),
+      southeastCorner: params.southeastHeightmap?.[0]?.[0] ?? NaN,
       terrainSize: params.terrainSize,
+      step: params.step,
       inverseMatrix: params.inverseMatrix,
-      brushIds: params.brushIds,
+      brushIds,
       resolve,
     };
 

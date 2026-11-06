@@ -5,9 +5,11 @@ import { diagramsTabPanelState } from "./diagrams";
 export const guiState = proxy<{
   selectedTab: string;
   alignItems: string;
+  panelOpen: boolean;
 }>({
   selectedTab: "",
   alignItems: "center",
+  panelOpen: true,
 });
 
 export function lightingIsForEditing(selectedTab: string) {

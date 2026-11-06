@@ -3,9 +3,10 @@ import { HeightmapType } from '../../lib/terrain';
 import { evaluateTerrainCsg, SerializedCsgBrush } from '../../lib/terrainCsg';
 
 type BrushMessage = {
-  type: 'brushes';
+  type: 'updateBrushes';
   revision: number;
   brushes: { zoneId: string; cut?: SerializedCsgBrush['cut']; fill?: SerializedCsgBrush['fill'] }[];
+  removeIds: string[];
 };
 
 type JobMessage = {
@@ -13,8 +14,12 @@ type JobMessage = {
   id: number;
   revision: number;
   heightmap: Float32Array;
+  eastEdge: Float32Array;
+  southEdge: Float32Array;
+  southeastCorner: number;
   heightmapSize: number;
   terrainSize: number;
+  step: number;
   inverseMatrix: number[];
   brushIds: string[];
 };
@@ -22,7 +27,7 @@ type JobMessage = {
 type WorkerMessage = BrushMessage | JobMessage;
 
 let revision = -1;
-let brushes = new Map<string, SerializedCsgBrush>();
+const brushes = new Map<string, SerializedCsgBrush>();
 
 function deserializeHeightmap(values: Float32Array, size: number): HeightmapType {
   const heightmap: HeightmapType = [];
@@ -40,12 +45,12 @@ function deserializeHeightmap(values: Float32Array, size: number): HeightmapType
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
   const message = event.data;
 
-  if (message.type === 'brushes') {
+  if (message.type === 'updateBrushes') {
     revision = message.revision;
-    brushes = new Map(message.brushes.map(brush => [
-      brush.zoneId,
-      { cut: brush.cut, fill: brush.fill },
-    ]));
+    for (const zoneId of message.removeIds) brushes.delete(zoneId);
+    for (const brush of message.brushes) {
+      brushes.set(brush.zoneId, { cut: brush.cut, fill: brush.fill });
+    }
     return;
   }
 
@@ -66,6 +71,12 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
         message.terrainSize,
         message.inverseMatrix,
         selected,
+        message.step,
+        {
+          east: message.eastEdge,
+          south: message.southEdge,
+          southeast: Number.isNaN(message.southeastCorner) ? undefined : message.southeastCorner,
+        },
       );
 
       if (!result) {

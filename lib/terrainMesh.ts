@@ -1,106 +1,120 @@
 import * as THREE from 'three';
 import { HeightmapType, heightmapSize } from './terrain';
 
+export type TerrainNeighborEdges = {
+  east?: Float32Array;
+  south?: Float32Array;
+  southeast?: number;
+};
+
+function edgeValue(values: Float32Array | undefined, index: number, fallback: number) {
+  const value = values?.[index];
+  return value === undefined || Number.isNaN(value) ? fallback : value;
+}
+
+export function createTerrainNeighborEdges(
+  eastHeightmap?: HeightmapType,
+  southHeightmap?: HeightmapType,
+  southeastHeightmap?: HeightmapType,
+): TerrainNeighborEdges {
+  const east = eastHeightmap
+    ? new Float32Array(heightmapSize).map((_, index) => eastHeightmap[index]?.[0] ?? NaN)
+    : undefined;
+  const south = southHeightmap
+    ? new Float32Array(heightmapSize).map((_, index) => southHeightmap[0]?.[index] ?? NaN)
+    : undefined;
+  return {
+    east,
+    south,
+    southeast: southeastHeightmap?.[0]?.[0] ?? undefined,
+  };
+}
+
+function pushTopSurface(
+  positions: number[],
+  uvs: number[],
+  heightmap: HeightmapType,
+  terrainSize: number,
+  step: number,
+  edges?: TerrainNeighborEdges,
+) {
+  const N = heightmapSize;
+
+  for (let x = 0; x < N - 1; x += step) {
+    const xNext = Math.min(N - 1, x + step);
+    const x0 = (x / N) * terrainSize;
+    const x1 = (Math.min(N, x + step) / N) * terrainSize;
+    const eastOuter = x + step >= N;
+    const u0 = x / (N - 1);
+    const u1 = Math.min(1, (x + step) / (N - 1));
+
+    for (let y = 0; y < N - 1; y += step) {
+      const yNext = Math.min(N - 1, y + step);
+      const z0 = (y / N) * terrainSize;
+      const z1 = (Math.min(N, y + step) / N) * terrainSize;
+      const southOuter = y + step >= N;
+      const v0 = y / (N - 1);
+      const v1 = Math.min(1, (y + step) / (N - 1));
+
+      const local00 = heightmap[y]?.[x] ?? null;
+      if (local00 === null) continue;
+
+      const local10 = heightmap[yNext]?.[x] ?? null;
+      const local11 = heightmap[yNext]?.[xNext] ?? null;
+      const local01 = heightmap[y]?.[xNext] ?? null;
+      if (local10 === null || local11 === null || local01 === null) continue;
+
+      const h0 = local00;
+      const h1 = southOuter
+        ? edgeValue(edges?.south, x, heightmap[N - 1][x] ?? local10)
+        : local10;
+      const h3 = eastOuter
+        ? edgeValue(edges?.east, y, heightmap[y][N - 1] ?? local01)
+        : local01;
+      let h2: number;
+      if (eastOuter && southOuter) {
+        h2 = edges?.southeast
+          ?? edgeValue(edges?.south, N - 1, edgeValue(edges?.east, N - 1, heightmap[N - 1][N - 1] ?? local11));
+      } else if (eastOuter) {
+        h2 = edgeValue(edges?.east, yNext, heightmap[yNext][N - 1] ?? local11);
+      } else if (southOuter) {
+        h2 = edgeValue(edges?.south, xNext, heightmap[N - 1][xNext] ?? local11);
+      } else {
+        h2 = local11;
+      }
+
+      positions.push(
+        x0, h0, z0,
+        x0, h1, z1,
+        x1, h2, z1,
+        x0, h0, z0,
+        x1, h2, z1,
+        x1, h3, z0,
+      );
+      uvs.push(
+        u0, v0,
+        u0, v1,
+        u1, v1,
+        u0, v0,
+        u1, v1,
+        u1, v0,
+      );
+    }
+  }
+}
+
 export function buildTerrainGeometry(
   heightmap: HeightmapType,
   terrainSize: number,
   eastHeightmap?: HeightmapType,
   southHeightmap?: HeightmapType,
   southeastHeightmap?: HeightmapType,
+  step = 1,
 ) {
   const positions: number[] = [];
   const uvs: number[] = [];
-
-  const addQuad = (
-    x: number,
-    y: number,
-    h0: number | null,
-    h1: number | null,
-    h2: number | null,
-    h3: number | null,
-  ) => {
-    if (h0 === null || h1 === null || h2 === null || h3 === null) return;
-
-    const x0 = (x / heightmapSize) * terrainSize;
-    const x1 = ((x + 1) / heightmapSize) * terrainSize;
-    const z0 = (y / heightmapSize) * terrainSize;
-    const z1 = ((y + 1) / heightmapSize) * terrainSize;
-
-    const u0 = x / (heightmapSize - 1);
-    const u1 = (x + 1) / (heightmapSize - 1);
-    const v0 = y / (heightmapSize - 1);
-    const v1 = (y + 1) / (heightmapSize - 1);
-
-    positions.push(
-      x0, h0, z0,
-      x0, h1, z1,
-      x1, h2, z1,
-      x0, h0, z0,
-      x1, h2, z1,
-      x1, h3, z0,
-    );
-    uvs.push(
-      u0, v0,
-      u0, v1,
-      u1, v1,
-      u0, v0,
-      u1, v1,
-      u1, v0,
-    );
-  };
-
-  for (let x = 0; x <= heightmapSize - 2; x++) {
-    for (let y = 0; y <= heightmapSize - 2; y++) {
-      addQuad(
-        x,
-        y,
-        heightmap[y][x],
-        heightmap[y + 1][x],
-        heightmap[y + 1][x + 1],
-        heightmap[y][x + 1],
-      );
-    }
-  }
-
-  if (eastHeightmap) {
-    const x = heightmapSize - 1;
-    for (let y = 0; y <= heightmapSize - 2; y++) {
-      addQuad(
-        x,
-        y,
-        heightmap[y][x],
-        heightmap[y + 1][x],
-        eastHeightmap[y + 1][0],
-        eastHeightmap[y][0],
-      );
-    }
-
-    if (southHeightmap && southeastHeightmap) {
-      const y = heightmapSize - 1;
-      addQuad(
-        x,
-        y,
-        heightmap[y][x],
-        southHeightmap[0][x],
-        southeastHeightmap[0][0],
-        eastHeightmap[y][0],
-      );
-    }
-  }
-
-  if (southHeightmap) {
-    const y = heightmapSize - 1;
-    for (let x = 0; x <= heightmapSize - 2; x++) {
-      addQuad(
-        x,
-        y,
-        heightmap[y][x],
-        southHeightmap[0][x],
-        southHeightmap[0][x + 1],
-        heightmap[y][x + 1],
-      );
-    }
-  }
+  const edges = createTerrainNeighborEdges(eastHeightmap, southHeightmap, southeastHeightmap);
+  pushTopSurface(positions, uvs, heightmap, terrainSize, Math.max(1, Math.round(step)), edges);
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -141,6 +155,8 @@ function pushOrientedQuad(
 export function buildTerrainSolidGeometry(
   heightmap: HeightmapType,
   terrainSize: number,
+  step = 1,
+  edges?: TerrainNeighborEdges,
 ): THREE.BufferGeometry | null {
   const N = heightmapSize;
   let minHeight = Infinity;
@@ -153,30 +169,13 @@ export function buildTerrainSolidGeometry(
     }
   }
 
-  const bottomY = minHeight - 100;
+  const normalizedStep = Math.max(1, Math.round(step));
+  const bottomY = minHeight - 1000;
   const positions: number[] = [];
   const uvs: number[] = [];
-  const up = new THREE.Vector3(0, 1, 0);
   const down = new THREE.Vector3(0, -1, 0);
 
-  const heightAt = (x: number, y: number) =>
-    heightmap[Math.min(N - 1, y)][Math.min(N - 1, x)] as number;
-
-  for (let x = 0; x < N; x++) {
-    for (let y = 0; y < N; y++) {
-      const x0 = (x / N) * terrainSize;
-      const x1 = ((x + 1) / N) * terrainSize;
-      const z0 = (y / N) * terrainSize;
-      const z1 = ((y + 1) / N) * terrainSize;
-
-      const v0 = new THREE.Vector3(x0, heightAt(x, y), z0);
-      const v1 = new THREE.Vector3(x0, heightAt(x, y + 1), z1);
-      const v2 = new THREE.Vector3(x1, heightAt(x + 1, y + 1), z1);
-      const v3 = new THREE.Vector3(x1, heightAt(x + 1, y), z0);
-
-      pushOrientedQuad(positions, uvs, v0, v1, v2, v3, up);
-    }
-  }
+  pushTopSurface(positions, uvs, heightmap, terrainSize, normalizedStep, edges);
 
   pushOrientedQuad(
     positions,
@@ -193,45 +192,47 @@ export function buildTerrainSolidGeometry(
   const north = new THREE.Vector3(0, 0, -1);
   const south = new THREE.Vector3(0, 0, 1);
 
-  for (let i = 0; i < N - 1; i++) {
-    const z0 = (i / N) * terrainSize;
-    const z1 = ((i + 1) / N) * terrainSize;
-    const x0 = (i / N) * terrainSize;
-    const x1 = ((i + 1) / N) * terrainSize;
+  for (let index = 0; index < N - 1; index += normalizedStep) {
+    const next = Math.min(N - 1, index + normalizedStep);
+    const p0 = (index / N) * terrainSize;
+    const p1 = (Math.min(N, index + normalizedStep) / N) * terrainSize;
 
     pushOrientedQuad(
       positions, uvs,
-      new THREE.Vector3(0, heightAt(0, i), z0),
-      new THREE.Vector3(0, bottomY, z0),
-      new THREE.Vector3(0, bottomY, z1),
-      new THREE.Vector3(0, heightAt(0, i + 1), z1),
+      new THREE.Vector3(0, heightmap[index][0] as number, p0),
+      new THREE.Vector3(0, bottomY, p0),
+      new THREE.Vector3(0, bottomY, p1),
+      new THREE.Vector3(0, heightmap[next][0] as number, p1),
       west,
     );
 
     pushOrientedQuad(
       positions, uvs,
-      new THREE.Vector3(terrainSize, heightAt(N - 1, i), z0),
-      new THREE.Vector3(terrainSize, bottomY, z0),
-      new THREE.Vector3(terrainSize, bottomY, z1),
-      new THREE.Vector3(terrainSize, heightAt(N - 1, i + 1), z1),
+      new THREE.Vector3(terrainSize, edgeValue(edges?.east, index, heightmap[index][N - 1] as number), p0),
+      new THREE.Vector3(terrainSize, bottomY, p0),
+      new THREE.Vector3(terrainSize, bottomY, p1),
+      new THREE.Vector3(terrainSize, edgeValue(edges?.east, next, heightmap[next][N - 1] as number), p1),
       east,
     );
 
     pushOrientedQuad(
       positions, uvs,
-      new THREE.Vector3(x0, heightAt(i, 0), 0),
-      new THREE.Vector3(x0, bottomY, 0),
-      new THREE.Vector3(x1, bottomY, 0),
-      new THREE.Vector3(x1, heightAt(i + 1, 0), 0),
+      new THREE.Vector3(p0, heightmap[0][index] as number, 0),
+      new THREE.Vector3(p0, bottomY, 0),
+      new THREE.Vector3(p1, bottomY, 0),
+      new THREE.Vector3(p1, heightmap[0][next] as number, 0),
       north,
     );
 
+    const southIndex = edgeValue(edges?.south, index, heightmap[N - 1][index] as number);
+    const southNext = edgeValue(edges?.south, next, heightmap[N - 1][next] as number);
+
     pushOrientedQuad(
       positions, uvs,
-      new THREE.Vector3(x0, heightAt(i, N - 1), terrainSize),
-      new THREE.Vector3(x0, bottomY, terrainSize),
-      new THREE.Vector3(x1, bottomY, terrainSize),
-      new THREE.Vector3(x1, heightAt(i + 1, N - 1), terrainSize),
+      new THREE.Vector3(p0, southIndex, terrainSize),
+      new THREE.Vector3(p0, bottomY, terrainSize),
+      new THREE.Vector3(p1, bottomY, terrainSize),
+      new THREE.Vector3(p1, southNext, terrainSize),
       south,
     );
   }

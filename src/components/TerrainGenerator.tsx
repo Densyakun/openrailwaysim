@@ -12,6 +12,7 @@ import { coordinateToEuler, eulerToCoordinate, move } from "@/lib/gis"
 import { terrainsState } from '@/lib/client/terrains'
 import { MessageCode, send } from '@/lib/ws'
 import { store } from '@/lib/game'
+import { constructionState } from '@/lib/client/construction'
 
 function NewTerrainTile({ tileX, tileY }: { tileX: number, tileY: number }) {
   const { hoveredTileX, hoveredTileY } = useSnapshot(terrainsState);
@@ -59,8 +60,10 @@ export default function TerrainGenerator() {
   const { terrains, originCoordinate } = useSnapshot(store.data);
   const { selectedTab } = useSnapshot(guiState);
   const { target } = useSnapshot(cameraControlsState);
+  const { isEditingZone, isEditingTunnel } = useSnapshot(constructionState);
 
   if (selectedTab !== "terrains") return null;
+  if (isEditingZone || isEditingTunnel) return null;
 
   const [currentTileX, currentTileY] = merc.px(eulerToCoordinate(
     new THREE.Euler().setFromQuaternion(

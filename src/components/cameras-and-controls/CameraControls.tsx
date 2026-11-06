@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as THREE from 'three'
-import { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import { OrbitControls } from '@react-three/drei'
+import { OrbitControls as OrbitControlsImpl, MapControls as MapControlsImpl } from 'three-stdlib'
+import { MapControls, OrbitControls } from '@react-three/drei'
 import { proxy, ref, useSnapshot } from 'valtio'
 import { camerasState } from './Cameras'
 import { useFrame, useThree } from '@react-three/fiber'
@@ -11,6 +11,10 @@ import { guiState } from '@/lib/client/gui'
 export type ControlsRefs = {
   [key: string]: OrbitControlsImpl
 }
+
+export const cameraControlsModeState = proxy<{ mainControlsKey: string }>({
+  mainControlsKey: "orbitControls",
+})
 
 export const cameraControlsState = proxy<{
   mainControlsKey: string;
@@ -29,53 +33,108 @@ export const cameraControlsState = proxy<{
 
 export default function CameraControls() {
   const { cameraRefs, mainCameraKey } = useSnapshot(camerasState)
+  const { mainControlsKey } = useSnapshot(cameraControlsModeState)
   const { editingTrainFormat } = useSnapshot(trainsTabPanelState);
   const { selectedTab } = useSnapshot(guiState);
   const { camera } = useThree();
 
   const isPreviewMode = !!editingTrainFormat && selectedTab === "trains";
+  const activeControlsKey = isPreviewMode ? "orbitControls" : mainControlsKey;
+
+  const orbitControlsRef = React.useRef<OrbitControlsImpl | null>(null);
+  const mapControlsRef = React.useRef<MapControlsImpl | null>(null);
+  const lastTarget = React.useRef(new THREE.Vector3());
+
+  const getActiveControls = React.useCallback(() => {
+    return activeControlsKey === "mapControls"
+      ? mapControlsRef.current
+      : orbitControlsRef.current;
+  }, [activeControlsKey]);
+
+  const syncTarget = React.useCallback((controls: OrbitControlsImpl | MapControlsImpl) => {
+    lastTarget.current.copy(controls.target);
+    cameraControlsState.target = controls.target.clone();
+  }, []);
+
+  const applyTarget = React.useCallback((controls: OrbitControlsImpl | MapControlsImpl) => {
+    controls.target.copy(lastTarget.current);
+    controls.update();
+  }, []);
+
+  const orbitControlsCallback = React.useCallback((controls: OrbitControlsImpl | null) => {
+    orbitControlsRef.current = controls;
+    if (controls) {
+      cameraControlsState.controlsRefs["orbitControls"] = controls;
+      applyTarget(controls);
+    } else {
+      delete cameraControlsState.controlsRefs["orbitControls"];
+    }
+  }, [applyTarget]);
+
+  const mapControlsCallback = React.useCallback((controls: MapControlsImpl | null) => {
+    mapControlsRef.current = controls;
+    if (controls) {
+      cameraControlsState.controlsRefs["mapControls"] = controls;
+      applyTarget(controls);
+    } else {
+      delete cameraControlsState.controlsRefs["mapControls"];
+    }
+  }, [applyTarget]);
+
+  const handleOrbitChange = React.useCallback(() => {
+    const controls = orbitControlsRef.current;
+    if (controls) syncTarget(controls);
+  }, [syncTarget]);
+
+  const handleMapChange = React.useCallback(() => {
+    const controls = mapControlsRef.current;
+    if (controls) syncTarget(controls);
+  }, [syncTarget]);
 
   React.useEffect(() => {
-    const orbitControls = cameraControlsState.controlsRefs["orbitControls"];
-    if (!orbitControls) return;
+    const controls = getActiveControls();
+    if (!controls) return;
 
     if (isPreviewMode) {
       if (!cameraControlsState.savedWorldState) {
-        // Save world state
         cameraControlsState.savedWorldState = {
           position: camera.position.clone(),
-          target: (orbitControls as OrbitControlsImpl).target.clone(),
-          controlsKey: "orbitControls"
+          target: lastTarget.current.clone(),
+          controlsKey: activeControlsKey
         };
 
-        // Set preview state
-        orbitControls.target.set(0, 0, 0);
+        lastTarget.current.set(0, 0, 0);
+        controls.target.set(0, 0, 0);
         camera.position.set(-20, 20, -20);
-        orbitControls.update();
+        controls.update();
       }
     } else if (cameraControlsState.savedWorldState) {
-      // Restore world state
       const { position, target } = cameraControlsState.savedWorldState;
-      orbitControls.target.copy(target);
+      lastTarget.current.copy(target);
       camera.position.copy(position);
-      orbitControls.update();
+      controls.target.copy(target);
+      controls.update();
       cameraControlsState.savedWorldState = undefined;
     }
-  }, [isPreviewMode, camera]);
-
-  const orbitControlsRef = React.useCallback((orbitControls: OrbitControlsImpl) => {
-    cameraControlsState.controlsRefs["orbitControls"] = orbitControls;
-  }, [])
+  }, [isPreviewMode, activeControlsKey, camera, getActiveControls]);
 
   useFrame(() => {
-    const orbitControls = cameraControlsState.controlsRefs["orbitControls"]
-    if (orbitControls)
-      cameraControlsState.target = (orbitControls as OrbitControlsImpl).target.clone()
-  })
+    const controls = getActiveControls();
+    if (controls) syncTarget(controls);
+  });
 
-  return (
+  return activeControlsKey === "mapControls" ? (
+    <MapControls
+      ref={mapControlsCallback}
+      makeDefault
+      camera={cameraRefs[mainCameraKey] as THREE.Camera}
+      zoomSpeed={5}
+      minDistance={1}
+      onChange={handleMapChange}
+    />
+  ) : (
     <OrbitControls
-      ref={orbitControlsRef}
+      ref={orbitControlsCallback}
       makeDefault
       camera={cameraRefs[mainCameraKey] as THREE.Camera}
       zoomSpeed={5}
@@ -97,6 +156,7 @@ export default function CameraControls() {
         TWO: THREE.TOUCH.DOLLY_PAN
       }}
       screenSpacePanning={!isPreviewMode}
+      onChange={handleOrbitChange}
     />
   )
 }

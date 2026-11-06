@@ -14,6 +14,7 @@ import { SERVER_URL_STORAGE_KEY } from '@/lib/client/client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
 import { clientState, getDefaultServerUrl, removeSaveUrlCandidate } from '@/lib/client/client';
+import { beginSaveLoad } from '@/lib/client/saveLoading';
 import { useSnapshot } from 'valtio';
 
 export default function Settings() {
@@ -68,6 +69,7 @@ export default function Settings() {
 
   const handleLoad = () => {
     if (loadName) {
+      beginSaveLoad("セーブデータを読み込んでいます...", loadName);
       send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE, loadName);
       clientState.currentSave = loadName;
     }
@@ -79,6 +81,7 @@ export default function Settings() {
     setLoadUrl(url);
     clientState.saveUrlStatus = "loading";
     clientState.saveUrlMessage = "URLからセーブデータを読み込んでいます...";
+    beginSaveLoad("URLからセーブデータを取得しています...", url);
     send(socket, MessageCode.FROM_CLIENT_LOAD_SAVE_URL, url);
   };
 

@@ -11,6 +11,7 @@ import { MessageCode, send } from "@/lib/ws"
 import { LocalSocket } from "@/lib/client/localSocket"
 import { gisState } from "@/lib/gis"
 import { mergeVisibleFeatureCollectionIds } from "@/lib/client/featureCollections"
+import { beginSaveLoad, finishSaveLoad, finishSaveLoadAfter, updateSaveLoad } from "@/lib/client/saveLoading"
 
 let querySaveRequested = false;
 
@@ -28,6 +29,7 @@ function loadSaveUrlFromQuery(ws: WebSocket) {
   querySaveRequested = true;
   clientState.saveUrlStatus = "loading";
   clientState.saveUrlMessage = "URLからセーブデータを読み込んでいます...";
+  beginSaveLoad("URLからセーブデータを取得しています...", url);
   send(ws, MessageCode.FROM_CLIENT_LOAD_SAVE_URL, url);
 }
 
@@ -36,6 +38,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
 
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
+      beginSaveLoad("セーブデータを展開しています...");
       const saveData = deserialize(orsAppDataTypeId, value);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
       Object.keys(data).forEach(key =>
@@ -61,6 +64,11 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
 
       clientState.isSynced = true
       loadSaveUrlFromQuery(ws)
+
+      setTimeout(() => {
+        updateSaveLoad("地形と造成データを準備しています...");
+      }, 0);
+      finishSaveLoadAfter(1500);
 
       messageEmitter.isInvalidMessage = false
       break
@@ -122,6 +130,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
         if (!clientState.adminPasswordRequired) {
           clientState.isAdmin = true;
         }
+        beginSaveLoad("ワールドデータを取得しています...");
         send(ws, MessageCode.FROM_CLIENT_SET_USERNAME, clientState.username || "Anonymous");
         loadSaveUrlFromQuery(ws);
       } else {
@@ -154,6 +163,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_LOAD_COMPLETED:
+      updateSaveLoad("セーブデータを読み込みました。地形を準備しています...");
       clientState.saveNotificationMessage = "セーブデータを読み込みました。";
       clientState.showSaveSuccess = true;
       messageEmitter.isInvalidMessage = false
@@ -177,6 +187,9 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
         clientState.showSaveSuccess = true;
         clientState.currentSaveUrl = result.url;
         addSaveUrlCandidate(getSaveUrlCandidateName(result.url), result.url);
+        updateSaveLoad("URLからセーブデータを読み込みました。地形を準備しています...");
+      } else {
+        finishSaveLoad();
       }
       messageEmitter.isInvalidMessage = false
       break
@@ -231,6 +244,7 @@ function Subscription({
       localSocket.addEventListener("message", event => {
         if (event.data) dispatchMessage(event.data)
       })
+      beginSaveLoad("保存済みのセーブデータを復元しています...");
       localSocket.connect()
 
       return () => {

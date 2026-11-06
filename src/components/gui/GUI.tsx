@@ -29,6 +29,7 @@ import CameraPositionChip from '../CameraPositionChip';
 import TerrainsTabPanel from './TerrainsTabPanel';
 import SwitchPlacementPanel from './SwitchPlacementPanel';
 import { store } from '@/lib/game';
+import SaveLoadingOverlay from '../SaveLoadingOverlay';
 
 const horizontalScrollSx = {
   overflowX: 'auto',
@@ -158,6 +159,7 @@ export default function GUI() {
       pointerEvents: 'none',
     }}
   >
+    <SaveLoadingOverlay />
     <TopInfo />
     <Stack
       justifyContent="flex-end"

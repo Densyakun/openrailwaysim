@@ -227,7 +227,7 @@ export function withoutSharedSaveData<T extends SaveDataWithIncludes>(saveData: 
   const result: Record<string, unknown> = { ...saveData };
 
   Object.keys(source.baseData).forEach(root => {
-    if (root === "includes") return;
+    if (root === "includes" || root === "terrainCsgCache") return;
 
     const baseValue = (source.baseData as Record<string, unknown>)[root];
     const currentValue = (saveData as Record<string, unknown>)[root];

@@ -28,6 +28,7 @@ import {
   terrainCsgRevisionState,
 } from "@/src/workers/terrainCsgManager"
 import { Position } from "geojson"
+import { cameraControlsState } from "./cameras-and-controls/CameraControls"
 
 function getTileMatrix(tileX: number, tileY: number, originCoordinate: Position) {
   const coordinate = merc.ll([tileX * 256, tileY * 256], terrainZoom)
@@ -72,12 +73,9 @@ function TerrainLodTracker() {
 
   useEffect(() => {
     const update = () => {
-      const x = camera.position.x;
-      const z = camera.position.z;
-      if (Math.abs(x - terrainLodState.cameraX) + Math.abs(z - terrainLodState.cameraZ) < 5) return;
-
-      terrainLodState.cameraX = x;
-      terrainLodState.cameraZ = z;
+      const distance = camera.position.distanceTo(cameraControlsState.target);
+      const nextStep = getTerrainLodStep(distance, terrainLodState.step);
+      if (nextStep !== terrainLodState.step) terrainLodState.step = nextStep;
     };
 
     update();
@@ -108,7 +106,7 @@ function TerrainTile({
   originCoordinate: Position;
 }) {
   const { hoveredTileX, hoveredTileY, selectedTileX, selectedTileY } = useSnapshot(terrainsState);
-  const { cameraX, cameraZ } = useSnapshot(terrainLodState);
+  const { step: lodStep } = useSnapshot(terrainLodState);
   const { selectedTab } = useSnapshot(guiState);
   const { revision } = useSnapshot(terrainCsgRevisionState);
   const { isEditingZone, isEditingTunnel } = useSnapshot(constructionState);
@@ -124,27 +122,19 @@ function TerrainTile({
     { units: 'meters' }
   );
 
-  const tileCenter = useMemo(
-    () => getRelativePosition(
-      merc.ll([(tileX + 0.5) * 256, (tileY + 0.5) * 256], terrainZoom),
-      originCoordinate,
-    ),
-    [tileX, tileY, originCoordinate],
-  );
-
-  const lodStepRef = useRef(1);
-  const lodStep = getTerrainLodStep(
-    Math.hypot(tileCenter.x - cameraX, tileCenter.z - cameraZ),
-    lodStepRef.current,
-  );
-  lodStepRef.current = lodStep;
-
   const baseGeometry = useMemo(
     () => buildTerrainGeometry(heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap, lodStep),
     [heightmap, terrainSize, eastHeightmap, southHeightmap, southeastHeightmap, lodStep],
   );
 
   const [csgGeometry, setCsgGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const previousLodStep = useRef(lodStep);
+
+  useEffect(() => {
+    if (previousLodStep.current === lodStep) return;
+    previousLodStep.current = lodStep;
+    setCsgGeometry(null);
+  }, [lodStep]);
 
   const previousBaseGeometry = useRef<THREE.BufferGeometry | null>(null);
   useEffect(() => {
@@ -180,7 +170,7 @@ function TerrainTile({
       terrainSize,
       step: lodStep,
       inverseMatrix,
-      brushes: brushes.map(brush => ({ id: brush.zoneId, revision: brush.revision })),
+      brushes: brushes.map(brush => ({ id: brush.zoneId, signature: brush.signature })),
     }).then(result => {
       if (cancelled || !result) return;
 

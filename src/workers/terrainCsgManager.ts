@@ -1,4 +1,4 @@
-import { proxy } from 'valtio';
+﻿import { proxy } from 'valtio';
 import type { HeightmapType } from '@/lib/terrain';
 import { heightmapSize } from '@/lib/terrain';
 import type { ConstructionTerrainBrush } from '@/lib/constructionTerrain';
@@ -8,6 +8,11 @@ import {
   SerializedGeometry,
   SerializedTerrainCsgResult,
 } from '@/lib/terrainCsg';
+import {
+  getCachedTerrainCsg,
+  pruneCachedTerrainCsg,
+  setCachedTerrainCsg,
+} from '@/lib/terrainCsgCache';
 
 export const terrainCsgRevisionState = proxy<{ revision: number }>({
   revision: 0,
@@ -31,7 +36,7 @@ export const terrainCsgProgressState = proxy<{
 
 export type TerrainCsgBrushRef = {
   id: string;
-  revision: number;
+  signature: string;
 };
 
 export type TerrainCsgRequest = {
@@ -61,7 +66,6 @@ type WorkerResultMessage = {
 type Job = {
   id: number;
   key: string;
-  tileKey: string;
   revision: number;
   heightmap: Float32Array;
   eastEdge: Float32Array;
@@ -85,13 +89,10 @@ let nextJobId = 1;
 let revision = 0;
 let nextRevision = 0;
 const currentBrushes = new Map<string, SerializedCsgBrush>();
-const publishedBrushRevisions = new Map<string, number>();
+const publishedBrushSignatures = new Map<string, string>();
 
-const cache = new Map<string, SerializedTerrainCsgResult>();
 const inflight = new Map<string, Promise<SerializedTerrainCsgResult | null>>();
-const tileSteps = new Map<string, number>();
-const heightmapIds = new WeakMap<object, number>();
-let nextHeightmapId = 1;
+const heightmapHashes = new WeakMap<object, string>();
 
 function serializeGeometry(geometry: import('three').BufferGeometry): SerializedGeometry {
   const position = geometry.getAttribute('position');
@@ -104,14 +105,28 @@ function serializeGeometry(geometry: import('three').BufferGeometry): Serialized
   };
 }
 
-function getHeightmapId(heightmap: HeightmapType | undefined) {
-  if (!heightmap) return 0;
-  let id = heightmapIds.get(heightmap as object);
-  if (id === undefined) {
-    id = nextHeightmapId++;
-    heightmapIds.set(heightmap as object, id);
+
+function getHeightmapHash(heightmap: HeightmapType | undefined) {
+  if (!heightmap) return '0';
+
+  const cached = heightmapHashes.get(heightmap as object);
+  if (cached) return cached;
+
+  let hash = 2166136261;
+  for (let y = 0; y < heightmapSize; y++) {
+    for (let x = 0; x < heightmapSize; x++) {
+      const value = heightmap[y]?.[x];
+      const quantized = value === null || value === undefined
+        ? -2147483648
+        : Math.round(value * 100);
+      hash ^= quantized;
+      hash = Math.imul(hash, 16777619);
+    }
   }
-  return id;
+
+  const result = (hash >>> 0).toString(36);
+  heightmapHashes.set(heightmap as object, result);
+  return result;
 }
 
 function serializeHeightmap(heightmap: HeightmapType) {
@@ -214,7 +229,7 @@ function handleResult(slot: WorkerSlot, message: WorkerResultMessage) {
     uv: message.uv,
     normal: message.normal,
   };
-  if (tileSteps.get(job.tileKey) === job.step) cache.set(job.key, result);
+  setCachedTerrainCsg(job.key, result);
   job.resolve(result);
   finishJobProgress();
   dispatch();
@@ -259,11 +274,9 @@ function ensureWorkers() {
   }
 }
 
-function pruneCacheForZone(zoneId: string, brushRevision?: number) {
-  const needle = brushRevision === undefined ? `${zoneId}@` : `${zoneId}@${brushRevision};`;
-  for (const key of cache.keys()) {
-    if (key.includes(needle)) cache.delete(key);
-  }
+function pruneCacheForZone(zoneId: string, signature?: string) {
+  const needle = signature === undefined ? `${zoneId}@` : `${zoneId}@${signature};`;
+  pruneCachedTerrainCsg(key => key.includes(needle));
 }
 
 export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
@@ -272,11 +285,11 @@ export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
   const removedIds: string[] = [];
 
   for (const brush of brushes) {
-    const publishedRevision = publishedBrushRevisions.get(brush.zoneId);
-    if (publishedRevision !== brush.revision) changed.push(brush);
+    const publishedSignature = publishedBrushSignatures.get(brush.zoneId);
+    if (publishedSignature !== brush.signature) changed.push(brush);
   }
 
-  for (const zoneId of publishedBrushRevisions.keys()) {
+  for (const zoneId of publishedBrushSignatures.keys()) {
     if (!nextBrushMap.has(zoneId)) removedIds.push(zoneId);
   }
 
@@ -289,9 +302,9 @@ export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
   inflight.clear();
 
   for (const brush of changed) {
-    const oldRevision = publishedBrushRevisions.get(brush.zoneId);
-    if (oldRevision !== undefined) pruneCacheForZone(brush.zoneId, oldRevision);
-    publishedBrushRevisions.set(brush.zoneId, brush.revision);
+    const oldSignature = publishedBrushSignatures.get(brush.zoneId);
+    if (oldSignature !== undefined) pruneCacheForZone(brush.zoneId, oldSignature);
+    publishedBrushSignatures.set(brush.zoneId, brush.signature);
     currentBrushes.set(brush.zoneId, {
       cut: brush.cut ? serializeGeometry(brush.cut) : undefined,
       fill: brush.fill ? serializeGeometry(brush.fill) : undefined,
@@ -299,7 +312,7 @@ export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
   }
 
   for (const zoneId of removedIds) {
-    publishedBrushRevisions.delete(zoneId);
+    publishedBrushSignatures.delete(zoneId);
     currentBrushes.delete(zoneId);
     pruneCacheForZone(zoneId);
   }
@@ -329,33 +342,24 @@ export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
 
 export function requestTerrainCsg(params: TerrainCsgRequest): Promise<SerializedTerrainCsgResult | null> {
   const brushKey = params.brushes
-    .map(brush => `${brush.id}@${brush.revision};`)
+    .map(brush => `${brush.id}@${brush.signature};`)
     .join('');
+  const heightmapHash = getHeightmapHash(params.heightmap);
   const neighborKey = [
-    getHeightmapId(params.eastHeightmap),
-    getHeightmapId(params.southHeightmap),
-    getHeightmapId(params.southeastHeightmap),
+    getHeightmapHash(params.eastHeightmap),
+    getHeightmapHash(params.southHeightmap),
+    getHeightmapHash(params.southeastHeightmap),
   ].join(':');
-  const heightmapId = getHeightmapId(params.heightmap);
-  const tileKey = `${params.tileX}:${params.tileY}:${heightmapId}`;
   const key = [
-    tileKey,
-    params.step,
+    params.tileX,
+    params.tileY,
+    heightmapHash,
     neighborKey,
+    params.step,
     brushKey,
   ].join(':');
 
-  tileSteps.set(tileKey, params.step);
-
-  const tilePositionPrefix = `${params.tileX}:${params.tileY}:`;
-  for (const cacheKey of cache.keys()) {
-    if (!cacheKey.startsWith(tilePositionPrefix)) continue;
-    if (!cacheKey.startsWith(`${tileKey}:`) || !cacheKey.startsWith(`${tileKey}:${params.step}:`)) {
-      cache.delete(cacheKey);
-    }
-  }
-
-  const cached = cache.get(key);
+  const cached = getCachedTerrainCsg(key);
   if (cached) return Promise.resolve(cached);
 
   const existing = inflight.get(key);
@@ -368,7 +372,7 @@ export function requestTerrainCsg(params: TerrainCsgRequest): Promise<Serialized
       .map(id => currentBrushes.get(id))
       .filter((brush): brush is SerializedCsgBrush => !!brush);
     try {
-      return Promise.resolve(evaluateTerrainCsg(
+      const result = evaluateTerrainCsg(
         params.heightmap,
         params.terrainSize,
         params.inverseMatrix,
@@ -379,7 +383,9 @@ export function requestTerrainCsg(params: TerrainCsgRequest): Promise<Serialized
           south: params.southHeightmap ? serializeEdge(params.southHeightmap, (heightmap, index) => heightmap[0]?.[index]) : undefined,
           southeast: params.southeastHeightmap?.[0]?.[0] ?? undefined,
         },
-      ));
+      );
+      if (result) setCachedTerrainCsg(key, result);
+      return Promise.resolve(result);
     } catch {
       return Promise.resolve(null);
     }
@@ -389,7 +395,6 @@ export function requestTerrainCsg(params: TerrainCsgRequest): Promise<Serialized
     const job: Job = {
       id: nextJobId++,
       key,
-      tileKey,
       revision,
       heightmap: serializeHeightmap(params.heightmap),
       eastEdge: serializeEdge(params.eastHeightmap, (heightmap, index) => heightmap[index]?.[0]),

@@ -90,7 +90,10 @@ function applyResolvedSaveData(saveData: ORSAppSaveDataType, baseData: ORSAppSav
 
 function saveToStorage(name: string): boolean {
   try {
-    storage.setItem(saveKey(name), JSON.stringify(getSaveData({ excludeShared: true })));
+    storage.setItem(saveKey(name), JSON.stringify(getSaveData({
+      excludeShared: true,
+      terrainCsgCacheMaxCharacters: 1_500_000,
+    })));
     currentSaveName = name;
     currentSaveUrl = "";
     storage.setItem(CURRENT_SAVE_KEY, name);

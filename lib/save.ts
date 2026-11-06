@@ -8,6 +8,11 @@ import { deserialize, ORSAppDataType, orsAppDataTypeId, SerializableORSAppDataTy
 import { ConstructionZone } from "./construction";
 import { Tunnel } from "./tunnel";
 import { withoutSharedSaveData } from "./saveSource";
+import {
+  TerrainCsgCacheSaveData,
+  exportTerrainCsgCache,
+  importTerrainCsgCache,
+} from "./terrainCsgCache";
 
 export type ORSAppSaveDataType = {
   /**
@@ -30,6 +35,7 @@ export type ORSAppSaveDataType = {
   tunnels: { [key: string]: Tunnel };
   platforms?: { [key: string]: any };
   worldModels?: { [key: string]: any };
+  terrainCsgCache?: TerrainCsgCacheSaveData;
 };
 
 // セーブデータ用
@@ -82,7 +88,11 @@ export function normalizeSaveData(saveData: ORSAppSaveDataType): ORSAppSaveDataT
   return saveData;
 }
 
-export function getSaveData(options?: { excludeShared?: boolean }) {
+export function getSaveData(options?: {
+  excludeShared?: boolean;
+  includeTerrainCsgCache?: boolean;
+  terrainCsgCacheMaxCharacters?: number;
+}) {
   const savedTrains: ORSAppSaveDataType["trains"] = {};
 
   Object.keys(store.data.trains).forEach(trainId => {
@@ -119,14 +129,23 @@ export function getSaveData(options?: { excludeShared?: boolean }) {
   const saveData: ORSAppSaveDataType = {
     ...serialize(orsAppDataTypeId, store.data) as SerializableORSAppDataType,
     trains: savedTrains,
+    terrainCsgCache: options?.includeTerrainCsgCache === false
+      ? undefined
+      : exportTerrainCsgCache(options?.terrainCsgCacheMaxCharacters),
   };
 
   return options?.excludeShared ? withoutSharedSaveData(saveData) : saveData;
 }
 
-export function storeSaveData(saveData: ORSAppSaveDataType) {
+export function storeSaveData(
+  saveData: ORSAppSaveDataType,
+  options?: { preserveCache?: boolean },
+) {
+  const { terrainCsgCache, ...restSaveData } = saveData;
+  if (!options?.preserveCache) importTerrainCsgCache(terrainCsgCache);
+
   const newData = deserialize(orsAppDataTypeId, {
-    ...saveData,
+    ...restSaveData,
     trains: {},
   }) as ORSAppDataType;
 

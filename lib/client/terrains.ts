@@ -15,9 +15,7 @@ export const terrainsState = proxy<{
 });
 
 export const terrainLodState = proxy<{
-  cameraX: number;
-  cameraZ: number;
+  step: number;
 }>({
-  cameraX: 0,
-  cameraZ: 0,
+  step: 1,
 });

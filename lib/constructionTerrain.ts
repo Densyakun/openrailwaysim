@@ -11,7 +11,7 @@ export type ConstructionTerrainBrush = {
   cut?: THREE.BufferGeometry;
   fill?: THREE.BufferGeometry;
   bounds: THREE.Box3;
-  revision: number;
+  signature: string;
 };
 
 type CachedZoneBrush = {
@@ -30,7 +30,34 @@ const zoneBrushCache = new Map<string, CachedZoneBrush>();
 const tunnelBrushCache = new Map<string, CachedTunnelBrush>();
 let cachedTerrainSource: object | undefined;
 let cachedOriginKey = '';
-let nextBrushRevision = 1;
+
+function hashGeometry(geometry: THREE.BufferGeometry | undefined) {
+  if (!geometry) return '0';
+
+  const position = geometry.getAttribute('position');
+  const uv = geometry.getAttribute('uv');
+  let hash = 2166136261;
+
+  for (let index = 0; index < position.array.length; index++) {
+    hash ^= Math.round((position.array as ArrayLike<number>)[index] * 1000);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  if (uv) {
+    for (let index = 0; index < uv.array.length; index++) {
+      hash ^= Math.round((uv.array as ArrayLike<number>)[index] * 1000);
+      hash = Math.imul(hash, 16777619);
+    }
+  }
+
+  hash ^= position.count;
+  hash = Math.imul(hash, 16777619);
+  return (hash >>> 0).toString(36);
+}
+
+function createBrushSignature(cut?: THREE.BufferGeometry, fill?: THREE.BufferGeometry) {
+  return `${hashGeometry(cut)}:${hashGeometry(fill)}`;
+}
 
 function disposeBrush(brush: ConstructionTerrainBrush | null | undefined) {
   brush?.cut?.dispose();
@@ -122,7 +149,7 @@ export function createConstructionTerrainBrushes(
       cut: solids.cut,
       fill: solids.fill,
       bounds,
-      revision: nextBrushRevision++,
+      signature: createBrushSignature(solids.cut, solids.fill),
     };
 
     zoneBrushCache.set(zone.id, { zone, track, brush });
@@ -195,7 +222,7 @@ export function createTunnelTerrainBrushes(
       zoneId: `tunnel:${tunnel.id}`,
       cut,
       bounds,
-      revision: nextBrushRevision++,
+      signature: createBrushSignature(cut),
     };
 
     tunnelBrushCache.set(tunnel.id, { tunnel, track, brush });

@@ -156,7 +156,7 @@ function deletePath(root: ORSAppSaveDataType, path: SaveDataPath) {
  */
 export function getSaveValue(path: unknown) {
   const savePath = parseSaveDataPath(path);
-  return readPath(getSaveData(), savePath);
+  return readPath(getSaveData({ includeTerrainCsgCache: false }), savePath);
 }
 
 /**
@@ -165,14 +165,14 @@ export function getSaveValue(path: unknown) {
  */
 export function setSaveValue(path: unknown, value: unknown): SaveDataEditResult {
   const savePath = parseSaveDataPath(path);
-  const saveData = getSaveData();
+  const saveData = getSaveData({ includeTerrainCsgCache: false });
 
   writePath(saveData, savePath, value);
-  storeSaveData(normalizeSaveData(saveData));
+  storeSaveData(normalizeSaveData(saveData), { preserveCache: true });
 
   return {
     path: savePath,
-    value: readPath(getSaveData(), savePath),
+    value: readPath(getSaveData({ includeTerrainCsgCache: false }), savePath),
   };
 }
 
@@ -181,14 +181,14 @@ export function setSaveValue(path: unknown, value: unknown): SaveDataEditResult 
  */
 export function removeSaveValue(path: unknown): SaveDataEditResult {
   const savePath = parseSaveDataPath(path);
-  const saveData = getSaveData();
+  const saveData = getSaveData({ includeTerrainCsgCache: false });
 
   deletePath(saveData, savePath);
-  storeSaveData(normalizeSaveData(saveData));
+  storeSaveData(normalizeSaveData(saveData), { preserveCache: true });
 
   return {
     path: savePath,
-    value: readPath(getSaveData(), savePath),
+    value: readPath(getSaveData({ includeTerrainCsgCache: false }), savePath),
   };
 }
 
@@ -196,7 +196,7 @@ export function removeSaveValue(path: unknown): SaveDataEditResult {
  * セーブデータの概要。terrains などの巨大なデータは含めない。
  */
 export function getSaveSummary() {
-  const saveData = getSaveData();
+  const saveData = getSaveData({ includeTerrainCsgCache: false });
 
   const count = (value: unknown) =>
     isObject(value) && !Array.isArray(value) ? Object.keys(value).length : 0;

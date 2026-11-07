@@ -110,7 +110,20 @@ function mergeSaveData<T extends SaveDataWithIncludes>(base: T, override: T): T 
     const baseValue = (base as Record<string, unknown>)[key];
     const overrideValue = (override as Record<string, unknown>)[key];
 
-    if (isPlainObject(baseValue) && isPlainObject(overrideValue))
+    if (key === "terrainCsgCache") {
+      const baseEntries = isPlainObject(baseValue) && Array.isArray(baseValue.entries)
+        ? baseValue.entries
+        : [];
+      const overrideEntries = isPlainObject(overrideValue) && Array.isArray(overrideValue.entries)
+        ? overrideValue.entries
+        : [];
+      const entries = new Map<string, unknown>();
+      for (const entry of [...baseEntries, ...overrideEntries]) {
+        if (!isPlainObject(entry) || typeof entry.key !== "string") continue;
+        entries.set(entry.key, entry);
+      }
+      result[key] = { version: 1, entries: Array.from(entries.values()) };
+    } else if (isPlainObject(baseValue) && isPlainObject(overrideValue))
       result[key] = { ...baseValue, ...overrideValue };
     else
       result[key] = overrideValue;

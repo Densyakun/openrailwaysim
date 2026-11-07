@@ -13,6 +13,7 @@ import {
   pruneCachedTerrainCsg,
   setCachedTerrainCsg,
 } from '@/lib/terrainCsgCache';
+import { createTerrainCsgKey } from '@/lib/terrainCsgKey';
 
 export const terrainCsgRevisionState = proxy<{ revision: number }>({
   revision: 0,
@@ -92,7 +93,6 @@ const currentBrushes = new Map<string, SerializedCsgBrush>();
 const publishedBrushSignatures = new Map<string, string>();
 
 const inflight = new Map<string, Promise<SerializedTerrainCsgResult | null>>();
-const heightmapHashes = new WeakMap<object, string>();
 
 function serializeGeometry(geometry: import('three').BufferGeometry): SerializedGeometry {
   const position = geometry.getAttribute('position');
@@ -105,29 +105,6 @@ function serializeGeometry(geometry: import('three').BufferGeometry): Serialized
   };
 }
 
-
-function getHeightmapHash(heightmap: HeightmapType | undefined) {
-  if (!heightmap) return '0';
-
-  const cached = heightmapHashes.get(heightmap as object);
-  if (cached) return cached;
-
-  let hash = 2166136261;
-  for (let y = 0; y < heightmapSize; y++) {
-    for (let x = 0; x < heightmapSize; x++) {
-      const value = heightmap[y]?.[x];
-      const quantized = value === null || value === undefined
-        ? -2147483648
-        : Math.round(value * 100);
-      hash ^= quantized;
-      hash = Math.imul(hash, 16777619);
-    }
-  }
-
-  const result = (hash >>> 0).toString(36);
-  heightmapHashes.set(heightmap as object, result);
-  return result;
-}
 
 function serializeHeightmap(heightmap: HeightmapType) {
   const values = new Float32Array(heightmapSize * heightmapSize);
@@ -279,34 +256,6 @@ function pruneCacheForZone(zoneId: string, signature?: string) {
   pruneCachedTerrainCsg(key => key.includes(needle));
 }
 
-type TerrainCsgPreparer = (step: number) => Promise<void>;
-let terrainCsgPreparer: TerrainCsgPreparer | undefined;
-
-export function registerTerrainCsgPreparer(preparer: TerrainCsgPreparer) {
-  terrainCsgPreparer = preparer;
-  return () => {
-    if (terrainCsgPreparer === preparer) terrainCsgPreparer = undefined;
-  };
-}
-
-export function waitForTerrainCsgIdle(): Promise<void> {
-  if (!terrainCsgProgressState.isProcessing) return Promise.resolve();
-
-  return new Promise(resolve => {
-    const interval = setInterval(() => {
-      if (terrainCsgProgressState.isProcessing) return;
-      clearInterval(interval);
-      resolve();
-    }, 100);
-  });
-}
-
-export async function prepareTerrainCsgCacheForSave() {
-  // 読み込み直後は step 1 のLODになるため、保存前に step 1 の結果を揃えておく
-  await terrainCsgPreparer?.(1);
-  await waitForTerrainCsgIdle();
-}
-
 export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
   const nextBrushMap = new Map(brushes.map(brush => [brush.zoneId, brush]));
   const changed: ConstructionTerrainBrush[] = [];
@@ -369,23 +318,16 @@ export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
 }
 
 export function requestTerrainCsg(params: TerrainCsgRequest): Promise<SerializedTerrainCsgResult | null> {
-  const brushKey = params.brushes
-    .map(brush => `${brush.id}@${brush.signature};`)
-    .join('');
-  const heightmapHash = getHeightmapHash(params.heightmap);
-  const neighborKey = [
-    getHeightmapHash(params.eastHeightmap),
-    getHeightmapHash(params.southHeightmap),
-    getHeightmapHash(params.southeastHeightmap),
-  ].join(':');
-  const key = [
-    params.tileX,
-    params.tileY,
-    heightmapHash,
-    neighborKey,
-    params.step,
-    brushKey,
-  ].join(':');
+  const key = createTerrainCsgKey({
+    tileX: params.tileX,
+    tileY: params.tileY,
+    heightmap: params.heightmap,
+    eastHeightmap: params.eastHeightmap,
+    southHeightmap: params.southHeightmap,
+    southeastHeightmap: params.southeastHeightmap,
+    step: params.step,
+    brushes: params.brushes,
+  });
 
   const cached = getCachedTerrainCsg(key);
   if (cached) return Promise.resolve(cached);

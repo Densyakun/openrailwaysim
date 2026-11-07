@@ -24,7 +24,6 @@ import { Track, TransitionCurve } from "@/lib/tracks"
 import { buildTerrainGeometry } from "@/lib/terrainMesh"
 import {
   publishTerrainCsgBrushes,
-  registerTerrainCsgPreparer,
   requestTerrainCsg,
   terrainCsgRevisionState,
 } from "@/src/workers/terrainCsgManager"
@@ -352,44 +351,6 @@ function TerrainsContent({
 
     return result;
   }, [allBrushes, terrains, originCoordinate]);
-
-  useEffect(() => {
-    return registerTerrainCsgPreparer(async step => {
-      const requests: Promise<unknown>[] = [];
-
-      for (const [key, brushes] of brushesByTile) {
-        const [tileX, tileY] = key.split('/').map(Number);
-        const heightmap = terrains[tileY]?.[tileX];
-        if (!heightmap) continue;
-
-        const eastHeightmap = terrains[tileY]?.[tileX + 1];
-        const southHeightmap = terrains[tileY + 1]?.[tileX];
-        const southeastHeightmap = terrains[tileY + 1]?.[tileX + 1];
-        const terrainSize = distance(
-          merc.ll([0, tileY * 256], terrainZoom),
-          merc.ll([0, (tileY + 1) * 256], terrainZoom),
-          { units: 'meters' },
-        );
-        const tileMatrix = getTileMatrix(tileX, tileY, originCoordinate);
-        const inverseMatrix = tileMatrix.clone().invert().elements.slice();
-
-        requests.push(requestTerrainCsg({
-          tileX,
-          tileY,
-          heightmap,
-          eastHeightmap,
-          southHeightmap,
-          southeastHeightmap,
-          terrainSize,
-          step,
-          inverseMatrix,
-          brushes: brushes.map(brush => ({ id: brush.zoneId, signature: brush.signature })),
-        }));
-      }
-
-      await Promise.all(requests);
-    });
-  }, [brushesByTile, terrains, originCoordinate]);
 
   return <>
     <TerrainLodTracker />

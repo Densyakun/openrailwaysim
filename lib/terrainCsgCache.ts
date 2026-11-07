@@ -1,10 +1,14 @@
+import { gunzipSync, gzipSync } from 'fflate';
 import type { SerializedTerrainCsgResult } from './terrainCsg';
 
 export type TerrainCsgCacheEntry = {
   key: string;
-  position: string;
-  uv: string;
-  normal: string;
+  /** gzip圧縮した position / uv / normal のバイナリ（base64） */
+  data?: string;
+  /** 旧形式の非圧縮キャッシュ */
+  position?: string;
+  uv?: string;
+  normal?: string;
 };
 
 export type TerrainCsgCacheSaveData = {
@@ -13,6 +17,8 @@ export type TerrainCsgCacheSaveData = {
 };
 
 const cache = new Map<string, SerializedTerrainCsgResult>();
+// セーブデータに含まれる圧縮済みキャッシュ。必要になった時だけ展開する。
+const savedCache = new Map<string, string>();
 let totalBytes = 0;
 
 const MAX_MEMORY_BYTES = 128 * 1024 * 1024;
@@ -22,8 +28,7 @@ function entryBytes(entry: SerializedTerrainCsgResult) {
   return entry.position.byteLength + entry.uv.byteLength + entry.normal.byteLength;
 }
 
-function encodeFloat32(values: Float32Array) {
-  const bytes = new Uint8Array(values.buffer, values.byteOffset, values.byteLength);
+function encodeBytes(bytes: Uint8Array) {
   let binary = '';
   const chunkSize = 0x8000;
   for (let index = 0; index < bytes.length; index += chunkSize) {
@@ -32,24 +37,65 @@ function encodeFloat32(values: Float32Array) {
   return btoa(binary);
 }
 
-function decodeFloat32(value: string) {
+function decodeBytes(value: string) {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-  return new Float32Array(bytes.buffer);
+  return bytes;
 }
 
-export function getCachedTerrainCsg(key: string) {
-  const entry = cache.get(key);
-  if (!entry) return undefined;
+function encodeTerrainCsgResult(result: SerializedTerrainCsgResult) {
+  const position = new Uint8Array(result.position.buffer, result.position.byteOffset, result.position.byteLength);
+  const uv = new Uint8Array(result.uv.buffer, result.uv.byteOffset, result.uv.byteLength);
+  const normal = new Uint8Array(result.normal.buffer, result.normal.byteOffset, result.normal.byteLength);
 
-  // LRU: 参照されたエントリを末尾へ移動する
-  cache.delete(key);
-  cache.set(key, entry);
-  return entry;
+  const bytes = new Uint8Array(12 + position.byteLength + uv.byteLength + normal.byteLength);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, position.byteLength, true);
+  view.setUint32(4, uv.byteLength, true);
+  view.setUint32(8, normal.byteLength, true);
+  bytes.set(position, 12);
+  bytes.set(uv, 12 + position.byteLength);
+  bytes.set(normal, 12 + position.byteLength + uv.byteLength);
+
+  return encodeBytes(gzipSync(bytes));
 }
 
-export function setCachedTerrainCsg(key: string, entry: SerializedTerrainCsgResult) {
+function decodeTerrainCsgResult(data: string): SerializedTerrainCsgResult {
+  const bytes = gunzipSync(decodeBytes(data));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const positionBytes = view.getUint32(0, true);
+  const uvBytes = view.getUint32(4, true);
+  const normalBytes = view.getUint32(8, true);
+
+  const positionOffset = 12;
+  const uvOffset = positionOffset + positionBytes;
+  const normalOffset = uvOffset + uvBytes;
+
+  return {
+    position: new Float32Array(bytes.buffer, bytes.byteOffset + positionOffset, positionBytes / 4),
+    uv: new Float32Array(bytes.buffer, bytes.byteOffset + uvOffset, uvBytes / 4),
+    normal: new Float32Array(bytes.buffer, bytes.byteOffset + normalOffset, normalBytes / 4),
+  };
+}
+
+function decodeLegacyResult(entry: TerrainCsgCacheEntry) {
+  if (typeof entry.position !== 'string' || typeof entry.uv !== 'string' || typeof entry.normal !== 'string')
+    return undefined;
+
+  const decode = (value: string) => {
+    const bytes = decodeBytes(value);
+    return new Float32Array(bytes.buffer);
+  };
+
+  return {
+    position: decode(entry.position),
+    uv: decode(entry.uv),
+    normal: decode(entry.normal),
+  };
+}
+
+function setMemoryCachedTerrainCsg(key: string, entry: SerializedTerrainCsgResult) {
   const previous = cache.get(key);
   if (previous) {
     totalBytes -= entryBytes(previous);
@@ -67,11 +113,40 @@ export function setCachedTerrainCsg(key: string, entry: SerializedTerrainCsgResu
   }
 }
 
+export function getCachedTerrainCsg(key: string) {
+  const entry = cache.get(key);
+  if (entry) {
+    // LRU: 参照されたエントリを末尾へ移動する
+    cache.delete(key);
+    cache.set(key, entry);
+    return entry;
+  }
+
+  const compressed = savedCache.get(key);
+  if (!compressed) return undefined;
+
+  try {
+    const result = decodeTerrainCsgResult(compressed);
+    setMemoryCachedTerrainCsg(key, result);
+    return result;
+  } catch {
+    savedCache.delete(key);
+    return undefined;
+  }
+}
+
+export function setCachedTerrainCsg(key: string, entry: SerializedTerrainCsgResult) {
+  savedCache.delete(key);
+  setMemoryCachedTerrainCsg(key, entry);
+}
+
 export function deleteCachedTerrainCsg(key: string) {
   const entry = cache.get(key);
-  if (!entry) return;
-  cache.delete(key);
-  totalBytes -= entryBytes(entry);
+  if (entry) {
+    cache.delete(key);
+    totalBytes -= entryBytes(entry);
+  }
+  savedCache.delete(key);
 }
 
 export function pruneCachedTerrainCsg(predicate: (key: string) => boolean) {
@@ -80,38 +155,59 @@ export function pruneCachedTerrainCsg(predicate: (key: string) => boolean) {
     cache.delete(key);
     totalBytes -= entryBytes(entry);
   }
+  for (const key of savedCache.keys()) {
+    if (predicate(key)) savedCache.delete(key);
+  }
 }
 
 export function clearTerrainCsgCache() {
   cache.clear();
+  savedCache.clear();
   totalBytes = 0;
+}
+
+function entryCharacters(entry: TerrainCsgCacheEntry) {
+  return entry.key.length
+    + (entry.data?.length ?? 0)
+    + (entry.position?.length ?? 0)
+    + (entry.uv?.length ?? 0)
+    + (entry.normal?.length ?? 0);
+}
+
+export function encodeTerrainCsgCacheEntry(
+  key: string,
+  value: SerializedTerrainCsgResult,
+): TerrainCsgCacheEntry {
+  return {
+    key,
+    data: encodeTerrainCsgResult(value),
+  };
 }
 
 export function exportTerrainCsgCache(
   maxCharacters = MAX_EXPORT_CHARACTERS,
 ): TerrainCsgCacheSaveData {
   const entries: TerrainCsgCacheEntry[] = [];
+  const keys = new Set<string>();
   let characters = 0;
+
+  const append = (entry: TerrainCsgCacheEntry) => {
+    if (keys.has(entry.key)) return;
+    const length = entryCharacters(entry);
+    if (characters + length > maxCharacters) return;
+    keys.add(entry.key);
+    entries.push(entry);
+    characters += length;
+  };
 
   // 最近使ったものから保存し、上限を超えない範囲に収める
   const ordered = Array.from(cache.entries()).reverse();
   for (const [key, value] of ordered) {
-    const entry: TerrainCsgCacheEntry = {
-      key,
-      position: encodeFloat32(value.position),
-      uv: encodeFloat32(value.uv),
-      normal: encodeFloat32(value.normal),
-    };
-    const entryCharacters = entry.key.length
-      + entry.position.length
-      + entry.uv.length
-      + entry.normal.length;
-
-    if (characters + entryCharacters > maxCharacters) continue;
-
-    entries.push(entry);
-    characters += entryCharacters;
+    const compressed = savedCache.get(key);
+    append(compressed ? { key, data: compressed } : encodeTerrainCsgCacheEntry(key, value));
   }
+
+  for (const [key, data] of savedCache) append({ key, data });
 
   return { version: 1, entries };
 }
@@ -126,13 +222,10 @@ export function trimTerrainCsgCacheSaveData(
   let characters = 0;
 
   for (const entry of data.entries) {
-    const entryCharacters = entry.key.length
-      + entry.position.length
-      + entry.uv.length
-      + entry.normal.length;
-    if (characters + entryCharacters > maxCharacters) continue;
+    const length = entryCharacters(entry);
+    if (characters + length > maxCharacters) continue;
     entries.push(entry);
-    characters += entryCharacters;
+    characters += length;
   }
 
   return { version: 1, entries };
@@ -144,14 +237,15 @@ export function importTerrainCsgCache(data: TerrainCsgCacheSaveData | undefined)
 
   for (const entry of data.entries) {
     if (!entry || typeof entry.key !== 'string') continue;
-    if (typeof entry.position !== 'string' || typeof entry.uv !== 'string' || typeof entry.normal !== 'string') continue;
+
+    if (typeof entry.data === 'string') {
+      savedCache.set(entry.key, entry.data);
+      continue;
+    }
 
     try {
-      setCachedTerrainCsg(entry.key, {
-        position: decodeFloat32(entry.position),
-        uv: decodeFloat32(entry.uv),
-        normal: decodeFloat32(entry.normal),
-      });
+      const result = decodeLegacyResult(entry);
+      if (result) setCachedTerrainCsg(entry.key, result);
     } catch {
       continue;
     }

@@ -12,6 +12,7 @@ import { LocalSocket } from "@/lib/client/localSocket"
 import { gisState } from "@/lib/gis"
 import { mergeVisibleFeatureCollectionIds } from "@/lib/client/featureCollections"
 import { beginSaveLoad, finishSaveLoad, finishSaveLoadAfter, updateSaveLoad } from "@/lib/client/saveLoading"
+import { importTerrainCsgCache } from "@/lib/terrainCsgCache"
 
 let querySaveRequested = false;
 
@@ -39,11 +40,14 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
   switch (code) {
     case MessageCode.FROM_SERVER_STATE:
       beginSaveLoad("セーブデータを展開しています...");
+      if (Object.prototype.hasOwnProperty.call(value, "terrainCsgCache"))
+        importTerrainCsgCache((value as { terrainCsgCache?: Parameters<typeof importTerrainCsgCache>[0] }).terrainCsgCache);
       const saveData = deserialize(orsAppDataTypeId, value);
       // Reactフックを呼び出して、サーバー接続時にセーブデータを即時反映するために、キー毎にデータを設定する
-      Object.keys(data).forEach(key =>
-        data[key as keyof typeof data] = saveData[key]
-      );
+      Object.keys(data).forEach(key => {
+        if (key === "terrainCsgCache") return;
+        data[key as keyof typeof data] = saveData[key];
+      });
 
       // セーブデータを置き換えたときに、以前のセーブデータの表示状態や選択状態が残らないようにする。
       // 同じIDが残っている場合は表示状態を維持し、新しいFeature collectionは表示する。
@@ -116,6 +120,7 @@ const onMessage: OnMessageInClient = (code, value, ws) => {
       messageEmitter.isInvalidMessage = false
       break
     case MessageCode.FROM_SERVER_SAVE_COMPLETED:
+      finishSaveLoad();
       clientState.saveNotificationMessage = "セーブデータを保存しました。";
       clientState.showSaveSuccess = true
       messageEmitter.isInvalidMessage = false

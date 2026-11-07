@@ -279,6 +279,34 @@ function pruneCacheForZone(zoneId: string, signature?: string) {
   pruneCachedTerrainCsg(key => key.includes(needle));
 }
 
+type TerrainCsgPreparer = (step: number) => Promise<void>;
+let terrainCsgPreparer: TerrainCsgPreparer | undefined;
+
+export function registerTerrainCsgPreparer(preparer: TerrainCsgPreparer) {
+  terrainCsgPreparer = preparer;
+  return () => {
+    if (terrainCsgPreparer === preparer) terrainCsgPreparer = undefined;
+  };
+}
+
+export function waitForTerrainCsgIdle(): Promise<void> {
+  if (!terrainCsgProgressState.isProcessing) return Promise.resolve();
+
+  return new Promise(resolve => {
+    const interval = setInterval(() => {
+      if (terrainCsgProgressState.isProcessing) return;
+      clearInterval(interval);
+      resolve();
+    }, 100);
+  });
+}
+
+export async function prepareTerrainCsgCacheForSave() {
+  // 読み込み直後は step 1 のLODになるため、保存前に step 1 の結果を揃えておく
+  await terrainCsgPreparer?.(1);
+  await waitForTerrainCsgIdle();
+}
+
 export function publishTerrainCsgBrushes(brushes: ConstructionTerrainBrush[]) {
   const nextBrushMap = new Map(brushes.map(brush => [brush.zoneId, brush]));
   const changed: ConstructionTerrainBrush[] = [];

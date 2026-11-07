@@ -116,6 +116,28 @@ export function exportTerrainCsgCache(
   return { version: 1, entries };
 }
 
+export function trimTerrainCsgCacheSaveData(
+  data: TerrainCsgCacheSaveData | undefined,
+  maxCharacters: number,
+): TerrainCsgCacheSaveData | undefined {
+  if (!data || !Array.isArray(data.entries)) return undefined;
+
+  const entries: TerrainCsgCacheEntry[] = [];
+  let characters = 0;
+
+  for (const entry of data.entries) {
+    const entryCharacters = entry.key.length
+      + entry.position.length
+      + entry.uv.length
+      + entry.normal.length;
+    if (characters + entryCharacters > maxCharacters) continue;
+    entries.push(entry);
+    characters += entryCharacters;
+  }
+
+  return { version: 1, entries };
+}
+
 export function importTerrainCsgCache(data: TerrainCsgCacheSaveData | undefined) {
   clearTerrainCsgCache();
   if (!data || !Array.isArray(data.entries)) return;

@@ -14,7 +14,9 @@ import { SERVER_URL_STORAGE_KEY } from '@/lib/client/client';
 import CameraFarTextField from '../cameras-and-controls/CameraFarTextField';
 import { MessageCode, send } from '@/lib/ws';
 import { clientState, getDefaultServerUrl, removeSaveUrlCandidate } from '@/lib/client/client';
-import { beginSaveLoad } from '@/lib/client/saveLoading';
+import { beginSaveLoad, updateSaveLoad } from '@/lib/client/saveLoading';
+import { exportTerrainCsgCache } from '@/lib/terrainCsgCache';
+import { prepareTerrainCsgCacheForSave } from '@/src/workers/terrainCsgManager';
 import { useSnapshot } from 'valtio';
 
 export default function Settings() {
@@ -59,12 +61,23 @@ export default function Settings() {
     send(socket, MessageCode.FROM_CLIENT_LIST_SAVES);
   };
 
-  const handleSave = () => {
-    if (saveName) {
-      send(socket, MessageCode.FROM_CLIENT_SAVE, saveName);
-      clientState.currentSave = saveName;
-      send(socket, MessageCode.FROM_CLIENT_LIST_SAVES);
+  const handleSave = async () => {
+    if (!saveName) return;
+
+    beginSaveLoad('地形キャッシュを準備しています...', saveName);
+    // 進捗表示を先に描画してから、保存用のキャッシュを揃える
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      await prepareTerrainCsgCacheForSave();
+    } finally {
+      updateSaveLoad('セーブデータを保存しています...', saveName);
     }
+
+    const terrainCsgCache = exportTerrainCsgCache(64 * 1024 * 1024);
+    send(socket, MessageCode.FROM_CLIENT_SAVE, { name: saveName, terrainCsgCache });
+    clientState.currentSave = saveName;
+    send(socket, MessageCode.FROM_CLIENT_LIST_SAVES);
   };
 
   const handleLoad = () => {

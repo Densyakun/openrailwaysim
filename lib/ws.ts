@@ -1,4 +1,5 @@
 import { Path, PathValue, SerializableORSAppDataType } from "./game";
+import type { TerrainCsgCacheSaveData } from "./terrainCsgCache";
 
 // 型推論のために、サーバーで使用するwsライブラリのWebSocketと、クライアントで使用するWebSocketに共通する型を定義する
 type SendableCommonSocket = {
@@ -38,12 +39,17 @@ export enum MessageCode {
 
 // TODO 値に型パラメータを使えないため、直接MessageValueMapを参照する場合に、型推論が詳細に行われないのを修正する
 export type MessageValueMap = {
-  [MessageCode.FROM_SERVER_STATE]: SerializableORSAppDataType;
+  [MessageCode.FROM_SERVER_STATE]: SerializableORSAppDataType & {
+    terrainCsgCache?: TerrainCsgCacheSaveData;
+  };
   [MessageCode.FROM_SERVER_STATE_OPS]: ["set" | "delete", Path<SerializableORSAppDataType>, any?][];
   [MessageCode.FROM_CLIENT_MESSAGES]: [MessageCode, unknown][];
   [MessageCode.FROM_CLIENT_SET_PROP]: [Path<SerializableORSAppDataType>, PathValue<SerializableORSAppDataType, Path<SerializableORSAppDataType>>, Path<SerializableORSAppDataType>?];
   [MessageCode.FROM_CLIENT_DELETE_PROP]: Path<SerializableORSAppDataType>;
-  [MessageCode.FROM_CLIENT_SAVE]: string;
+  [MessageCode.FROM_CLIENT_SAVE]: string | {
+    name: string;
+    terrainCsgCache?: TerrainCsgCacheSaveData;
+  };
   [MessageCode.FROM_CLIENT_SWITCH_TRACK]: [string, number];
   [MessageCode.FROM_CLIENT_GET_HEIGHTMAP]: [number, number];
   [MessageCode.FROM_SERVER_SAVE_COMPLETED]: undefined;

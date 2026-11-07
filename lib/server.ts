@@ -16,10 +16,15 @@ import {
   clearSharedSaveSource, fetchSaveSourceJson, isHttpUrl, resolveSaveSource, setSharedSaveSource,
 } from "./saveSource";
 import { cleanupDependentData, deleteProp, setProp } from "./storeDependencies";
+import {
+  exportTerrainCsgCache,
+  importTerrainCsgCache,
+  TerrainCsgCacheSaveData,
+} from "./terrainCsgCache";
 
 export const savesDir = process.env.ORS_SAVES_DIR || "./saves";
 
-// 前回使用したセーブデータの名前を保存するファイル（サーバー再起動時の自動読み込みに使用）
+// 蜑榊屓菴ｿ逕ｨ縺励◆繧ｻ繝ｼ繝悶ョ繝ｼ繧ｿ縺ｮ蜷榊燕繧剃ｿ晏ｭ倥☆繧九ヵ繧｡繧､繝ｫ・医し繝ｼ繝舌・蜀崎ｵｷ蜍墓凾縺ｮ閾ｪ蜍戊ｪｭ縺ｿ霎ｼ縺ｿ縺ｫ菴ｿ逕ｨ・・
 const currentSaveFileName = ".current-save";
 
 function ensureSavesDir() {
@@ -29,7 +34,7 @@ function ensureSavesDir() {
 }
 
 function saveFilePath(name: string): string {
-  // パス・トラバーサル対策: 各セグメントを検証し、saves ディレクトリ外に出ないようにする
+  // 繝代せ繝ｻ繝医Λ繝舌・繧ｵ繝ｫ蟇ｾ遲・ 蜷・そ繧ｰ繝｡繝ｳ繝医ｒ讀懆ｨｼ縺励《aves 繝・ぅ繝ｬ繧ｯ繝医Μ螟悶↓蜃ｺ縺ｪ縺・ｈ縺・↓縺吶ｋ
   const segments = name
     .replace(/\\/g, "/")
     .split("/")
@@ -131,7 +136,7 @@ async function loadData(name: string): Promise<boolean> {
 
 async function loadDataFromUrl(url: string): Promise<void> {
   if (!isHttpUrl(url))
-    throw new Error("http:// または https:// で始まるURLを指定してください");
+    throw new Error("http:// 縺ｾ縺溘・ https:// 縺ｧ蟋九∪繧偽RL繧呈欠螳壹＠縺ｦ縺上□縺輔＞");
 
   try {
     const resolved = await resolveSaveSource(url, fetchSaveSourceJson);
@@ -156,12 +161,16 @@ function makeIncludesRelativeToSaveFile(saveData: ORSAppSaveDataType, filePath: 
   });
 }
 
-function saveData(name: string): boolean {
+function saveData(name: string, terrainCsgCache?: TerrainCsgCacheSaveData): boolean {
   ensureSavesDir();
   const filePath = saveFilePath(name);
   try {
     mkdirSync(path.dirname(filePath), { recursive: true });
     const newSaveData = getSaveData({ excludeShared: true });
+    if (terrainCsgCache) {
+      newSaveData.terrainCsgCache = terrainCsgCache;
+      importTerrainCsgCache(terrainCsgCache);
+    }
     makeIncludesRelativeToSaveFile(newSaveData, filePath);
     writeFileSync(filePath, JSON.stringify(newSaveData), "utf8");
     console.log(`Data saved to ${filePath}`);
@@ -188,7 +197,7 @@ function deleteSave(name: string): boolean {
 const TIME_PERIOD_TO_SKIP_UPDATE = 0.02;
 
 export async function setupServer(wss: WebSocketServer) {
-  // 旧save.jsonからの移行
+  // 譌ｧsave.json縺九ｉ縺ｮ遘ｻ陦・
   const oldSavePath = "./save.json";
   if (existsSync(oldSavePath)) {
     try {
@@ -205,7 +214,7 @@ export async function setupServer(wss: WebSocketServer) {
     }
   }
 
-  // サーバー起動時に前回使用したセーブデータを読み込む（無ければdefault.json）
+  // 繧ｵ繝ｼ繝舌・襍ｷ蜍墓凾縺ｫ蜑榊屓菴ｿ逕ｨ縺励◆繧ｻ繝ｼ繝悶ョ繝ｼ繧ｿ繧定ｪｭ縺ｿ霎ｼ繧・育┌縺代ｌ縺ｰdefault.json・・
   ensureSavesDir();
   let currentSaveName = readCurrentSave();
   let currentSaveUrl = "";
@@ -229,7 +238,7 @@ export async function setupServer(wss: WebSocketServer) {
 
   function isAdmin(ws: WSWebSocket): boolean {
     if (!authenticatedClients.get(ws)) return false;
-    if (!adminPassword) return true; // 管理パスワード未設定なら認証済みで誰でも管理者
+    if (!adminPassword) return true; // 邂｡逅・ヱ繧ｹ繝ｯ繝ｼ繝画悴險ｭ螳壹↑繧芽ｪ崎ｨｼ貂医∩縺ｧ隱ｰ縺ｧ繧らｮ｡逅・・
     return adminAuthenticatedClients.has(ws);
   }
 
@@ -261,8 +270,17 @@ export async function setupServer(wss: WebSocketServer) {
     });
   }
 
-  function broadcastSerializableState() {
-    const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
+  function serializeStateWithCache() {
+    return {
+      ...serialize(orsAppDataTypeId, store.data),
+      terrainCsgCache: exportTerrainCsgCache(),
+    };
+  }
+
+  function broadcastSerializableState(includeTerrainCsgCache = false) {
+    const serializableGameState = includeTerrainCsgCache
+      ? serializeStateWithCache()
+      : serialize(orsAppDataTypeId, store.data);
     wss.clients.forEach(client => {
       if (isMcpClient(client)) return;
       send(client, MessageCode.FROM_SERVER_STATE, serializableGameState);
@@ -274,15 +292,15 @@ export async function setupServer(wss: WebSocketServer) {
   const unsubscribe = subscribe(store.data, ops => {
     const ops_: ["set" | "delete", Path<SerializableORSAppDataType>, any?][] = []
     ops.forEach(([op_, path_, value, prevValue]) => {
-      // Serializableなデータのみをクライアントに送信する
-      // subscribeするデータはSerializableでは無いため、パスと型が一致する必要がある
+      // Serializable縺ｪ繝・・繧ｿ縺ｮ縺ｿ繧偵け繝ｩ繧､繧｢繝ｳ繝医↓騾∽ｿ｡縺吶ｋ
+      // subscribe縺吶ｋ繝・・繧ｿ縺ｯSerializable縺ｧ縺ｯ辟｡縺・◆繧√√ヱ繧ｹ縺ｨ蝙九′荳閾ｴ縺吶ｋ蠢・ｦ√′縺ゅｋ
       const path = path_ as Path<SerializableORSAppDataType>;
 
-      // 削除するデータに依存するデータを変更する
+      // 蜑企勁縺吶ｋ繝・・繧ｿ縺ｫ萓晏ｭ倥☆繧九ョ繝ｼ繧ｿ繧貞､画峩縺吶ｋ
       if (op_ === 'delete')
         cleanupDependentData(path);
 
-      // 変更されたステートをクライアントに同期する
+      // 螟画峩縺輔ｌ縺溘せ繝・・繝医ｒ繧ｯ繝ｩ繧､繧｢繝ｳ繝医↓蜷梧悄縺吶ｋ
       const push = function () {
         ops_.push(op_ === 'delete' ? [op_, path] :
           [op_, path, serialize(getTypeIdByPath(path), value)]
@@ -360,7 +378,7 @@ export async function setupServer(wss: WebSocketServer) {
           }
         } else if (p.length === 2) {
           push()
-          // 追加または削除された列車にダイヤを割り当てる
+          // 霑ｽ蜉縺ｾ縺溘・蜑企勁縺輔ｌ縺溷・霆翫↓繝繧､繝､繧貞牡繧雁ｽ薙※繧・
           assignSchedulesToTrains(store.data)
         }
       } else if (p[0] === "trainGroups") {
@@ -399,7 +417,7 @@ export async function setupServer(wss: WebSocketServer) {
       } else if (path[0] === "diagrams") {
         push()
 
-        // 追加または削除された列車にダイヤを割り当てる
+        // 霑ｽ蜉縺ｾ縺溘・蜑企勁縺輔ｌ縺溷・霆翫↓繝繧､繝､繧貞牡繧雁ｽ薙※繧・
         if (path.length === 2)
           assignSchedulesToTrains(store.data)
       }
@@ -429,14 +447,13 @@ export async function setupServer(wss: WebSocketServer) {
     });
 
     send(ws, MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED, !!adminPassword);
-    // パスワードが不要な場合のみ接続時に認証成功を通知する。
-    // パスワードが必要な場合は、クライアントからの認証要求を待つ。
+    // 繝代せ繝ｯ繝ｼ繝峨′荳崎ｦ√↑蝣ｴ蜷医・縺ｿ謗･邯壽凾縺ｫ隱崎ｨｼ謌仙粥繧帝夂衍縺吶ｋ縲・
+    // 繝代せ繝ｯ繝ｼ繝峨′蠢・ｦ√↑蝣ｴ蜷医・縲√け繝ｩ繧､繧｢繝ｳ繝医°繧峨・隱崎ｨｼ隕∵ｱゅｒ蠕・▽縲・
     if (!connectionPassword)
       send(ws, MessageCode.FROM_SERVER_AUTH_RESULT, true);
 
     if (!isMcp) {
-      const serializableGameState: SerializableORSAppDataType = serialize(orsAppDataTypeId, store.data);
-      send(ws, MessageCode.FROM_SERVER_STATE, serializableGameState);
+      send(ws, MessageCode.FROM_SERVER_STATE, serializeStateWithCache());
 
       send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
       send(ws, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
@@ -456,7 +473,7 @@ export async function setupServer(wss: WebSocketServer) {
   const onUpdateTime = function () {
     const newTime = new Date().getTime();
     const delta = (newTime - time) / 1000;
-    // 頻繁に更新しないようにする
+    // 鬆ｻ郢√↓譖ｴ譁ｰ縺励↑縺・ｈ縺・↓縺吶ｋ
     if (delta < TIME_PERIOD_TO_SKIP_UPDATE) return;
 
     try {
@@ -467,7 +484,7 @@ export async function setupServer(wss: WebSocketServer) {
     time = newTime;
   };
 
-  // 一定の間隔で時間を進行する。列車の走行中は加速度が変化する。列車の位置の誤差を少なくするために必要
+  // 荳螳壹・髢馴囈縺ｧ譎る俣繧帝ｲ陦後☆繧九ょ・霆翫・襍ｰ陦御ｸｭ縺ｯ蜉騾溷ｺｦ縺悟､牙喧縺吶ｋ縲ょ・霆翫・菴咲ｽｮ縺ｮ隱､蟾ｮ繧貞ｰ代↑縺上☆繧九◆繧√↓蠢・ｦ・
   const timer = setInterval(onUpdateTime, 250);
 
   const onMessage: OnMessageInServer = (code, value, ws) => {
@@ -506,9 +523,16 @@ export async function setupServer(wss: WebSocketServer) {
         }
         case MessageCode.FROM_CLIENT_SAVE: {
           if (!isAdmin(ws as WSWebSocket)) break;
-          const saveName = value as string;
+          const saveValue = value as string | {
+            name?: string;
+            terrainCsgCache?: TerrainCsgCacheSaveData;
+          };
+          const payload = typeof saveValue === 'string'
+            ? { name: saveValue, terrainCsgCache: undefined }
+            : saveValue;
+          const saveName = payload?.name;
           if (!saveName) break;
-          if (saveData(saveName)) {
+          if (saveData(saveName, payload.terrainCsgCache)) {
             currentSaveName = saveName;
             currentSaveUrl = "";
             writeCurrentSave(currentSaveName);
@@ -525,10 +549,10 @@ export async function setupServer(wss: WebSocketServer) {
 
           const newNowDate = value as number;
 
-          // 時刻を変更
+          // 譎ょ綾繧貞､画峩
           store.data.nowDate = newNowDate;
 
-          // 列車を再配置
+          // 蛻苓ｻ翫ｒ蜀埼・鄂ｮ
           relocateTrainsForTimeChange(store.data, newNowDate);
 
           messageEmitter.isInvalidMessage = false;

@@ -4,6 +4,11 @@ import { switchTrack } from "@/lib/tracks";
 import { fetchHeightmap } from "@/lib/terrain";
 import { relocateTrainsForTimeChange } from "@/lib/diagram";
 import { ORSAppSaveDataType, getSaveData, normalizeSaveData, storeSaveData } from "@/lib/save";
+import {
+  TerrainCsgCacheSaveData,
+  exportTerrainCsgCache,
+  trimTerrainCsgCacheSaveData,
+} from "@/lib/terrainCsgCache";
 import { deleteProp, setProp, subscribeStoreDependencies } from "@/lib/storeDependencies";
 import {
   clearSharedSaveSource, fetchSaveSource, fetchSaveSourceJson, resolveSaveSource, setSharedSaveSource,
@@ -88,12 +93,26 @@ function applyResolvedSaveData(saveData: ORSAppSaveDataType, baseData: ORSAppSav
   storeSaveData(normalizeSaveData(saveData));
 }
 
-function saveToStorage(name: string): boolean {
+function serializeStateWithCache() {
+  return {
+    ...serialize(orsAppDataTypeId, store.data),
+    terrainCsgCache: exportTerrainCsgCache(),
+  };
+}
+
+function saveToStorage(name: string, terrainCsgCache?: TerrainCsgCacheSaveData): boolean {
   try {
-    storage.setItem(saveKey(name), JSON.stringify(getSaveData({
+    const cache = terrainCsgCache
+      ? trimTerrainCsgCacheSaveData(terrainCsgCache, 1_500_000)
+      : exportTerrainCsgCache(1_500_000);
+
+    const saveData = getSaveData({
       excludeShared: true,
-      terrainCsgCacheMaxCharacters: 1_500_000,
-    })));
+      includeTerrainCsgCache: false,
+    });
+    saveData.terrainCsgCache = cache;
+
+    storage.setItem(saveKey(name), JSON.stringify(saveData));
     currentSaveName = name;
     currentSaveUrl = "";
     storage.setItem(CURRENT_SAVE_KEY, name);
@@ -183,7 +202,7 @@ export async function connectLocalServer(socket: LocalServerSocket) {
 
   send(socket, MessageCode.FROM_SERVER_ADMIN_PASSWORD_REQUIRED, false);
   send(socket, MessageCode.FROM_SERVER_AUTH_RESULT, true);
-  send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
+  send(socket, MessageCode.FROM_SERVER_STATE, serializeStateWithCache());
   send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
   send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
   sendUserList(socket);
@@ -220,8 +239,15 @@ export function handleLocalServerMessage(
         send(socket, MessageCode.FROM_SERVER_SAVE_LIST, listSaves());
         break;
       case MessageCode.FROM_CLIENT_SAVE: {
-        if (typeof value !== "string" || !value) break;
-        if (saveToStorage(value)) {
+        const saveValue = value as string | {
+          name?: string;
+          terrainCsgCache?: TerrainCsgCacheSaveData;
+        };
+        const payload = typeof saveValue === "string"
+          ? { name: saveValue, terrainCsgCache: undefined }
+          : saveValue;
+        if (!payload?.name) break;
+        if (saveToStorage(payload.name, payload.terrainCsgCache)) {
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
         }
@@ -236,7 +262,7 @@ export function handleLocalServerMessage(
           send(socket, MessageCode.FROM_SERVER_LOAD_COMPLETED);
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
-          send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
+          send(socket, MessageCode.FROM_SERVER_STATE, serializeStateWithCache());
         });
         break;
       }
@@ -249,7 +275,7 @@ export function handleLocalServerMessage(
           send(socket, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, { ok: true, url });
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE, currentSaveName);
           send(socket, MessageCode.FROM_SERVER_CURRENT_SAVE_URL, currentSaveUrl);
-          send(socket, MessageCode.FROM_SERVER_STATE, serialize(orsAppDataTypeId, store.data));
+          send(socket, MessageCode.FROM_SERVER_STATE, serializeStateWithCache());
         }).catch(error => {
           send(socket, MessageCode.FROM_SERVER_LOAD_SAVE_URL_RESULT, {
             ok: false,
